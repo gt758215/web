@@ -1,0 +1,45 @@
+<form action="{{url_for('web.dataset.images.classification.views.create')}}" enctype="multipart/form-data"
+      method="post">
+    <div class="row">
+        <div class="col-sm-4 well">
+            <div class="row">
+                <div class="form-group{{mark_errors([form.resize_channels])}}">
+                    {{ form.resize_channels.label }}
+                    {{ form.resize_channels.tooltip }}
+                    {{ form.resize_channels(class='form-control') }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group{{mark_errors([form.resize_width, form.resize_height])}}">
+                    <label>Image size (Width x Height)</label>
+                    <span name="resize_dims_explanation"
+                          class="explanation-tooltip glyphicon glyphicon-question-sign"
+                          data-container="body"
+                          title="Input images will be resized to fit."
+                    ></span>
+                    <div class="input-group">
+                        {{ form.resize_width(size=4, placeholder='width', class='form-control') }}
+                        <span class="input-group-addon">x</span>
+                        {{ form.resize_height(size=4, placeholder='height', class='form-control') }}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group{{mark_errors([form.resize_mode])}}">
+                    {{ form.resize_mode.label }}
+                    {{ form.resize_mode.tooltip }}
+                    {{ form.resize_mode(class='form-control') }}
+                </div>
+            </div>
+            <div class="row">
+                <a class="btn btn-info" href="#" onClick="return showResizeExample();">See example</a>
+                <br>
+                <br>
+                <div id="resize-example" style="display:none;">
+                    <button class="close" onClick="$('#resize-example').hide();return false;">&times;</button>
+                    <div id="resize-example-image"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
