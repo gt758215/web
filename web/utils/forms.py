@@ -92,3 +92,12 @@ class StringField(wtforms.StringField):
 
         self.tooltip = Tooltip(self.id, self.short_name, tooltip)
         self.explanation = Explanation(self.id, self.short_name, explanation_file)
+
+
+class SelectField(wtforms.SelectField):
+
+    def __init__(self, label='', validators=None, tooltip='', explanation_file='', **kwargs):
+        super(SelectField, self).__init__(label, validators, **kwargs)
+
+        self.tooltip = Tooltip(self.id, self.short_name, tooltip)
+        self.explanation = Explanation(self.id, self.short_name, explanation_file)

@@ -8,8 +8,11 @@ blueprint = Blueprint(__name__, __name__)
 
 @blueprint.route('/datasets', methods=['GET'])
 def summary():
-    running_datasets = get_job_list(DatasetJob, True)
-    return render_template('datasets.html', running_datasets=running_datasets)
+    try:
+        running_datasets = get_job_list(DatasetJob, True)
+        return render_template('datasets.html', running_datasets=running_datasets)
+    except TemplateNotFound:
+        abort(404)
 
 
 def get_job_list(cls, running):

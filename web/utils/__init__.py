@@ -1,6 +1,7 @@
 import inspect
 import math
 
+from .import forms
 
 def subclass(cls):
     """

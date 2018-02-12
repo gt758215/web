@@ -11,4 +11,7 @@ app.register_blueprint(web.views.blueprint)
 import web.datasets.views
 app.register_blueprint(web.datasets.views.blueprint)
 
+import web.datasets.images.classification.views
+app.register_blueprint(web.datasets.images.classification.views.blueprint, url_prefix='/datasets/images/classification')
+
 #scheduler.load_past_jobs()
