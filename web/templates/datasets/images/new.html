@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% block headertitle %}
+    <title>Datasets</title>
+{% endblock %}
+
+{% block pagetitle %}
+    <h1>Dataset</h1>
+{% endblock %}
+
+{% block pagelist %}
+    <li><a href="{{url_for('web.views.home')}}">Dashboard</a></li>
+    <li><a href="{{url_for('web.datasets.views.summary')}}">Datasets</a></li>
+    <li class="active">Image</li>
+{% endblock %}
+
+{% block rightcontent %}
+<div class="card">
+<div class="modal fade" id="#localnew" tabindex="-1" role="dialog" aria-labelledby="scrollmodalLabel" aria-hidden="true">
+    <form action="" enctype="multipart/form-data" method="post">
+        <div class="form-group">
+            <table class="table">
+                <tr>
+                    <th width="20%">Set</th>
+                    <th width="40%">Text file</th>
+                    <th width="40%">Image folder</th>
+                </tr>
+                <tr>
+                    <td>Training</td>
+                    <td class="form-group cl-uplod-files">
+                        {{ form.textfile_train_images(class='form-control') }}
+                    </td>
+                    <td class="form-group">
+                        {{ form.textfile_train_folder(class='form-control autocomplete_path') }}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Validation</td>
+                    <td class="form-group cl-uplod-files">
+                        {{ form.textfile_val_images(class='form-control') }}
+                    </td>
+                    <td class="form-group">
+                        {{ form.textfile_val_folder(class='form-control autocomplete_path') }}
+                    </td>
+                </tr>
+            </table>
+            <input type="submit" name="create-dataset" class="btn btn-primary" value="Create">
+        </div>
+    </form>
+</div>
+</div>
+
+{% endblock %}

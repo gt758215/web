@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from flask import Blueprint, render_template, abort
 from jinja2 import TemplateNotFound
 from web.datasets import DatasetJob
@@ -6,11 +8,11 @@ from web.webapp import scheduler
 blueprint = Blueprint(__name__, __name__)
 
 
-@blueprint.route('/datasets', methods=['GET'])
+@blueprint.route('/summary', methods=['GET'])
 def summary():
     try:
         running_datasets = get_job_list(DatasetJob, True)
-        return render_template('datasets.html', running_datasets=running_datasets)
+        return render_template('datasets/datasets.html', running_datasets=running_datasets)
     except TemplateNotFound:
         abort(404)
 

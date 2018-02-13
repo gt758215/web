@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block headertitle %}
+    <title>Datasets</title>
+{% endblock %}
+
+{% block pagetitle %}
+    <h1>Dataset</h1>
+{% endblock %}
+
+{% block pagelist %}
+    <li><a href="{{url_for('web.views.home')}}">Dashboard</a></li>
+    <li class="active">Datasets</li>
+{% endblock %}
+
+{% block rightcontent %}
+<div class="card">
+    <div class="card-body">
+        <div class="default-tab">
+            <nav>
+                <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    <a class="nav-item nav-link active" id="nav-home-tab" data-toggle="tab" href="#nav-home" role="tab"
+                       aria-controls="nav-home" aria-selected="true">Image</a>
+                    <a class="nav-item nav-link" id="nav-profile-tab" data-toggle="tab" href="#nav-profile" role="tab"
+                       aria-controls="nav-profile" aria-selected="false">Video</a>
+                    <a class="nav-item nav-link" id="nav-contact-tab" data-toggle="tab" href="#nav-contact" role="tab"
+                       aria-controls="nav-contact" aria-selected="false">Text</a>
+                </div>
+            </nav>
+            <div class="tab-content pl-3 pt-2" id="nav-tabContent">
+                <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">
+                    {% include 'datasets/images/summary.html' %}
+                </div>
+                <div class="tab-pane fade" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab">
+                    <p>Video</p>
+                </div>
+                <div class="tab-pane fade" id="nav-contact" role="tabpanel" aria-labelledby="nav-contact-tab">
+                    <p>Text</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
