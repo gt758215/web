@@ -1,5 +1,5 @@
 import wtforms
-
+from wtforms import SubmitField
 
 class Tooltip(object):
     """
@@ -101,3 +101,65 @@ class SelectField(wtforms.SelectField):
 
         self.tooltip = Tooltip(self.id, self.short_name, tooltip)
         self.explanation = Explanation(self.id, self.short_name, explanation_file)
+
+
+def set_data(job, form, key, value):
+    if not hasattr(job, 'form_data'):
+        job.form_data = dict()
+    job.form_data[key] = value
+
+    if isinstance(value, basestring):
+        value = '\'' + value + '\''
+    return False
+
+
+def add_warning(form, warning):
+    if not hasattr(form, 'warnings'):
+        form.warnings = tuple([])
+    form.warnings += tuple([warning])
+    return True
+
+
+def iterate_over_form(job, form, function, prefix=['form'], indent=''):
+
+    warnings = False
+    if not hasattr(form, '__dict__'):
+        return False
+
+    # This is the list of Field types to save. SubmitField and
+    # FileField is excluded. SubmitField would cause it to post and
+    # FileField can not be populated.
+    whitelist_fields = [
+        'BooleanField', 'FloatField', 'HiddenField', 'IntegerField',
+        'RadioField', 'SelectField', 'SelectMultipleField',
+        'StringField', 'TextAreaField', 'TextField',
+        'MultiIntegerField', 'MultiFloatField']
+
+    blacklist_fields = ['FileField', 'SubmitField']
+
+    for attr_name in vars(form):
+        if attr_name == 'csrf_token' or attr_name == 'flags':
+            continue
+        attr = getattr(form, attr_name)
+        if isinstance(attr, object):
+            if isinstance(attr, SubmitField):
+                continue
+            warnings |= iterate_over_form(job, attr, function, prefix + [attr_name], indent + '    ')
+        if hasattr(attr, 'data') and hasattr(attr, 'type'):
+            if (isinstance(attr.data, int) or
+                isinstance(attr.data, float) or
+                isinstance(attr.data, basestring) or
+                    attr.type in whitelist_fields):
+                key = '%s.%s.data' % ('.'.join(prefix), attr_name)
+                warnings |= function(job, attr, key, attr.data)
+
+            # Warn if certain field types are not cloned
+            if (len(attr.type) > 5 and attr.type[-5:] == 'Field' and
+                attr.type not in whitelist_fields and
+                    attr.type not in blacklist_fields):
+                warnings |= add_warning(attr, 'Field type, %s, not cloned' % attr.type)
+    return warnings
+
+
+def save_form_to_job(job, form):
+    iterate_over_form(job, form, set_data)

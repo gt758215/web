@@ -1,7 +1,7 @@
 import inspect
 import math
 
-from .import forms
+from . import constants, forms
 
 def subclass(cls):
     """

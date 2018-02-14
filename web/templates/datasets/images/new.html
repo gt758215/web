@@ -15,7 +15,6 @@
 
 {% block rightcontent %}
 <div class="card">
-<div class="modal fade" id="#localnew" tabindex="-1" role="dialog" aria-labelledby="scrollmodalLabel" aria-hidden="true">
     <form action="" enctype="multipart/form-data" method="post">
         <div class="form-group">
             <table class="table">
@@ -26,8 +25,8 @@
                 </tr>
                 <tr>
                     <td>Training</td>
-                    <td class="form-group cl-uplod-files">
-                        {{ form.textfile_train_images(class='form-control') }}
+                    <td class="form-group cl-local-files">
+                        {{ form.textfile_train_images(class='form-control autocomplete_path', placeholder='enter path') }}
                     </td>
                     <td class="form-group">
                         {{ form.textfile_train_folder(class='form-control autocomplete_path') }}
@@ -35,18 +34,30 @@
                 </tr>
                 <tr>
                     <td>Validation</td>
-                    <td class="form-group cl-uplod-files">
-                        {{ form.textfile_val_images(class='form-control') }}
+                    <td class="form-group cl-local-files">
+                        {{ form.textfile_val_images(class='form-control autocomplete_path', placeholder='enter path') }}
                     </td>
                     <td class="form-group">
                         {{ form.textfile_val_folder(class='form-control autocomplete_path') }}
                     </td>
                 </tr>
             </table>
+            <div class="row">
+                <div class="col-sm-6 col-sm-offset-1">
+                    <div class="form-group cl-local-files">
+                        {{ form.textfile_local_labels_file.label }}
+                        {{ form.textfile_local_labels_file.tooltip }}
+                        {{ form.textfile_local_labels_file(class='form-control autocomplete_path', placeholder='enter path') }}
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                {{ form.dataset_name.label }}
+                {{ form.dataset_name(class='form-control') }}
+            </div>
             <input type="submit" name="create-dataset" class="btn btn-primary" value="Create">
         </div>
     </form>
-</div>
 </div>
 
 {% endblock %}
