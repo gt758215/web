@@ -1,3 +1,28 @@
 <p>summary list</p>
+<table class="table table-bordered table-striped list_group selectable"
+       style="word-wrap: break-word"
+       width="100%">
+    <thread>
+        <tr>
+            <th style="width:24px"></th>
+            <th>Name</th>
+            <th>Data sets</th>
+        </tr>
+    </thread>
+    <tbody>
+        <tr>
+            <td>
+                <span ng-click="download(model.id);"
+                      title="Import"
+                      class="glyphicon glyphicon-import">
+
+                </span>
+            </td>
+            <th>MNIST</th>
+            <th>mnist</th>
+
+        </tr>
+    </tbody>
+</table>
 <button type="button" class="btn btn-outline-primary btn-sm">Download</button>
 <button type="button" class="btn btn-outline-secondary btn-sm"><a href="{{url_for('web.datasets.images.views.new')}}">Local Import</a></button>
