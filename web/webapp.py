@@ -19,4 +19,10 @@ app.register_blueprint(web.datasets.views.blueprint, url_prefix='/datasets')
 import web.datasets.images.views
 app.register_blueprint(web.datasets.images.views.blueprint, url_prefix='/datasets/images')
 
+import web.networks.views
+app.register_blueprint(web.networks.views.blueprint, url_prefix='/networks')
+
+import web.train.views
+app.register_blueprint(web.train.views.blueprint, url_prefix='/train')
+
 #scheduler.load_past_jobs()

@@ -8,8 +8,7 @@
     <meta name="description" content="DNN Admin">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link rel="apple-touch-icon" href="apple-icon.png">
-    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico', ver=dir_hash) }}">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/normalize.css', ver=dir_hash) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css', ver=dir_hash) }}">
@@ -47,10 +46,10 @@
                         <a href="{{ url_for('web.datasets.views.summary') }}"><i class="menu-icon fa fa-beer"></i>Datasets</a>
                     </li>
                     <li>
-                        <a href="#"> <i class="menu-icon fa fa-beer"></i>Networks</a>
+                        <a href="{{ url_for('web.networks.views.summary') }}"> <i class="menu-icon fa fa-beer"></i>Networks</a>
                     </li>
                     <li>
-                        <a href="#"> <i class="menu-icon fa fa-beer"></i>Train</a>
+                        <a href="{{ url_for('web.train.views.summary') }}"> <i class="menu-icon fa fa-beer"></i>Train</a>
                     </li>
                     <li>
                         <a href="#"> <i class="menu-icon fa fa-beer"></i>Setting</a>
@@ -193,27 +192,25 @@
                 normalizeFunction: 'polynomial'
             } );
         } )( jQuery );
-    </script>
 
-<script>
-$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-$(".explanation-tooltip").tooltip();
-window.onload = function () {
-    $('.autocomplete_path').autocomplete({
-       serviceUrl: '/autocomplete/path',
-       formatResult: function (suggestion, currentValue)
-       {
-            function baseName(str)
+        $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+        $(".explanation-tooltip").tooltip();
+        window.onload = function () {
+            $('.autocomplete_path').autocomplete({
+            serviceUrl: '/autocomplete/path',
+            formatResult: function (suggestion, currentValue)
             {
-               var base = new String(str).substring(str.lastIndexOf('/') + 1);
-               return base;
-            }
+                function baseName(str)
+                {
+                    var base = new String(str).substring(str.lastIndexOf('/') + 1);
+                    return base;
+                }
             return baseName(suggestion.value);
-        },
-        minChars: 0
-    });
-    $(".autocomplete_path").removeAttr("autocomplete");
-};
-</script>
+            },
+            minChars: 0
+        });
+        $(".autocomplete_path").removeAttr("autocomplete");
+    };
+    </script>
 </body>
 </html>
