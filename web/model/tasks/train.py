@@ -1,4 +1,4 @@
-
+from web.task import Task
 
 
 class TrainTask(Task):

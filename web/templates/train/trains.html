@@ -13,37 +13,100 @@
 {% endblock %}
 
 {% block rightcontent %}
-<div class="card">
-    <div class="card-body">
-        <div class="default-tab">
-            <nav>
-                <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                    <a class="nav-item nav-link active dropdown-toggle" id="nav-home-tab" data-toggle="dropdown" href="#" role="tab"
-                       aria-controls="nav-home" aria-selected="true">Image</a>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item" href="#">Classification</a>
-                        <a class="dropdown-item" href="#">Segmentation</a>
-                        <a class="dropdown-item" href="#">Object detection</a>
+<!-- Images -->
+<div class="col-lg-4 col-md-6">
+    <aside class="profile-nav alt">
+        <section class="card">
+            <div class="card-header user-header alt bg-dark">
+                <div class="media">
+                    <a href="#">
+                        <img class="align-self-center rounded-circle mr-3" style="width:85px; height:85px;" alt="" src="images/admin.jpg">
+                    </a>
+                    <div class="media-body">
+                        <h2 class="text-light display-6">Image</h2>
+                        <p>images</p>
                     </div>
-                    <a class="nav-item nav-link" id="nav-profile-tab" data-toggle="tab" href="#nav-profile" role="tab"
-                       aria-controls="nav-profile" aria-selected="false">Video</a>
-                    <a class="nav-item nav-link" id="nav-contact-tab" data-toggle="tab" href="#nav-contact" role="tab"
-                       aria-controls="nav-contact" aria-selected="false">Text</a>
-                </div>
-            </nav>
-            <div class="tab-content pl-3 pt-2" id="nav-tabContent">
-                <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">
-                    <p>Image</p>
-                </div>
-                <div class="tab-pane fade" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab">
-                    <p>Video</p>
-                </div>
-                <div class="tab-pane fade" id="nav-contact" role="tabpanel" aria-labelledby="nav-contact-tab">
-                    <p>Text</p>
                 </div>
             </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <a href="{{ url_for('web.train.views.image_segmentation_new') }}"> <i class="fa fa-photo"></i> Classification </a>
+                </li>
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-crosshairs"></i> Object Detection </a>
+                </li>
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-magic"></i> Segmentation </a>
+                </li>
+            </ul>
 
-        </div>
-    </div>
+        </section>
+    </aside>
+</div>
+
+<!-- Video -->
+<div class="col-lg-4 col-md-6">
+    <aside class="profile-nav alt">
+        <section class="card">
+            <div class="card-header user-header alt bg-info">
+                <div class="media">
+                    <a href="#">
+                        <img class="align-self-center rounded-circle mr-3" style="width:85px; height:85px;" alt="" src="images/admin.jpg">
+                    </a>
+                    <div class="media-body">
+                        <h2 class="text-dark display-6">Video</h2>
+                        <p>Video</p>
+                    </div>
+                </div>
+            </div>
+            <ul class="list-group list-group-flush">
+                <!--
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-envelope-o"></i> Classification </a>
+                </li>
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-tasks"></i> Segmentation </a>
+                </li>
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-bell-o"></i> Object Detection </a>
+                </li>
+                -->
+            </ul>
+
+        </section>
+    </aside>
+</div>
+
+<!-- Text -->
+<div class="col-lg-4 col-md-6">
+    <aside class="profile-nav alt">
+        <section class="card">
+            <div class="card-header user-header alt bg-light">
+                <div class="media">
+                    <a href="#">
+                        <img class="align-self-center rounded-circle mr-3" style="width:85px; height:85px;" alt="" src="images/admin.jpg">
+                    </a>
+                    <div class="media-body">
+                        <h2 class="text-dark display-6">Text</h2>
+                        <p>Texts</p>
+                    </div>
+                </div>
+            </div>
+            <ul class="list-group list-group-flush">
+                <!--
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-envelope-o"></i> Classification </a>
+                </li>
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-tasks"></i> Segmentation </a>
+                </li>
+                <li class="list-group-item">
+                    <a href="#"> <i class="fa fa-bell-o"></i> Object Detection </a>
+                </li>
+                -->
+            </ul>
+
+        </section>
+    </aside>
 </div>
 {% endblock %}

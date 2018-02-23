@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import web
 from . import option_list
@@ -17,8 +18,8 @@ try:
     if not os.path.exists(value):
         os.makedirs(value)
 except:
-    print '"%s" is not a valid value for jobs_dir.' % value
-    print 'Set the envvar WEB_JOBS_DIR to fix your configuration.'
+    print('"%s" is not a valid value for jobs_dir.' % value)
+    print('Set the envvar WEB_JOBS_DIR to fix your configuration.')
     raise
 
 option_list['jobs_dir'] = value

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import pickle
 import shutil
@@ -226,7 +227,7 @@ class Job(StatusCls):
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            print 'Caught %s while saving job %s: %s' % (type(e).__name__, self.id(), e)
+            print('Caught %s while saving job %s: %s' % (type(e).__name__, self.id(), e))
         return False
 
     def disk_size_fmt(self):

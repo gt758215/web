@@ -1,0 +1,7 @@
+
+{% macro mark_errors(list) %}
+    {% for form in list %}
+        {{ ' has-error' if form.errors else '' }}
+        {{ ' has-warning' if form.warnings else '' }}
+    {% endfor %}
+{% endmacro %}

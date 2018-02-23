@@ -9,9 +9,10 @@ import glob
 blueprint = Blueprint(__name__, __name__)
 
 @blueprint.route('/', methods=['GET'])
-def home(tab=2):
+def home():
     try:
-        return render_template('home.html')
+        return 'Hello, World'
+        #return render_template('home.html')
     except TemplateNotFound:
         abort(404)
 

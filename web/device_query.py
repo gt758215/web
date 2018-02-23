@@ -1,3 +1,4 @@
+from __future__ import print_function
 import ctypes
 
 
@@ -88,7 +89,7 @@ def get_library(name):
 
 
 def get_cudart():
-    for major in xrange(9, 5, -1):
+    for major in range(9, 5, -1):
         for minor in (5, 0):
             cudart = get_library('libcudart.so.%d.%d' % (major, minor))
             if cudart is not None:
@@ -119,21 +120,21 @@ def get_devices(force_reload=False):
     cuda_version = ctypes.c_int()
     rc = cudart.cudaRuntimeGetVersion(ctypes.byref(cuda_version))
     if rc != 0:
-        print 'cudaRuntimeGetVersion() failed with error #%s' % rc
+        print('cudaRuntimeGetVersion() failed with error #%s' % rc)
         return []
     if cuda_version.value < 6050:
-        print 'ERROR: Cuda version must be >= 6.5, not "%s"' % cuda_version.value
+        print('ERROR: Cuda version must be >= 6.5, not "%s"' % cuda_version.value)
         return []
 
     # get number of devices
     num_devices = ctypes.c_int()
     rc = cudart.cudaGetDeviceCount(ctypes.byref(num_devices))
     if rc != 0:
-        print 'cudaGetDeviceCount() failed with error #%s' % rc
+        print('cudaGetDeviceCount() failed with error #%s' % rc)
         return []
 
     # query devices
-    for x in xrange(num_devices.value):
+    for x in range(num_devices.value):
         properties = c_cudaDeviceProp()
         rc = cudart.cudaGetDeviceProperties(ctypes.byref(properties), x)
         if rc == 0:
@@ -144,6 +145,69 @@ def get_devices(force_reload=False):
                 properties.pciBusID_str = pciBusID_str
             devices.append(properties)
         else:
-            print 'cudaGetDeviceProperties() failed with error #%s' % rc
+            print('cudaGetDeviceProperties() failed with error #%s' % rc)
         del properties
     return devices
+
+
+def get_device(device_id):
+    """
+    Returns a c_cudaDeviceProp
+    """
+    return get_devices()[int(device_id)]
+
+
+def get_nvml_info(device_id):
+    """
+    Gets info from NVML for the given device
+    Returns a dict of dicts from different NVML functions
+    """
+    device = get_device(device_id)
+    if device is None:
+        return None
+
+    nvml = get_nvml()
+    if nvml is None:
+        return None
+
+    rc = nvml.nvmlInit()
+    if rc != 0:
+        raise RuntimeError('nvmlInit() failed with error #%s' % rc)
+
+    try:
+        # get device handle
+        handle = c_nvmlDevice_t()
+        rc = nvml.nvmlDeviceGetHandleByPciBusId(ctypes.c_char_p(device.pciBusID_str), ctypes.byref(handle))
+        if rc != 0:
+            raise RuntimeError('nvmlDeviceGetHandleByPciBusId() failed with error #%s' % rc)
+
+        # Grab info for this device from NVML
+        info = {}
+
+        memory = c_nvmlMemory_t()
+        rc = nvml.nvmlDeviceGetMemoryInfo(handle, ctypes.byref(memory))
+        if rc == 0:
+            info['memory'] = {
+                'total': memory.total,
+                'used': memory.used,
+                'free': memory.free,
+            }
+
+        utilization = c_nvmlUtilization_t()
+        rc = nvml.nvmlDeviceGetUtilizationRates(handle, ctypes.byref(utilization))
+        if rc == 0:
+            info['utilization'] = {
+                'gpu': utilization.gpu,
+                'memory': utilization.memory,  # redundant
+            }
+
+        temperature = ctypes.c_int()
+        rc = nvml.nvmlDeviceGetTemperature(handle, 0, ctypes.byref(temperature))
+        if rc == 0:
+            info['temperature'] = temperature.value
+
+        return info
+    finally:
+        rc = nvml.nvmlShutdown()
+        if rc != 0:
+            pass
