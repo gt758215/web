@@ -11,8 +11,7 @@ blueprint = Blueprint(__name__, __name__)
 @blueprint.route('/', methods=['GET'])
 def home():
     try:
-        return 'Hello, World'
-        #return render_template('home.html')
+        return render_template('home.html')
     except TemplateNotFound:
         abort(404)
 

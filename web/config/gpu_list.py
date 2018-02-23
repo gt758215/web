@@ -1,5 +1,5 @@
+from __future__ import absolute_import
 from . import option_list
-from builtins import range
 import web.device_query
 
 
