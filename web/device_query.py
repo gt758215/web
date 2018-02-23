@@ -1,5 +1,6 @@
 from __future__ import print_function
 import ctypes
+import platform
 
 
 class c_cudaDeviceProp(ctypes.Structure):
@@ -95,6 +96,23 @@ def get_cudart():
             if cudart is not None:
                 return cudart
     return get_library('libcudart.so')
+
+
+def get_nvml():
+    """
+    Return the ctypes.DLL object for cudart or None
+    """
+    if platform.system() == 'Windows':
+        return get_library('nvml.dll')
+    else:
+        for name in (
+                'libnvidia-ml.so.1',
+                'libnvidia-ml.so',
+                'nvml.so'):
+            nvml = get_library(name)
+            if nvml is not None:
+                return nvml
+    return None
 
 devices = None
 
