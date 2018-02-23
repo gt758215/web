@@ -7,16 +7,18 @@
             <th>name</th>
             <th>dataset</th>
             <th>status</th>
+            <th>bytes</th>
         </tr>
     </thread>
     <tbody>
+        {% for dataset in datasets %}
         <tr>
-            {% for dataset in datasets %}
-            <td>{{ dataset }}</td>
-            <th>{{ dataset }}</th>
-            <th>done</th>
-            {% endfor %}
+            <td>{{ dataset['name'] }}</td>
+            <td>{{ dataset['name'] }}</td>
+            <td>done</td>
+            <td>{{ dataset['bytes'] }}</td>
         </tr>
+        {% endfor %}
     </tbody>
 </table>
 <button type="button" class="btn btn-outline-primary btn-sm">Download</button>

@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import os
 from os import listdir
 
 import werkzeug.exceptions
@@ -29,10 +30,27 @@ def show(job_id):
 @blueprint.route('/summary', methods=['GET'])
 def summary():
     try:
-        datasets = get_dataset_list()
+        datasets = []
+        dataset_folders = get_dataset_list()
+        for folder in dataset_folders:
+            size = get_size(join('/data/datasets', folder))
+            dataset = dict()
+            dataset['name'] = folder
+            dataset['bytes'] = size
+            datasets.append(dataset)
         return render_template('datasets/datasets.html', datasets=datasets)
     except TemplateNotFound:
         abort(404)
+
+
+def get_size(the_path):
+    """Get size of a directory tree or a file in bytes."""
+    path_size = 0
+    for path, directories, files in os.walk(the_path):
+        for filename in files:
+            path_size += os.lstat(os.path.join(path, filename)).st_size
+    path_size += os.path.getsize(the_path)
+    return path_size
 
 
 def get_dataset_list():
