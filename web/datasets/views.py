@@ -1,8 +1,12 @@
 from __future__ import absolute_import
 
+from os import listdir
+
 import werkzeug.exceptions
 from flask import Blueprint, render_template, abort
 from jinja2 import TemplateNotFound
+from os.path import isdir, join
+
 from web.datasets import DatasetJob
 from web.webapp import scheduler
 from . import images as dataset_images
@@ -25,10 +29,14 @@ def show(job_id):
 @blueprint.route('/summary', methods=['GET'])
 def summary():
     try:
-        running_datasets = get_job_list(DatasetJob, True)
-        return render_template('datasets/datasets.html', running_datasets=running_datasets)
+        datasets = get_dataset_list()
+        return render_template('datasets/datasets.html', datasets=datasets)
     except TemplateNotFound:
         abort(404)
+
+
+def get_dataset_list():
+    return sorted([d for d in listdir('/data/datasets') if isdir(join('/data/datasets', d))])
 
 
 def get_job_list(cls, running):
