@@ -1,4 +1,6 @@
-from __future__ import print_function
+from __future__ import absolute_import
+
+import argparse
 import ctypes
 import platform
 
@@ -78,24 +80,78 @@ class c_cudaDeviceProp(ctypes.Structure):
     ]
 
 
+class struct_c_nvmlDevice_t(ctypes.Structure):
+    """
+    Handle to a device in NVML
+    """
+    pass  # opaque handle
+c_nvmlDevice_t = ctypes.POINTER(struct_c_nvmlDevice_t)
+
+
+class c_nvmlMemory_t(ctypes.Structure):
+    """
+    Passed to nvml.nvmlDeviceGetMemoryInfo()
+    """
+    _fields_ = [
+        ('total', ctypes.c_ulonglong),
+        ('free', ctypes.c_ulonglong),
+        ('used', ctypes.c_ulonglong),
+        # Extra space for new fields in future toolkits
+        ('__future_buffer', ctypes.c_ulonglong * 8),
+    ]
+
+
+class c_nvmlUtilization_t(ctypes.Structure):
+    """
+    Passed to nvml.nvmlDeviceGetUtilizationRates()
+    """
+    _fields_ = [
+        ('gpu', ctypes.c_uint),
+        ('memory', ctypes.c_uint),
+        # Extra space for new fields in future toolkits
+        ('__future_buffer', ctypes.c_uint * 8),
+    ]
+
+
 def get_library(name):
     """
     Returns a ctypes.CDLL or None
     """
     try:
-        return ctypes.cdll.LoadLibrary(name)
+        if platform.system() == 'Windows':
+            return ctypes.windll.LoadLibrary(name)
+        else:
+            return ctypes.cdll.LoadLibrary(name)
     except OSError:
         pass
     return None
 
 
 def get_cudart():
-    for major in range(9, 5, -1):
-        for minor in (5, 0):
-            cudart = get_library('libcudart.so.%d.%d' % (major, minor))
+    """
+    Return the ctypes.DLL object for cudart or None
+    """
+    if platform.system() == 'Windows':
+        arch = platform.architecture()[0]
+        for ver in range(90, 50, -5):
+            cudart = get_library('cudart%s_%d.dll' % (arch[:2], ver))
             if cudart is not None:
                 return cudart
-    return get_library('libcudart.so')
+    elif platform.system() == 'Darwin':
+        for major in xrange(9, 5, -1):
+            for minor in (5, 0):
+                cudart = get_library('libcudart.%d.%d.dylib' % (major, minor))
+                if cudart is not None:
+                    return cudart
+        return get_library('libcudart.dylib')
+    else:
+        for major in xrange(9, 5, -1):
+            for minor in (5, 0):
+                cudart = get_library('libcudart.so.%d.%d' % (major, minor))
+                if cudart is not None:
+                    return cudart
+        return get_library('libcudart.so')
+    return None
 
 
 def get_nvml():
@@ -121,6 +177,7 @@ def get_devices(force_reload=False):
     """
     Returns a list of c_cudaDeviceProp's
     Prints an error and returns None if something goes wrong
+
     Keyword arguments:
     force_reload -- if False, return the previously loaded list of devices
     """
@@ -138,21 +195,21 @@ def get_devices(force_reload=False):
     cuda_version = ctypes.c_int()
     rc = cudart.cudaRuntimeGetVersion(ctypes.byref(cuda_version))
     if rc != 0:
-        print('cudaRuntimeGetVersion() failed with error #%s' % rc)
+        print 'cudaRuntimeGetVersion() failed with error #%s' % rc
         return []
     if cuda_version.value < 6050:
-        print('ERROR: Cuda version must be >= 6.5, not "%s"' % cuda_version.value)
+        print 'ERROR: Cuda version must be >= 6.5, not "%s"' % cuda_version.value
         return []
 
     # get number of devices
     num_devices = ctypes.c_int()
     rc = cudart.cudaGetDeviceCount(ctypes.byref(num_devices))
     if rc != 0:
-        print('cudaGetDeviceCount() failed with error #%s' % rc)
+        print 'cudaGetDeviceCount() failed with error #%s' % rc
         return []
 
     # query devices
-    for x in range(num_devices.value):
+    for x in xrange(num_devices.value):
         properties = c_cudaDeviceProp()
         rc = cudart.cudaGetDeviceProperties(ctypes.byref(properties), x)
         if rc == 0:
@@ -163,7 +220,7 @@ def get_devices(force_reload=False):
                 properties.pciBusID_str = pciBusID_str
             devices.append(properties)
         else:
-            print('cudaGetDeviceProperties() failed with error #%s' % rc)
+            print 'cudaGetDeviceProperties() failed with error #%s' % rc
         del properties
     return devices
 
@@ -229,3 +286,51 @@ def get_nvml_info(device_id):
         rc = nvml.nvmlShutdown()
         if rc != 0:
             pass
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='DIGITS Device Query')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    args = parser.parse_args()
+
+    if not len(get_devices()):
+        print 'No devices found.'
+
+    for i, device in enumerate(get_devices()):
+        print 'Device #%d:' % i
+        print '>>> CUDA attributes:'
+        for name, t in device._fields_:
+            if name in ['__future_buffer']:
+                continue
+            if not args.verbose and name not in [
+                    'name', 'totalGlobalMem', 'clockRate', 'major', 'minor', ]:
+                continue
+
+            if 'c_int_Array' in t.__name__:
+                val = ','.join(str(v) for v in getattr(device, name))
+            else:
+                val = getattr(device, name)
+
+            print '  %-28s %s' % (name, val)
+
+        info = get_nvml_info(i)
+        if info is not None:
+            print '>>> NVML attributes:'
+            nvml_fmt = '  %-28s %s'
+            if 'memory' in info:
+                print nvml_fmt % ('Total memory',
+                                  '%s MB' % (info['memory']['total'] / 2**20,))
+                print nvml_fmt % ('Used memory',
+                                  '%s MB' % (info['memory']['used'] / 2**20,))
+                if args.verbose:
+                    print nvml_fmt % ('Free memory',
+                                      '%s MB' % (info['memory']['free'] / 2**20,))
+            if 'utilization' in info:
+                print nvml_fmt % ('Memory utilization',
+                                  '%s%%' % info['utilization']['memory'])
+                print nvml_fmt % ('GPU utilization',
+                                  '%s%%' % info['utilization']['gpu'])
+            if 'temperature' in info:
+                print nvml_fmt % ('Temperature',
+                                  '%s C' % info['temperature'])
+        print
