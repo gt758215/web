@@ -8,9 +8,8 @@ import sys
 
 from .errors import NetworkVisualizationError
 from .framework import Framework
-import web
 from web import utils
-from web.model.tasks import TensorflowTrainTask
+from web.models.tasks import TensorflowTrainTask
 from web.utils import subclass, override, constants
 
 

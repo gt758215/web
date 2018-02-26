@@ -49,7 +49,7 @@
                         <a href="{{ url_for('web.networks.views.summary') }}"> <i class="menu-icon fa fa-beer"></i>Networks</a>
                     </li>
                     <li>
-                        <a href="{{ url_for('web.train.views.summary') }}"> <i class="menu-icon fa fa-beer"></i>Train</a>
+                        <a href="{{ url_for('web.models.views.summary') }}"> <i class="menu-icon fa fa-beer"></i>Train</a>
                     </li>
                     <li>
                         <a href="#"> <i class="menu-icon fa fa-beer"></i>Setting</a>
@@ -151,7 +151,8 @@
                     </div>
                 </div>
             </div>
-
+        </div>
+        <div class="content mt-3">
             {% block rightcontent %}
             {% endblock %}
         </div>

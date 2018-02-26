@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from ..forms import ModelForm
+from web.models.forms import ModelForm
 from web import utils
 from wtforms import validators
 

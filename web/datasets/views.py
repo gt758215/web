@@ -11,6 +11,7 @@ from os.path import isdir, join
 from web.datasets import DatasetJob
 from web.webapp import scheduler
 from . import images as dataset_images
+from web import datasets
 
 blueprint = Blueprint(__name__, __name__)
 
@@ -25,6 +26,14 @@ def show(job_id):
         return dataset_images.views.show(job, related_jobs=related_jobs)
     else:
         raise werkzeug.exceptions.BadRequest('Invalid job type')
+
+
+@blueprint.route('/', methods=['GET'])
+def home(tab=2):
+    completed_datasets = get_job_list(datasets.DatasetJob, False)
+    return render_template('datasets/summary.html',
+                           tab=tab,
+                           completed_datasets = completed_datasets)
 
 
 @blueprint.route('/summary', methods=['GET'])

@@ -18,7 +18,7 @@ class Job(StatusCls):
         Loads a Job in the given job_id
         Returns the Job or throws an exception
         """
-        from web.model.tasks.train import TrainTask
+        from web.models.tasks import TrainTask
 
         job_dir = os.path.join(config_value('jobs_dir'), job_id)
         filename = os.path.join(job_dir, cls.SAVE_FILE)

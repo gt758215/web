@@ -1,12 +1,14 @@
 from collections import OrderedDict
 import os
 import gevent.event
+import time
+import shutil
 
 from .config import config_value
 from .datasets import DatasetJob
 from .job import Job
 from .log import logger
-from .model import ModelJob
+from web.models import ModelJob
 from .pretrained_model import PretrainedModelJob
 from .status import Status
 
@@ -38,6 +40,58 @@ class Scheduler:
 
         self.running = False
         self.shutdown = gevent.event.Event()
+
+    def add_job(self, job):
+        if not self.running:
+            logger.error('Scheduler not running. Cannot add job.')
+            return False
+        else:
+            self.jobs[job.id()] = job
+            from web.webapp import app, socketio
+            with app.app_context():
+                socketio.emit('job update',
+                              {
+                                  'update': 'added',
+                                  'job_id': job.id()
+                              },
+                              namespace = '/jobs',
+                              room = 'job_management',
+                              )
+            # Let the scheduler do a little work before returning
+            time.sleep(0.5)
+            return True
+
+    def delete_job(self, job):
+        if isinstance(job, str) or isinstance(job, unicode):
+            job_id = str(job)
+        elif isinstance(job, Job):
+            job_id = job.id()
+        else:
+            raise ValueError('called delete_job with a %s' % type(job))
+        job = self.jobs.get(job_id, None)
+        if job:
+            # TODO check dependencies
+            self.jobs.pop(job_id, None)
+            job.abort()
+            if os.path.exists(job.dir()):
+                shutil.rmtree(job.dir())
+            logger.info('Job deleted.', job_id=job_id)
+            from web.webapp import socketio
+            socketio.emit('job update',
+                          {
+                              'update': 'deleted',
+                              'job_id': job.id()
+                          },
+                          namespace = '/jobs',
+                          room = 'job_management',
+                          )
+            return True
+        path = os.path.join(config_value('jobs_dir'), job_id)
+        path = os.path.normpath(path)
+        if os.path.dirname(path) == config_value('jobs_dir') and os.path.exists(path):
+            shutil.rmtree(path)
+            return True
+        return False
 
     def load_past_jobs(self):
         """

@@ -11,7 +11,7 @@
 
 {% block pagelist %}
     <li><a href="{{url_for('web.views.home')}}">Dashboard</a></li>
-    <li><a href="{{ url_for('web.train.views.summary') }}">Train</a></li>
+    <li><a href="{{ url_for('web.models.views.summary') }}">Train</a></li>
     <li>Image</li>
     <li class="active">Classification</li>
 {% endblock %}

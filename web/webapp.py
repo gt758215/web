@@ -25,7 +25,11 @@ app.register_blueprint(web.datasets.images.views.blueprint, url_prefix='/dataset
 import web.networks.views
 app.register_blueprint(web.networks.views.blueprint, url_prefix='/networks')
 
-import web.train.views
-app.register_blueprint(web.train.views.blueprint, url_prefix='/train')
+import web.models.views
+app.register_blueprint(web.models.views.blueprint, url_prefix='/models')
+
+import web.models.images.classification.views  #noqa
+app.register_blueprint(web.models.images.classification.views.blueprint,
+                       url_prefix='/models/images/classification')
 
 #scheduler.load_past_jobs()
