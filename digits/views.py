@@ -8,8 +8,8 @@ import traceback
 import os
 
 import flask
-from flask.ext.socketio import join_room, leave_room
-from werkzeug import HTTP_STATUS_CODES
+from flask_socketio import join_room, leave_room
+#from werkzeug import HTTP_STATUS_CODES
 import werkzeug.exceptions
 
 from .config import config_value
@@ -108,12 +108,12 @@ def home(tab=2):
             ext_id = extension.get_id()
             if ext_category not in new_dataset_options:
                 new_dataset_options[ext_category] = {}
-            new_dataset_options[ext_category][ext_id] = {
-                'title': ext_title,
-                'url': flask.url_for(
-                    'digits.dataset.generic.views.new',
-                    extension_id=ext_id),
-            }
+            #new_dataset_options[ext_category][ext_id] = {
+            #    'title': ext_title,
+            #    'url': flask.url_for(
+            #        'digits.dataset.generic.views.new',
+            #        extension_id=ext_id),
+            #}
             if ext_category not in new_model_options:
                 new_model_options[ext_category] = {}
             new_model_options[ext_category][ext_id] = {
@@ -648,9 +648,11 @@ def handle_error(e):
 
 # Register this handler for all error codes
 # Necessary for flask<=0.10.1
-for code in HTTP_STATUS_CODES:
-    if code not in [301]:
-        app.register_error_handler(code, handle_error)
+#for code in HTTP_STATUS_CODES:
+#    if code not in [301]:
+#        app.register_error_handler(code, handle_error)
+app.register_error_handler(400, handle_error)
+
 
 # File serving
 

@@ -21,7 +21,7 @@ def main():
     parser.add_argument(
         '-p', '--port',
         type=int,
-        default=5000,
+        default=2500,
         help='Port to run app on (default 5000)'
     )
     parser.add_argument(
@@ -59,6 +59,7 @@ def main():
             print 'ERROR: Scheduler would not start'
         else:
             digits.webapp.app.debug = args['debug']
+            digits.webapp.app.debug = True
             digits.webapp.socketio.run(digits.webapp.app, '0.0.0.0', args['port'])
     except KeyboardInterrupt:
         pass

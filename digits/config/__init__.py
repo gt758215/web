@@ -5,7 +5,7 @@ from __future__ import absolute_import
 option_list = {}
 
 from . import (  # noqa
-    caffe,
+#    caffe,
     gpu_list,
     jobs_dir,
     log_file,

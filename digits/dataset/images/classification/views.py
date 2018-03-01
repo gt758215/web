@@ -10,7 +10,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-import caffe_pb2
+#import caffe_pb2
 import flask
 import PIL.Image
 
@@ -449,7 +449,7 @@ def summary(job):
                                  dataset=job)
 
 
-@blueprint.route('/explore', methods=['GET'])
+#@blueprint.route('/explore', methods=['GET'])
 def explore():
     """
     Returns a gallery consisting of the images of one of the dbs
