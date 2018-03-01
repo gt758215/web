@@ -124,7 +124,7 @@ def home(tab=2):
             }
 
         return flask.render_template(
-            'home.html',
+            'mlt_home.html',
             tab=tab,
             new_dataset_options=new_dataset_options,
             running_datasets=running_datasets,
