@@ -1,0 +1,4 @@
+nose
+mock
+beautifulsoup4
+flake8
