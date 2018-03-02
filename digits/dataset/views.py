@@ -6,9 +6,10 @@ import werkzeug.exceptions
 
 from . import images as dataset_images
 from . import generic
-from digits import extensions
+from digits import dataset, extensions
 from digits.utils.routing import job_from_request, request_wants_json
 from digits.webapp import scheduler
+from digits.views import get_job_list
 
 blueprint = flask.Blueprint(__name__, __name__)
 
@@ -83,3 +84,31 @@ def inference_form(extension_id, job_id):
             inference_form_html = flask.render_template_string(template, **context)
 
     return inference_form_html
+
+@blueprint.route('/', methods=['GET'])
+def home(tab=2):
+    running_datasets = get_job_list(dataset.DatasetJob, True)
+    completed_datasets = get_job_list(dataset.DatasetJob, False)
+
+    new_dataset_options = {
+        'Images': {
+            'image-classification': {
+                'title': 'Classification',
+                'url': flask.url_for(
+                    'digits.dataset.images.classification.views.new'),
+            },
+            'image-other': {
+                'title': 'Other',
+                'url': flask.url_for(
+                    'digits.dataset.images.generic.views.new'),
+            },
+        },
+    }
+
+    return flask.render_template(
+        'datasets/summary.html',
+        tab=tab,
+        new_dataset_options=new_dataset_options,
+        running_datasets=running_datasets,
+        completed_datasets=completed_datasets,
+    )
