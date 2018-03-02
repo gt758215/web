@@ -16,12 +16,42 @@ import werkzeug.exceptions
 from . import images as model_images
 from . import ModelJob
 from digits.pretrained_model.job import PretrainedModelJob
-from digits import frameworks, extensions
+from digits import frameworks, extensions, model
 from digits.utils import auth
 from digits.utils.routing import request_wants_json, job_from_request, get_request_arg
 from digits.webapp import scheduler
+from digits.views import get_job_list
 
 blueprint = flask.Blueprint(__name__, __name__)
+
+
+@blueprint.route('/', methods=['GET'])
+def home(tab=2):
+    running_models = get_job_list(model.ModelJob, True)
+    completed_models = get_job_list(model.ModelJob, False)
+
+    new_dataset_options = {
+        'Images': {
+            'image-classification': {
+                'title': 'Classification',
+                'url': flask.url_for(
+                    'digits.dataset.images.classification.views.new'),
+            },
+            'image-other': {
+                'title': 'Other',
+                'url': flask.url_for(
+                    'digits.dataset.images.generic.views.new'),
+            },
+        },
+    }
+
+    return flask.render_template(
+        'models/summary.html',
+        tab=tab,
+        new_dataset_options=new_dataset_options,
+        running_models=running_models,
+        completed_models=completed_models,
+    )
 
 
 @blueprint.route('/<job_id>.json', methods=['GET'])
