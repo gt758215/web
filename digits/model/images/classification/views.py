@@ -247,23 +247,23 @@ def create():
                 raise werkzeug.exceptions.BadRequest(
                     'Invalid learning rate policy')
 
-            if config_value('caffe')['multi_gpu']:
-                if form.select_gpus.data:
-                    selected_gpus = [str(gpu) for gpu in form.select_gpus.data]
-                    gpu_count = None
-                elif form.select_gpu_count.data:
-                    gpu_count = form.select_gpu_count.data
-                    selected_gpus = None
-                else:
-                    gpu_count = 1
-                    selected_gpus = None
+            # if config_value('caffe')['multi_gpu']:
+            #     if form.select_gpus.data:
+            #         selected_gpus = [str(gpu) for gpu in form.select_gpus.data]
+            #         gpu_count = None
+            #     elif form.select_gpu_count.data:
+            #         gpu_count = form.select_gpu_count.data
+            #         selected_gpus = None
+            #     else:
+            #         gpu_count = 1
+            #         selected_gpus = None
+            # else:
+            if form.select_gpu.data == 'next':
+                gpu_count = 1
+                selected_gpus = None
             else:
-                if form.select_gpu.data == 'next':
-                    gpu_count = 1
-                    selected_gpus = None
-                else:
-                    selected_gpus = [str(form.select_gpu.data)]
-                    gpu_count = None
+                selected_gpus = [str(form.select_gpu.data)]
+                gpu_count = None
 
             # Set up data augmentation structure
             data_aug = {}
@@ -343,7 +343,7 @@ def show(job, related_jobs=None):
     Called from digits.model.views.models_show()
     """
     return flask.render_template(
-        'models/images/classification/show.html',
+        'models/images/classification/mlt_show.html',
         job=job,
         framework_ids=[
             fw.get_id()
