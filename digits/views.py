@@ -447,7 +447,7 @@ def job_status(job_id):
 @blueprint.route('/datasets/<job_id>', methods=['DELETE'])
 @blueprint.route('/models/<job_id>', methods=['DELETE'])
 @blueprint.route('/jobs/<job_id>', methods=['DELETE'])
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def delete_job(job_id):
     """
     Deletes a job
@@ -469,7 +469,7 @@ def delete_job(job_id):
 
 
 @blueprint.route('/jobs', methods=['DELETE'])
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def delete_jobs():
     """
     Deletes a list of jobs
@@ -515,7 +515,7 @@ def delete_jobs():
 
 
 @blueprint.route('/abort_jobs', methods=['POST'])
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def abort_jobs():
     """
     Aborts a list of jobs
@@ -563,7 +563,7 @@ def abort_jobs():
 @blueprint.route('/datasets/<job_id>/abort', methods=['POST'])
 @blueprint.route('/models/<job_id>/abort', methods=['POST'])
 @blueprint.route('/jobs/<job_id>/abort', methods=['POST'])
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def abort_job(job_id):
     """
     Aborts a running job
@@ -579,7 +579,7 @@ def abort_job(job_id):
 
 
 @blueprint.route('/clone/<clone>', methods=['POST', 'GET'])
-@utils.auth.requires_login
+#@utils.auth.requires_login
 def clone_job(clone):
     """
     Clones a job with the id <clone>, populating the creation page with data saved in <clone>

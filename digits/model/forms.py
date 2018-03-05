@@ -3,7 +3,7 @@
 import os
 
 import flask
-from flask.ext.wtf import Form
+from flask_wtf import FlaskForm
 import wtforms
 from wtforms import validators
 
@@ -15,7 +15,7 @@ from digits.utils.forms import validate_required_iff
 from digits import frameworks
 
 
-class ModelForm(Form):
+class ModelForm(FlaskForm):
 
     # Methods
 
@@ -66,6 +66,10 @@ class ModelForm(Form):
 
     # Fields
 
+    optimized = utils.forms.BooleanField(
+        u'DNN Optimization',
+        default=False,
+    )
     # The options for this get set in the view (since they are dynamic)
     dataset = utils.forms.SelectField(
         'Select Dataset',

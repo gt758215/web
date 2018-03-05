@@ -59,7 +59,7 @@ def read_image_list(image_list, image_folder, num_test_images):
 
 
 @blueprint.route('/new', methods=['GET'])
-@utils.auth.requires_login
+#@utils.auth.requires_login
 def new():
     """
     Return a form for a new ImageClassificationModelJob
@@ -88,7 +88,7 @@ def new():
 
 @blueprint.route('.json', methods=['POST'])
 @blueprint.route('', methods=['POST'], strict_slashes=False)
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def create():
     """
     Create a new ImageClassificationModelJob
@@ -152,7 +152,8 @@ def create():
         job = None
         try:
             job = ImageClassificationModelJob(
-                username=utils.auth.get_username(),
+                #username=utils.auth.get_username(),
+                username="demo",
                 name=form.model_name.data + extra,
                 group=form.group_name.data,
                 dataset_id=datasetJob.id(),
@@ -405,7 +406,8 @@ def classify_one():
 
     # create inference job
     inference_job = ImageInferenceJob(
-        username=utils.auth.get_username(),
+        #username=utils.auth.get_username(),
+        username="demo",
         name="Classify One Image",
         model=model_job,
         images=[image_path],
@@ -499,7 +501,8 @@ def classify_many():
 
     # create inference job
     inference_job = ImageInferenceJob(
-        username=utils.auth.get_username(),
+        #username=utils.auth.get_username(),
+        username="demo",
         name="Classify Many Images",
         model=model_job,
         images=paths,
@@ -655,7 +658,8 @@ def top_n():
 
     # create inference job
     inference_job = ImageInferenceJob(
-        username=utils.auth.get_username(),
+        #username=utils.auth.get_username(),
+        username="demo",
         name="TopN Image Classification",
         model=model_job,
         images=paths,

@@ -127,7 +127,7 @@ try {
         };
 
         $scope.is_model = function(job) {
-            return (!$scope.is_running(job) && job.type == 'model');
+            return (job.type == 'model');
         };
 
         $scope.is_pretrained_model = function(job) {
@@ -534,7 +534,7 @@ try {
         $scope.title = 'Datasets';
         $scope.fields = [{name: 'name', show: true},
                          {name: 'refs', show: true},
-                         {name: 'extension', show: true, min_width: 150},
+                         {name: 'extension', show: false, min_width: 150},
                          {name: 'backend', show: true},
                          {name: 'status', show: true},
                          {name: 'elapsed', show: true},
@@ -547,7 +547,7 @@ try {
         var model_fields = [
             {name: 'name', show: true, min_width: 100},
             {name: 'id', show: false, min_width: 200},
-            {name: 'extension', show: true, min_width: 150},
+            {name: 'extension', show: false, min_width: 150},
             {name: 'framework', show: true, min_width: 50},
             {name: 'status', show: true, min_width: 50},
             {name: 'elapsed', show: true, min_width: 50},

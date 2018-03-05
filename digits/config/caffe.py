@@ -233,6 +233,7 @@ option_list['caffe'] = {
     'executable': executable,
     'version': version,
     'flavor': flavor,
-    'multi_gpu': (flavor == 'BVLC' or parse_version(version) >= parse_version(0, 12)),
+    #'multi_gpu': (flavor == 'BVLC' or parse_version(version) >= parse_version(0, 12)),
+    'multi_gpu': True,
     'cuda_enabled': (len(device_query.get_devices()) > 0),
 }

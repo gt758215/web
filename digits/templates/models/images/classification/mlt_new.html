@@ -39,15 +39,15 @@ function syncAceEditor(){
     {{ print_errors(form) }}
 
     <div class="row">
-        <div class="col-sm-4">
+        <div class="col-md-4">
             <div class="well">
+                <h4> Datasets </h4>
                 <div class="form-group{{mark_errors([form.dataset])}}">
                     {{form.dataset.label}}
                     {{form.dataset.tooltip}}
                     {{form.dataset(class='form-control', size=5)}}
                     <div id="dataset-summary"></div>
                 </div>
-            </div>
             <div class="col" id="python-layers">
                 <div class="well">
                     <h4 style="display:inline-block;">Python Layers</h4>
@@ -68,6 +68,7 @@ function syncAceEditor(){
                         {{form.python_layer_from_client.label}}
                     </label>
                 </div>
+            </div>
             </div>
         </div>
         <script>
@@ -113,6 +114,14 @@ $("#dataset").change();
             <div class="well">
                 <h4>Solver Options</h4>
 
+                <div class="form-group{{mark_errors([form.optimized])}}">
+                    {{form.optimized.label}}
+                    <label class="switch switch-text switch-primary">
+                        <input type="checkbox" class="switch-input">
+                        <span data-on="On" data-off="Off" class="switch-label"></span>
+                        <span class="switch-handle"></span>
+                    </label>
+                </div>
                 <!-- Length -->
                 <div class="form-group{{mark_errors([form.shuffle])}}" id="shuffle-data" style="display:none;">
                     <label for={{form.shuffle.name}}>
@@ -392,25 +401,6 @@ showHideSolverSpecificOptions();
                 </div>
             </div>
         </div>
-        <div class="col-sm-4">
-            <div class="well" id="data-transformation">
-                <h4>Data Transformations</h4>
-                <div class="form-group{{mark_errors([form.use_mean])}} data-transformation-input" id="MEAN_SUBTRACTION">
-                    {{form.use_mean.label}}
-                    {{form.use_mean.tooltip}}
-                    {{form.use_mean(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.crop_size])}} data-transformation-input" id="CROPPING">
-                    {{form.crop_size.label}}
-                    {{form.crop_size.tooltip}}
-                    {{form.crop_size(class='form-control', placeholder='none')}}
-                </div>
-            </div>
-            <div class="well" id="data-augmentation" style="display:none;">
-                <h4>Data Augmentations</h4>
-                {% include "/models/data_augmentation.html" %}
-            </div>
-        </div>
     </div>
 
     <hr>
@@ -544,8 +534,6 @@ function setFramework(fwid)
 
             <ul class="nav nav-tabs" id="network-tabs">
                 <li class="active"><a href="#network-tab-standard" data-toggle="tab">Standard Networks</a></li>
-                <li><a href="#network-tab-previous" data-toggle="tab">Previous Networks</a></li>
-                <li><a href="#network-tab-pretrained" data-toggle="tab">Pretrained Networks</a></li>
                 <li><a href="#network-tab-custom" data-toggle="tab">Custom Network</a></li>
             </ul>
             <div class="tab-content well">
@@ -553,19 +541,10 @@ function setFramework(fwid)
                 <div id="network-tab-standard" class="tab-pane active">
                   {% include "models/images/classification/partials/new/network_tab_standard.html" %}
                 </div>
-                <div id="network-tab-previous" class="tab-pane">
-                  {% include "models/images/classification/partials/new/network_tab_previous.html" %}
-                </div>
-                <div id="network-tab-pretrained" class="tab-pane">
-                  {% include "models/images/classification/partials/new/network_tab_pretrained.html" %}
-                </div>
 
                 <script>
                     // hide some buttons and form elements
                     $("#network-tab-standard .btn.btn-sm").css('visibility', 'hidden');
-                    $("#network-tab-previous .btn.btn-sm").css('visibility', 'hidden');
-                    $("#network-tab-pretrained .btn.btn-sm").css('visibility', 'hidden');
-                    $("#network-tab-previous select").css('visibility', 'hidden');
 
                     var $stdtab_prev_clicked_tr = null;
                     $("input:radio[name=standard_networks]").click(function(){

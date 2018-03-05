@@ -4,9 +4,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
     <link rel="icon" href="{{url_for('static', filename='images/favicon.ico')}}" />
+    <!--
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css', ver=dir_hash) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-theme.min.css', ver=dir_hash) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/c3.min.css', ver=dir_hash) }}">
+    -->
 
     <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/normalize.css', ver=dir_hash) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/bootstrap.min.css', ver=dir_hash) }}">
@@ -71,7 +73,7 @@
                         <a href="{{ url_for('digits.dataset.views.home') }}"><i class="menu-icon fa fa-beer"></i>Datasets</a>
                     </li>
                     <li>
-                        <a href="#"> <i class="menu-icon fa fa-beer"></i>Networks</a>
+                        <a href="{{ url_for('digits.')}}"> <i class="menu-icon fa fa-beer"></i>Networks</a>
                     </li>
                     <li>
                         <a href="{{ url_for('digits.model.views.home') }}"> <i class="menu-icon fa fa-beer"></i>Train</a>
@@ -182,8 +184,10 @@
             </div>
         </div>
         <div class="content mt-3">
+            <div class="animated fadeIn">
             {% block content %}
             {% endblock %}
+            </div>
         </div>
 
     </div><!-- /#right-panel -->
