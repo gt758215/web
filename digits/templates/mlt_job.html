@@ -1,0 +1,136 @@
+{% from "helper.html" import print_flashes, print_exception %}
+
+{% extends "mlt_layout.html" %}
+
+{% block title %}
+{{job.name()}}
+{% endblock %}
+
+{% block head %}
+    {% if job.status.is_running() %}
+        {% with namespace = "/jobs" %}
+            {% set room = job.id() %}
+            {% include 'socketio.html' %}
+        {% endwith %}
+        <script>
+function setPanelClass(selector, css) {
+    $(selector).removeClass("panel-default panel-primary panel-success panel-info panel-warning panel-danger");
+    $(selector).addClass('panel-'+css);
+}
+
+socket.on('job update', function (msg) {
+        if (msg['update'] == 'status') {
+            $("#job-statuses .panel-title small").html(msg['status']);
+            setPanelClass('#job-statuses', msg['css']);
+            $("#job-statuses .job-statuses").html(msg['html']);
+            if (!msg['running']) {
+                $("#abort-job").hide();
+                $('.gpu-utilization-info').hide();
+            }
+        }
+    });
+
+socket.on('task update', function (msg) {
+        var status_selector = "#"+msg['task']+"-status";
+        if (msg['update'] == 'status') {
+            if (msg['show']) {
+                $(status_selector+"-collapse").collapse('show');
+            } else {
+                $(status_selector+"-collapse").collapse('hide');
+            }
+            if (msg['running']) {
+                $(status_selector+" .task-progress").show();
+            } else {
+                $(status_selector+" .task-progress").hide();
+            }
+            $(status_selector+" .panel-title small").html(msg['status']);
+            setPanelClass(status_selector, msg['css']);
+            $(status_selector+" .task-statuses").html(msg['html']);
+        }
+        else if (msg['update'] == 'progress') {
+            $(status_selector+" .task-progress .progress-bar").width(msg['percentage'] + '%');
+            $(status_selector+" .task-progress .progress-bar").html(msg['percentage'] + '%');
+            $(status_selector+" .task-progress .task-eta").html(msg['eta']);
+        }
+        else if (msg['update'] == 'distribution') {
+            drawDistributionGraph(msg['task'], msg['data']);
+        }
+        else if (msg['update'] == 'mean-image') {
+            displayMeanImage(msg['task'], msg['data']);
+        }
+        else if (msg['update'] == 'exploration-ready') {
+            showExplorationLink(msg['task']);
+        }
+        else if (msg['update'] == 'combined_graph') {
+            drawCombinedGraph(msg['data']);
+        }
+        else if (msg['update'] == 'lr_graph') {
+            drawLRGraph(msg['data']);
+        }
+        else if (msg['update'] == 'snapshots') {
+            updateSnapshotList(msg['data']);
+        }
+        else if (msg['update'] == 'gpu_utilization') {
+            $('.gpu-utilization-info').show();
+            $('.gpu-utilization-info').html(msg['html']);
+        }
+    });
+        </script>
+    {% endif %}
+{% endblock %}
+
+{% block pagetitle %}
+{{ job.name() }}
+{% endblock %}
+
+{% block content %}
+{{ print_flashes() }}
+
+<div class="row">
+<div class="col-sm-12">
+    <div id="job-statuses class="job-statuses">
+    {% if job.status.is_running() %}
+    {% for task in job.tasks %}
+    <div class="alert alert-primary alert-dismissible fade show" role="alert">
+        <div id="{{task.html_id()}}-status" class="panel panel-{{task.status.css}}">
+        <div id="task-progress" class="task-progress" {% autoescape false %}{{' style="display:none;"' if not task.status == 'R' else ''}}{% endautoescape %}>
+        <div class="progress">
+            {% set percentage = (100*task.progress)|round|int %}
+            <div class="progress-bar" style="width:{{percentage}}%">
+                {{percentage}}%
+            </div>
+        </div>
+        Estimated time remaining: <span class="task-eta">{{ task.est_done()|print_time_diff }}</span>
+        <br />
+        </div>
+    {% endfor %}
+    {% elif job.status.is_done() %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Job Status
+        <small>{{job.status.name}}</small>
+    {% else %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        Job Status
+        <small>{{job.status.name}}</small>
+    {% endif %}
+    </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Job content -->
+    <div class="col-sm-12">
+        {% block job_content %}
+        {% endblock %}
+    </div>
+
+</div>
+
+</div>
+<div class="row">
+    {% block job_content_details %}
+    {% endblock %}
+</div>
+
+{% endblock %}
+

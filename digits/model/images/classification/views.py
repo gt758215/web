@@ -82,7 +82,7 @@ def new():
                                  previous_network_snapshots=prev_network_snapshots,
                                  previous_networks_fullinfo=get_previous_networks_fulldetails(),
                                  pretrained_networks_fullinfo=get_pretrained_networks_fulldetails(),
-                                 #multi_gpu=config_value('caffe')['multi_gpu'],
+                                 multi_gpu=True,
                                  )
 
 
@@ -111,13 +111,13 @@ def create():
         if request_wants_json():
             return flask.jsonify({'errors': form.errors}), 400
         else:
-            return flask.render_template('models/images/classification/new.html',
+            return flask.render_template('models/images/classification/mlt_new.html',
                                          form=form,
                                          frameworks=frameworks.get_frameworks(),
                                          previous_network_snapshots=prev_network_snapshots,
                                          previous_networks_fullinfo=get_previous_networks_fulldetails(),
                                          pretrained_networks_fullinfo=get_pretrained_networks_fulldetails(),
-                                         multi_gpu=config_value('caffe')['multi_gpu'],
+                                         multi_gpu=True,
                                          ), 400
 
     datasetJob = scheduler.get_job(form.dataset.data)
