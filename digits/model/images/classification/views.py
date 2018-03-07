@@ -59,7 +59,7 @@ def read_image_list(image_list, image_folder, num_test_images):
 
 
 @blueprint.route('/new', methods=['GET'])
-@utils.auth.requires_login
+#@utils.auth.requires_login
 def new():
     """
     Return a form for a new ImageClassificationModelJob
@@ -82,13 +82,13 @@ def new():
                                  previous_network_snapshots=prev_network_snapshots,
                                  previous_networks_fullinfo=get_previous_networks_fulldetails(),
                                  pretrained_networks_fullinfo=get_pretrained_networks_fulldetails(),
-                                 #multi_gpu=config_value('caffe')['multi_gpu'],
+                                 multi_gpu=True,
                                  )
 
 
 @blueprint.route('.json', methods=['POST'])
 @blueprint.route('', methods=['POST'], strict_slashes=False)
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def create():
     """
     Create a new ImageClassificationModelJob
@@ -111,13 +111,13 @@ def create():
         if request_wants_json():
             return flask.jsonify({'errors': form.errors}), 400
         else:
-            return flask.render_template('models/images/classification/new.html',
+            return flask.render_template('models/images/classification/mlt_new.html',
                                          form=form,
                                          frameworks=frameworks.get_frameworks(),
                                          previous_network_snapshots=prev_network_snapshots,
                                          previous_networks_fullinfo=get_previous_networks_fulldetails(),
                                          pretrained_networks_fullinfo=get_pretrained_networks_fulldetails(),
-                                         multi_gpu=config_value('caffe')['multi_gpu'],
+                                         multi_gpu=True,
                                          ), 400
 
     datasetJob = scheduler.get_job(form.dataset.data)
@@ -152,7 +152,8 @@ def create():
         job = None
         try:
             job = ImageClassificationModelJob(
-                username=utils.auth.get_username(),
+                #username=utils.auth.get_username(),
+                username="demo",
                 name=form.model_name.data + extra,
                 group=form.group_name.data,
                 dataset_id=datasetJob.id(),
@@ -405,7 +406,8 @@ def classify_one():
 
     # create inference job
     inference_job = ImageInferenceJob(
-        username=utils.auth.get_username(),
+        #username=utils.auth.get_username(),
+        username="demo",
         name="Classify One Image",
         model=model_job,
         images=[image_path],
@@ -499,7 +501,8 @@ def classify_many():
 
     # create inference job
     inference_job = ImageInferenceJob(
-        username=utils.auth.get_username(),
+        #username=utils.auth.get_username(),
+        username="demo",
         name="Classify Many Images",
         model=model_job,
         images=paths,
@@ -655,7 +658,8 @@ def top_n():
 
     # create inference job
     inference_job = ImageInferenceJob(
-        username=utils.auth.get_username(),
+        #username=utils.auth.get_username(),
+        username="demo",
         name="TopN Image Classification",
         model=model_job,
         images=paths,

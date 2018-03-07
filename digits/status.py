@@ -80,6 +80,9 @@ class Status():
     def is_running(self):
         return self.val in (self.INIT, self.WAIT, self.RUN)
 
+    def is_done(self):
+        return self.val in (self.DONE)
+
 
 class StatusCls(object):
     """
