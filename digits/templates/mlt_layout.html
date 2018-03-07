@@ -4,11 +4,6 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
     <link rel="icon" href="{{url_for('static', filename='images/favicon.ico')}}" />
-    <!--
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css', ver=dir_hash) }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-theme.min.css', ver=dir_hash) }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/c3.min.css', ver=dir_hash) }}">
-    -->
 
     <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/normalize.css', ver=dir_hash) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/bootstrap.min.css', ver=dir_hash) }}">
@@ -39,10 +34,11 @@
     <script src="{{ url_for('static', filename='js/3rdparty/ace.theme-chrome-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='js/3rdparty/ace.ext-searchbox-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
 
-    <script src="{{ url_for('static', filename='mlt/js/vendor/jquery-2.1.4.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/3rdparty/jquery-3.3.1.min.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/plugins.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/lib/chart-js/Chart.bundle.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/widgets.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.min.js') }}"></script>

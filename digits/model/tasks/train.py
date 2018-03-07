@@ -11,7 +11,8 @@ import psutil
 
 from digits import device_query
 from digits.task import Task
-from digits.utils import subclass, override
+from digits.utils import subclass, override, constants
+from digits.status import Status
 
 # NOTE: Increment this every time the picked object changes
 PICKLE_VERSION = 2
@@ -251,6 +252,20 @@ class TrainTask(Task):
         self.progress = epoch / self.train_epochs
         self.emit_progress_update()
 
+    def images_processed(self):
+        """
+        Calculate images trained so far
+        """
+        dataset_images = self.dataset.get_entry_count(constants.TRAIN_DB)
+        return self.current_epoch * dataset_images
+
+    def images_processed_per_sec(self):
+        if self.status != Status.RUN or self.progress == 0:
+            return None
+        elapsed = time.time() - self.status_history[-1][1]
+        images = self.images_processed()
+        return round(images / elapsed, 2)
+
     def save_train_output(self, *args):
         """
         Save output to self.train_outputs
@@ -269,6 +284,25 @@ class TrainTask(Task):
         # loss graph data
         data = self.combined_graph_data()
         if data:
+
+            socketio.emit('task update',
+                          {
+                              'task': self.html_id(),
+                              'update': 'images_processed_per_sec',
+                              'data': str(self.images_processed_per_sec()),
+                          },
+                          namespace='/jobs',
+                          root=self.job_id,
+                          )
+            socketio.emit('task update',
+                          {
+                              'task': self.html_id(),
+                              'update': 'images_processed',
+                              'data': str(self.images_processed()),
+                          },
+                          namespace='/jobs',
+                          root=self.job_id,
+                          )
             socketio.emit('task update',
                           {
                               'task': self.html_id(),
