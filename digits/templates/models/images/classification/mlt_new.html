@@ -511,11 +511,13 @@ function setFramework(fwid)
 }
             </script>
 
+            <!--
             <ul class="nav nav-tabs" id="network-tabs">
                 <li class="active"><a href="#network-tab-standard" data-toggle="tab">Standard Networks</a></li>
                 <li><a href="#network-tab-custom" data-toggle="tab">Custom Network</a></li>
             </ul>
-            <div class="tab-content well">
+            -->
+            <div class="well">
                 <div style="display:none;">{{form.framework(class='form-control')}}</div>
                 <div id="network-tab-standard" class="tab-pane active">
                   {% include "models/images/classification/partials/new/network_tab_standard.html" %}
@@ -577,136 +579,11 @@ function setFramework(fwid)
                     }
 
                 </script>
-                <div id="network-tab-custom" class="tab-pane">
-                    <ul class="nav nav-tabs" id="customFramework">
-                        {% for fw in frameworks %}
-                        <li id="{{ fw.get_id() }}"><a href="#{{ fw.get_id() }}_custom" data-toggle="tab">{{ fw.get_name() }}</a></li>
-                        {% endfor %}
-                    </ul>
-                    <br>
-                    <script>
-                        $('#customFramework li').first().addClass("active");
-                        $('#customFramework li').on('click', function(e) {
-                                 $(this).addClass('active');
-                                 $(this).siblings().removeClass('active');
-                                 setFramework($(this).attr('id'));
-
-                            });
-
-
-function process_tf_vis(data){
-    // Processes a tensorflow graph_def string such that it is loaded in a tensorboard-style graph
-    var height = String($(window).height() - 200) + 'px' // Bootbox dynamic height hack
-    var the_data = '<script>function load() {document.getElementById("test1").pbtxt = ' + data + ' ;}</scr'+'ipt>';
-    the_data += '<link rel="import" href="{{ url_for('static', filename='tb/tf-graph-basic.build.html', ver=dir_hash) }}" onload=load()>';
-    the_data += '<div style="height:' + height + '"><tf-graph-basic id="test1"></tf-graph-basic></div>';
-    return the_data;
-}
-
-// From https://stackoverflow.com/a/13348618
-function isChrome() {
-    var isChromium = window.chrome,
-    winNav = window.navigator,
-    vendorName = winNav.vendor,
-    isOpera = winNav.userAgent.indexOf("OPR") > -1,
-    isIEedge = winNav.userAgent.indexOf("Edge") > -1,
-    isIOSChrome = winNav.userAgent.match("CriOS");
-
-    if(isIOSChrome){
-        return true;
-    } else if(isChromium !== null && isChromium !== undefined && vendorName === "Google Inc." && isOpera == false && isIEedge == false) {
-        return true;
-    } else { 
-        return false;
-    }
-}
-
-function visualizeNetwork() {
-    var framework = $('#framework').val();
-    var is_tf = framework.includes("ensorflow")
-
-    if (is_tf) {
-        if (!isChrome()) {
-            bootbox.alert({title: "Visualization Error", message: "Tensorflow network visualization is only available for Google Chrome"});
-            return;
-        }
-    }
-
-    var num_sel_gpus = 0
-    var sel_gpus = $("#select_gpus").val()
-    if (sel_gpus) {
-        num_sel_gpus = sel_gpus.length
-    } else if ($("#select_gpu_count").val()) {
-        num_sel_gpus = $("#select_gpu_count").val()
-    }
-    var bootboxClass = (is_tf ? "full-bootbox" : "wide-bootbox");
-    syncAceEditor(); // Sync ace editor to custom_network editor
-    var bbox_content = $('<div class="text-center"><i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Loading...</div>' );
-    var bbox = bootbox.alert({
-        message: bbox_content,
-        animate: false,
-        closeButton: false,
-        className: bootboxClass,
-        });
-    $.ajax("{{url_for('digits.model.views.visualize_network')}}?framework="+framework,
-        {
-            type: "POST",
-            data: {custom_network: $('#custom_network').val(),
-                dataset_id: $('#dataset').val(),
-                solver_type: $('#solver_type').val(),
-                use_mean: document.getElementById('use_mean').value,
-                crop_size: document.getElementById('crop_size').value,
-                num_gpus: num_sel_gpus,
-                },
-            }
-        )
-    .done(function(data) {
-            if (is_tf)
-                data = process_tf_vis(data);
-            bbox_content.html(data);
-            $("."+bootboxClass).animate({scrollTop: 0}, "");
-        })
-    .fail(function(data) {
-        bbox.modal("hide")
-        errorAlert(data);
-    });
-    return false;
-}
-                    </script>
-                       <div class="tab-content" id="custom_textareas">
-
-                                <div class="form-group{{mark_errors([form.custom_network])}}">
-                                    {{form.custom_network.label}}
-                                    {{form.custom_network.explanation(file='/models/images/classification/custom_network_explanation.html')}}
-                                    <div style="display: none;">{{form.custom_network(class='form-control', rows=10)}}</div>
-                                    <a href=# class="btn btn-info" onClick="return visualizeNetwork();">Visualize</a>
-                                </div>
-                        </div>
-                        <div id="ace-editor"></div>
-                        <script>
-                            var editor = ace.edit("ace-editor");
-                            editor.$blockScrolling = Infinity;
-                            editor.setTheme("ace/theme/chrome");
-                            editor.session.setFoldStyle('manual');
-                            editor.setShowPrintMargin(false);
-                            var PythonMode = ace.require("ace/mode/python").Mode;
-                            var LuaMode = ace.require("ace/mode/lua").Mode;
-                            $( document ).ready(function() {
-                                editor.setValue($('textarea#custom_network').val());
-                                editor.selection.moveTo(0, 0);
-                            });
-                        </script>
-
-                        <script>$(this).addClass('active');
-                            $('#custom_textareas div:first').addClass('tab-pane active') // Select first tab
-                        </script>
-                    <div class="form-group{{mark_errors([form.custom_network_snapshot])}}">
-                        {{form.custom_network_snapshot.label}}
-                        {{form.custom_network_snapshot.tooltip}}
-                        {{form.custom_network_snapshot(class='form-control autocomplete_path')}}
-                    </div>
-                </div>
             </div>
+            <script>
+
+            </script>
+            <!--
             {{ form.method(style="display:none;") }}
             <script>
 function updateNetworkTab(method) {
@@ -718,6 +595,7 @@ $('#network-tabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
         });
 $('#network-tabs a[href="#network-tab-'+$("#method").val()+'"]').tab('show');
             </script>
+            -->
         </div>
     </div>
 
@@ -753,11 +631,13 @@ $('#network-tabs a[href="#network-tab-'+$("#method").val()+'"]').tab('show');
                 $("#select_gpu_count").change(function(){ $("#select_gpus").val(null);});
             </script>
             {% endif %}
+            <!--
             <div class="form-group{{mark_errors([form.group_name])}}">
                 {{form.group_name.label}}
                 {{form.group_name.tooltip}}
                 {{form.group_name(class='form-control')}}
             </div>
+            -->
             <div class="form-group{{mark_errors([form.model_name])}}">
                 {{form.model_name.label}}
                 {{form.model_name.tooltip}}
@@ -779,7 +659,7 @@ if($("input:radio[name=previous_networks]").is(":checked")) {
 
 //Below two lines are required to show the same tab (that was selected before submitting the form) after the page validation fails i.e., preserving the status of window even after page validation fails.
 framework = $('#framework').val();
-setFramework("{{form.framework.data}}");
+// setFramework("{{form.framework.data}}");
 
 </script>
 

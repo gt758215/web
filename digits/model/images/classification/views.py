@@ -729,12 +729,13 @@ def get_standard_networks():
         ('lenet', 'LeNet'),
         ('alexnet', 'AlexNet'),
         ('googlenet', 'GoogLeNet'),
+        ('vgg16', 'VGGNet'),
         ('resnet50', 'ResNet50'),
     ]
 
 
 def get_default_standard_network():
-    return 'alexnet'
+    return 'lenet'
 
 
 def get_previous_networks():

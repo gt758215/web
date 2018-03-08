@@ -37,9 +37,6 @@
     <script src="{{ url_for('static', filename='mlt/js/3rdparty/jquery-3.3.1.min.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/plugins.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/main.js') }}"></script>
-    <script src="{{ url_for('static', filename='mlt/js/lib/chart-js/Chart.bundle.js') }}"></script>
-    <script src="{{ url_for('static', filename='mlt/js/dashboard.js') }}"></script>
-    <script src="{{ url_for('static', filename='mlt/js/widgets.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.min.js') }}"></script>
     <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.sampledata.js') }}"></script>
@@ -100,23 +97,7 @@
                         <div class="dropdown for-notification">
                           <button class="btn btn-secondary dropdown-toggle" type="button" id="notification" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <i class="fa fa-bell"></i>
-                            <span class="count bg-danger">3</span>
                           </button>
-                          <div class="dropdown-menu" aria-labelledby="notification">
-                            <p class="red">You have 3 Notification</p>
-                            <a class="dropdown-item media bg-flat-color-1" href="#">
-                                <i class="fa fa-check"></i>
-                                <p>Server #1 overloaded.</p>
-                            </a>
-                            <a class="dropdown-item media bg-flat-color-4" href="#">
-                                <i class="fa fa-info"></i>
-                                <p>Server #2 overloaded.</p>
-                            </a>
-                            <a class="dropdown-item media bg-flat-color-5" href="#">
-                                <i class="fa fa-warning"></i>
-                                <p>Server #3 overloaded.</p>
-                            </a>
-                          </div>
                         </div>
                     </div>
                 </div>
@@ -132,23 +113,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="user-area dropdown float-right">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <img class="user-avatar rounded-circle" src="{{ url_for('static', filename='images/admin.jpg') }}" alt="User Avatar">
-                        </a>
-
-                        <div class="user-menu dropdown-menu">
-                                <a class="nav-link" href="#"><i class="fa fa- user"></i>My Profile</a>
-
-                                <a class="nav-link" href="#"><i class="fa fa- user"></i>Notifications <span class="count">13</span></a>
-
-                                <a class="nav-link" href="#"><i class="fa fa -cog"></i>Settings</a>
-
-                                <a class="nav-link" href="#"><i class="fa fa-power -off"></i>Logout</a>
-                        </div>
-                    </div>
-
                 </div>
             </div>
 

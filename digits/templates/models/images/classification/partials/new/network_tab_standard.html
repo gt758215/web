@@ -1,9 +1,11 @@
 {# Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved. #}
+<!--
 <ul class="nav nav-tabs" id="stdnetRole">
     {% for fw in frameworks %}
     <li id="{{ fw.get_id() }}"><a href="#{{ fw.get_id() }}_standard" data-toggle="tab">{{ fw.get_name() }}</a></li>
     {% endfor %}
 </ul>
+-->
 <div id="network-tab-standard-contents" class="tab-pane active">
     <script>
         $('#stdnetRole li').first().addClass("active");
@@ -35,7 +37,7 @@
                 [2012]
             </td>
             <td>256x256</td>
-            {% elif network.data == 'vgg-16' %}
+            {% elif network.data == 'vgg16' %}
             <td>
                 <a href="http://arxiv.org/abs/1409.1556" target="_blank">Original paper</a>
                 [2014]
@@ -56,7 +58,9 @@
             {% else %}
             <td></td><td>?</td>
             {% endif %}
+            <!--
             <td><a class="btn btn-sm" onClick="customizeNetwork('{{network.data}}');">Customize</a></td>
+            -->
         </tr>
         {% endfor %}
     </table>
