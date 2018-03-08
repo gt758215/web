@@ -18,11 +18,9 @@
 
 <script>
 
-socket.on('task update', function (msg) {
-    var status_selector = "#"+msg['task']+"-status";
+socket.on('server update', function (msg) {
     if (msg['update'] == 'gpu_utilization') {
-        $('.gpu-utilization-info').show();
-        $('.gpu-utilization-info').html(msg['html']);
+        $('.data_gpu').html(msg['data_gpu']);
     }
 });
 </script>

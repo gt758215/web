@@ -536,9 +536,9 @@ class Scheduler:
         from digits.webapp import scheduler, socketio
         from digits import device_query
         devices = []
-        gpus = self.resources['gpus']
-        if gpus is not None:
-            for index in gpus:
+        gpus = len(self.resources['gpus'])
+        if gpus:
+            for index in range(0, gpus):
                 device = device_query.get_device(index)
                 if device:
                     devices.append((index, device))
@@ -560,3 +560,4 @@ class Scheduler:
                           namespace='/jobs',
                           room='job_management'
                           )
+            gevent.sleep(1)
