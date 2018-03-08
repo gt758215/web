@@ -15,6 +15,18 @@
     {% set room = "job_management" %}
     {% include 'socketio.html' %}
 {% endwith %}
+
+<script>
+
+socket.on('task update', function (msg) {
+    var status_selector = "#"+msg['task']+"-status";
+    if (msg['update'] == 'gpu_utilization') {
+        $('.gpu-utilization-info').show();
+        $('.gpu-utilization-info').html(msg['html']);
+    }
+});
+</script>
+
 {% endblock %}
 
 {% block content %}
@@ -24,9 +36,30 @@
         {{remaining_gpu_count}}/{{total_gpu_count}}
         GPU{{'s' if total_gpu_count != 1 }} available
     </div>
+    <div class="gpu-utilization-info">
+        {% for info in data_gpu %}
+        <h3>{{info.name}} (#{{info.index}})</h3>
+        <dl>
+            {% if 'memory' in info %}
+            <dt>Memory</dt>
+            <dd>
+                {{ info.memory.used|sizeof_fmt }} / {{ info.memory.total|sizeof_fmt }}
+                ({{(100.0 * info.memory.used / info.memory.total)|round(1)}}%)
+            </dd>
+            {% endif %}
+            {% if 'utilization' in info %}
+            <dt>GPU Utilization</dt>
+            <dd>{{ info.utilization.gpu }}%</dd>
+            {% endif %}
+            {% if 'temperature' in info %}
+            <dt>Temperature</dt>
+            <dd>{{ info.temperature }} &deg;C</dd>
+            {% endif %}
+        </dl>
+        {% endfor %}
+    </div>
     {% endif %}
 </div>
-
 {{ print_flashes() }}
 
 <style>
@@ -38,9 +71,6 @@
      width: 300px;
  }
 </style>
-<div class="row">
-            <div class="gpu-utilization-info" style="display:none;"></div>
-        </div>
 <div class="row">
     <div class="col">
 
