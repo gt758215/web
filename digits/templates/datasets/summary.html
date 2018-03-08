@@ -172,10 +172,18 @@ Datasets
             </div>
         </div>
         </div>
+
+        <div ng-if="jc.dataset_jobs.length == 0">
+        <div class="card-header">
+            <h5 class="card-title">
+                No Datasets
+            </h5>
+        </div>
+        </div>
+        </section>
 </div>
 </div>
 
 <button type="button" class="btn btn-primary" onclick="window.location.href='#';">New Dataset</a></button>
-
 
 {% endblock %}

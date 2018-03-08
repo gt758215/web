@@ -48,27 +48,6 @@ function syncAceEditor(){
                     {{form.dataset(class='form-control', size=5)}}
                     <div id="dataset-summary"></div>
                 </div>
-            <div class="col" id="python-layers">
-                <div class="well">
-                    <h4 style="display:inline-block;">Python Layers</h4>
-                    {{form.python_layer_from_client.explanation(file='/models/python_layer_explanation.html')}}
-                    <br>
-                    <div class="form-group{{' has-error' if form.python_layer_client_file.errors}} python-layer-client-side-file">
-                        {{form.python_layer_client_file.label}}
-                        {{form.python_layer_client_file.tooltip}}
-                        {{form.python_layer_client_file(class='form-control')}}
-                    </div>
-                    <div class="form-group{{' has-error' if form.python_layer_server_file.errors}} python-layer-server-side-file">
-                        {{form.python_layer_server_file.label}}
-                        {{form.python_layer_server_file.tooltip}}
-                        {{form.python_layer_server_file(class='form-control autocomplete_path')}}
-                    </div>
-                    <label for="{{form.python_layer_from_client.name}}">
-                        {{form.python_layer_from_client}}
-                        {{form.python_layer_from_client.label}}
-                    </label>
-                </div>
-            </div>
             </div>
         </div>
         <script>
