@@ -456,8 +456,8 @@ def delete_job(job_id):
     if job is None:
         raise werkzeug.exceptions.NotFound('Job not found')
 
-    if not utils.auth.has_permission(job, 'delete'):
-        raise werkzeug.exceptions.Forbidden()
+    #if not utils.auth.has_permission(job, 'delete'):
+    #    raise werkzeug.exceptions.Forbidden()
 
     try:
         if scheduler.delete_job(job_id):
@@ -487,9 +487,9 @@ def delete_jobs():
                 not_found += 1
                 continue
 
-            if not utils.auth.has_permission(job, 'delete'):
-                forbidden += 1
-                continue
+            #if not utils.auth.has_permission(job, 'delete'):
+            #    forbidden += 1
+            #    continue
 
             if not scheduler.delete_job(job_id):
                 failed += 1
