@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/dataTables.bootstrap.min.css', ver=dir_hash) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/buttons.dataTables.min.css', ver=dir_hash) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/buttons.bootstrap.min.css', ver=dir_hash) }}">
-
+<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/style.css', ver=dir_hash) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/table_selection.css', ver=dir_hash) }}">
 
 {% with namespace = "/jobs" %}
@@ -49,6 +49,7 @@ Training
      width: 300px;
  }
 </style>
+<span id="ruler"></span>
 <div class="row"
      id="all-jobs"
      ng-app="home_app"

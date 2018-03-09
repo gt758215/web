@@ -600,4 +600,15 @@ header .form-inline {
 .language-show + .dropdown-menu {
   display: block; }
 
+.bootbox.modal {
+    padding-top: 10%;
+}
+
+.fade.in {
+    opacity: 1;
+}
+
+.modal-backdrop.in {
+    opacity: 0.5;
+}
 /*# sourceMappingURL=style.css.map */
