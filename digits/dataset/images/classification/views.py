@@ -360,7 +360,7 @@ def from_s3(job, form):
 
 
 @blueprint.route('/new', methods=['GET'])
-@utils.auth.requires_login
+#@utils.auth.requires_login
 def new():
     """
     Returns a form for a new ImageClassificationDatasetJob
@@ -375,7 +375,7 @@ def new():
 
 @blueprint.route('.json', methods=['POST'])
 @blueprint.route('', methods=['POST'], strict_slashes=False)
-@utils.auth.requires_login(redirect=False)
+#@utils.auth.requires_login(redirect=False)
 def create():
     """
     Creates a new ImageClassificationDatasetJob
@@ -396,7 +396,8 @@ def create():
     job = None
     try:
         job = ImageClassificationDatasetJob(
-            username=utils.auth.get_username(),
+            #username=utils.auth.get_username(),
+            username='demo',
             name=form.dataset_name.data,
             group=form.group_name.data,
             image_dims=(

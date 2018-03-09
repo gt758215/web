@@ -334,6 +334,8 @@ class Scheduler:
             return True
 
         gevent.spawn(self.main_thread)
+        # Update server utilization
+        gevent.spawn(self.server_utilization_updater)
 
         self.running = True
         return True
@@ -529,3 +531,33 @@ class Scheduler:
                       namespace='/jobs',
                       room='job_management'
                       )
+
+    def server_utilization_updater(self):
+        from digits.webapp import scheduler, socketio
+        from digits import device_query
+        devices = []
+        gpus = len(self.resources['gpus'])
+        if gpus:
+            for index in range(0, gpus):
+                device = device_query.get_device(index)
+                if device:
+                    devices.append((index, device))
+                else:
+                    raise RuntimeError('Failed to load gpu information for GPU #"%s"' % index)
+        while True:
+            data_gpu = []
+            for index, device in devices:
+                update = {'name': device.name, 'index': index}
+                nvml_info = device_query.get_nvml_info(index)
+                if nvml_info is not None:
+                    update.update(nvml_info)
+                data_gpu.append(update)
+            socketio.emit('server update',
+                          {
+                              'update': 'gpus_utilization',
+                              'data_gpu': data_gpu,
+                          },
+                          namespace='/jobs',
+                          room='job_management'
+                          )
+            gevent.sleep(1)

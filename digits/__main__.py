@@ -60,7 +60,7 @@ def main():
         else:
             digits.webapp.app.debug = args['debug']
             digits.webapp.app.debug = True
-            digits.webapp.socketio.run(digits.webapp.app, '0.0.0.0', args['port'])
+            digits.webapp.socketio.run(digits.webapp.app, '0.0.0.0', args['port'], use_reloader=False)
     except KeyboardInterrupt:
         pass
     finally:
