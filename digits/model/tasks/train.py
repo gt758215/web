@@ -12,7 +12,6 @@ import psutil
 from digits import device_query
 from digits.task import Task
 from digits.utils import subclass, override, constants
-from digits.status import Status
 
 # NOTE: Increment this every time the picked object changes
 PICKLE_VERSION = 2
@@ -260,9 +259,7 @@ class TrainTask(Task):
         return self.current_epoch * dataset_images
 
     def images_processed_per_sec(self):
-        if self.status != Status.RUN or self.progress == 0:
-            return None
-        elapsed = time.time() - self.status_history[-1][1]
+        elapsed = self.job.runtime_of_tasks()
         images = self.images_processed()
         return round(images / elapsed, 2)
 
