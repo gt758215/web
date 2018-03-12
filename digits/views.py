@@ -486,7 +486,7 @@ def delete_jobs():
             if job is None:
                 not_found += 1
                 continue
-
+            # TODO : if we add auth for protal we have to check permission, right now we ignore permission check.
             #if not utils.auth.has_permission(job, 'delete'):
             #    forbidden += 1
             #    continue

@@ -280,7 +280,7 @@ class TensorflowTrainTask(TrainTask):
             # CUDA libraries and allocate memory on all visible GPUs by
             # default.
             env['CUDA_VISIBLE_DEVICES'] = subprocess_visible_devices(identifiers)
-        self.logger.debug('CUDA_VISIBLE_DEVICES = %s' % env['CUDA_VISIBLE_DEVICES'])
+            self.logger.debug('CUDA_VISIBLE_DEVICES = %s' % env['CUDA_VISIBLE_DEVICES'])
 
 
         if self.pretrained_model:

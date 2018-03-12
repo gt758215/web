@@ -8,19 +8,17 @@
 <script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ui-bootstrap-tpls-1.3.2.min.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ngStorage-0.3.10.min.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/bootbox-4.3.0.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/home_app.js', ver=dir_hash) }}"></script>
 
 <script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/datatables.min.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/dataTables.bootstrap.min.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/dataTables.buttons.min.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/datatables-init.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/jquery.dataTables.min.js', ver=dir_hash) }}"></script>
-
+<script type="text/javascript" src="{{ url_for('static', filename='js/home_app.js', ver=dir_hash) }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/dataTables.bootstrap.min.css', ver=dir_hash) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/buttons.dataTables.min.css', ver=dir_hash) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/buttons.bootstrap.min.css', ver=dir_hash) }}">
-
+<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/style.css', ver=dir_hash) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/table_selection.css', ver=dir_hash) }}">
 
 {% with namespace = "/jobs" %}
@@ -50,6 +48,7 @@ Datasets
      width: 300px;
  }
 </style>
+<span id="ruler"></span>
 <div class="row"
      id="all-jobs"
      ng-app="home_app"
