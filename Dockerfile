@@ -1,7 +1,7 @@
 FROM nvidia/cuda:9.0-devel-ubuntu16.04
 
 ARG BRANCH
-ENV BRANCh ${BRANCH:-master}
+ENV BRANCH ${BRANCH:-master}
 
 RUN apt-get update && apt-get install -y \
     curl \
