@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
 from __future__ import absolute_import
 
-from flask.ext.wtf import Form
+from flask_wtf import FlaskForm
 import os
 from wtforms import validators
 
@@ -11,7 +11,7 @@ from digits.utils.forms import validate_required_if_set
 
 
 @subclass
-class DatasetForm(Form):
+class DatasetForm(FlaskForm):
     """
     A form used to create an image processing dataset
     """

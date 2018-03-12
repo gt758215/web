@@ -18,4 +18,4 @@ matplotlib
 scikit-fmm
 python-magic
 boto
-tensorflow
+#tensorflow-gpu # install tensorflow on MacOSX
