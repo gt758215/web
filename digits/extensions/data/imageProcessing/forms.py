@@ -3,7 +3,7 @@ from __future__ import absolute_import
 
 import os
 
-from flask.ext.wtf import Form
+from flask_wtf import FlaskForm
 from wtforms import validators
 
 from digits import utils
@@ -12,7 +12,7 @@ from digits.utils.forms import validate_required_iff
 
 
 @subclass
-class DatasetForm(Form):
+class DatasetForm(FlaskForm):
     """
     A form used to create an image processing dataset
     """
