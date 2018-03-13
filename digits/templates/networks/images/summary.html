@@ -1,10 +1,99 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+<style>
+.radiotext {
+    margin: 10px 10px 0px 0px;
+}
+</style>
+
+<table class="table table-bordered table-striped list_group selectable"
+       style="word-wrap: break-word"
+       width="100%">
+    <thread>
+        <tr>
+            <th>Network</th>
+            <th>Details</th>
+            <th>Intended image size</th>
+        </tr>
+    </thread>
+    <tbody>
+    <form>
+        <tr>
+            <th>
+                <div class="radio">
+                    <label><input type="radio" id='lenet' name="optradio">LeNet</label>
+                </div>
+            </th>
+            <div class="radiotext">
+            <th>
+                <label for='lenet'> <a href="http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf" target="_blank">Original paper</a>
+                [1998]
+                </label>
+            </th>
+            <th>28x28 (gray)</th>
+            </div>
+        </tr>
+        <tr>
+            <th>
+                <div class="radio">
+                    <label><input type="radio" id='alexnet' name="optradio">AlexNet</label>
+                </div>
+            </th>
+            <div class="radiotext">
+            <th>
+                <label for='alexnet'><a href="http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional" target="_blank">Original paper</a>
+                [2012]
+                </label>
+            </th>
+            <th>256x256</th>
+            </div>
+        </tr>
+        <tr>
+            <th>
+                <div class="radio">
+                    <label><input type="radio" id='vgg-16' name="optradio">VGG-16</label>
+                </div>
+            </th>
+            <div class="radiotext">
+            <th>
+                <label for='vgg-16'><a href="http://arxiv.org/abs/1409.1556" target="_blank">Original paper</a>
+                [2014]
+                </label>
+            </th>
+            <th>256x256</th>
+            </div>
+        </tr>
+        <tr>
+            <th>
+                <div class="radio">
+                    <label><input type="radio" id='googlenet' name="optradio">GoogleNet</label>
+                </div>
+            </th>
+            <div class="radiotext">
+            <th>
+                <label for='googlenet'><a href="http://arxiv.org/abs/1409.4842" target="_blank">Original paper</a>
+                [2014]
+                </label>
+            </th>
+            <th>256x256</th>
+            </div>
+        </tr>
+        <tr>
+            <th>
+                <div class="radio">
+                    <label><input type="radio" id='resnet' name="optradio">ResNet-50</label>
+                </div>
+            </th>
+            <div class="radiotext">
+            <th>
+                <label for='resnet'> <a href="https://arxiv.org/pdf/1512.03385.pdf" target="_blank">Original paper</a>
+                    [2015]
+                </label>
+            </th>
+            <th>?</th>
+            </div>
+        </tr>
+    </form>
+    </tbody>
+</table>
+<button type="button" class="btn btn-outline-primary btn-sm">Add New Network</button>
+<button type="button" class="btn btn-outline-primary btn-sm">Customize</button>
+<button type="button" class="btn btn-outline-primary btn-sm">View</button>
