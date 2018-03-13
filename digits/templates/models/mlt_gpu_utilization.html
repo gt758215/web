@@ -1,32 +1,57 @@
 <div class="row">
-    {% for info in data_gpu %}
-    <div class="col">
-        <h3 class="mb-3">GPU Utilization</h3>
-        <div class="jumbotron">
-            <h3>{{info.name}} (#{{info.index}})</h3>
-            <dl>
-                {% if 'memory' in info %}
-                <dt>Memory</dt>
-                <dd>
-                    {{info.memory.used|sizeof_fmt}} / {{info.memory.total|sizeof_fmt}}
-                    ({{(100.0 * info.memory.used / info.memory.total)|round(1)}}%)
-                </dd>
-                {% endif %}
-                {% if 'utilization' in info %}
-                <dt>GPU Utilization</dt>
-                <dd>{{info.utilization.gpu}}%</dd>
-                {% endif %}
-                {% if 'temperature' in info %}
-                <dt>Temperature</dt>
-                <dd>{{info.temperature}} &deg;C</dd>
-                {% endif %}
-            </dl>
+    {% if data_gpu %}
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-header">
+                <strong class="card-title">GPU Utilization</strong>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Memory</th>
+                        <th scope="col">GPU Utilization</th>
+                        <th scope="col">Temperature</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for info in data_gpu %}
+                    <tr>
+                        <th scope="row">{{info.index}}</th>
+                        <td>{{info.name}}</td>
+                        {% if 'memory' in info %}
+                        <td>
+                            {{info.memory.used|sizeof_fmt}} / {{info.memory.total|sizeof_fmt}}
+                            ({{(100.0 * info.memory.used / info.memory.total)|round(1)}}%)
+                        </td>
+                        {% else%}
+                        <td></td>
+                        {% endif %}
+                        {% if 'utilization' in info %}
+                        <td>
+                            {{info.utilization.gpu}}%
+                        </td>
+                        {% else %}
+                        <td></td>
+                        {% endif%}
+                        {% if 'temperature' in info %}
+                        <td>{{info.temperature}} &deg;C</td>
+                        {% else %}
+                        <td></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-    {% endfor %}
+    {% endif %}
+
     {% if data_cpu %}
     <div class="col">
-        <h3 class="mb-3">CPU Utilization</h3>
         <div class="jumbotron">
     <h3>Process {% if 'pid' in data_cpu %}#{{data_cpu.pid}}{% endif %}</h3>
     <dl>
