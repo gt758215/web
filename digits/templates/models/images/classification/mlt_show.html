@@ -10,6 +10,8 @@
     <div class="col-sm-6">
         <div class="card">
             <div class="card-body">
+                <h4 class='text-center' data-toggle="collapse" data-target="#info"> Info</h4>
+                <div id="info" class="collapse">
                 <dt>Job Directory</dt>
                 <dd>{{ job.dir() }}</dd>
                 <dt>Disk Size</dt>
@@ -26,6 +28,7 @@
                 <dt>Pretrained Model</dt>
                 <dd>{{task.pretrained_model}}</dd>
                 {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -33,8 +36,8 @@
         <div class="card">
             <div class="card-body">
 
-            <h4 class='text-center'>Dataset</h4>
-            <div id="dataset-summary"></div>
+            <h4 class='text-center' data-toggle="collapse" data-target="#dataset-summary">Dataset</h4>
+            <div id="dataset-summary" class="collapse"></div>
             {% if job.dataset %}
             <script>
             $.ajax("{{url_for('digits.dataset.views.summary', job_id=job.dataset.id())}}",

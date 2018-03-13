@@ -1,0 +1,72 @@
+<div class="row">
+    {% if data_gpu %}
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-header">
+                <strong class="card-title">GPU Utilization</strong>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Memory</th>
+                        <th scope="col">GPU Utilization</th>
+                        <th scope="col">Temperature</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for info in data_gpu %}
+                    <tr>
+                        <th scope="row">{{info.index}}</th>
+                        <td>{{info.name}}</td>
+                        {% if 'memory' in info %}
+                        <td>
+                            {{info.memory.used|sizeof_fmt}} / {{info.memory.total|sizeof_fmt}}
+                            ({{(100.0 * info.memory.used / info.memory.total)|round(1)}}%)
+                        </td>
+                        {% else%}
+                        <td></td>
+                        {% endif %}
+                        {% if 'utilization' in info %}
+                        <td>
+                            {{info.utilization.gpu}}%
+                        </td>
+                        {% else %}
+                        <td></td>
+                        {% endif%}
+                        {% if 'temperature' in info %}
+                        <td>{{info.temperature}} &deg;C</td>
+                        {% else %}
+                        <td></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if data_cpu %}
+    <div class="col">
+        <div class="jumbotron">
+    <h3>Process {% if 'pid' in data_cpu %}#{{data_cpu.pid}}{% endif %}</h3>
+    <dl>
+        <dt>CPU Utilization </dt>
+        {% if 'cpu_pct' in data_cpu %}
+        <dd>{{data_cpu.cpu_pct}}%</dd>
+        {% endif %}
+        {% if 'mem_used' in data_cpu %}
+        <dt>Memory</dt>
+        <dd>
+            {{data_cpu.mem_used|sizeof_fmt}} {% if 'mem_pct' in data_cpu %} ({{data_cpu.mem_pct|round(1)}}%) {% endif %}
+        </dd>
+        {% endif %}
+    </dl>
+        </div>
+    </div>
+    {% endif %}
+</div>

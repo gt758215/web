@@ -87,6 +87,14 @@ $("#dataset").change(function() {
         }
     });
 $("#dataset").change();
+
+function toggle_visibility(id){
+  var e = document.getElementById(id);
+  if (e.style.display == 'block')
+    e.style.display = 'none';
+  else
+    e.style.display = 'block';
+}
         </script>
 
         <div class="col-sm-4">
@@ -96,100 +104,102 @@ $("#dataset").change();
                 <div class="form-group{{mark_errors([form.optimized])}}">
                     {{form.optimized.label}}
                     <label class="switch switch-text switch-primary">
-                        <input type="checkbox" class="switch-input">
+                        <input type="checkbox" class="switch-input" onclick="toggle_visibility('hyperparameters');">
                         <span data-on="On" data-off="Off" class="switch-label"></span>
                         <span class="switch-handle"></span>
                     </label>
                 </div>
                 <!-- Length -->
-                <div class="form-group{{mark_errors([form.shuffle])}}" id="shuffle-data" style="display:none;">
-                    <label for={{form.shuffle.name}}>
-                        {{form.shuffle}}
-                        {{form.shuffle.label.text}}
-                    </label>
-                    {{ form.shuffle.tooltip }}
-                </div>
+                <div id="hyperparameters" style="display:block">
+                    <div class="form-group{{mark_errors([form.shuffle])}}" id="shuffle-data" style="display:none;">
+                        <label for={{form.shuffle.name}}>
+                            {{form.shuffle}}
+                            {{form.shuffle.label.text}}
+                        </label>
+                        {{ form.shuffle.tooltip }}
+                    </div>
 
-                <div class="form-group{{mark_errors([form.train_epochs])}}">
-                    {{form.train_epochs.label}}
-                    {{form.train_epochs.tooltip}}
-                    {{form.train_epochs(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.snapshot_interval])}}">
-                    {{form.snapshot_interval.label}}
-                    {{form.snapshot_interval.tooltip}}
-                    {{form.snapshot_interval(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.val_interval])}}">
-                    {{form.val_interval.label}}
-                    {{form.val_interval.tooltip}}
-                    {{form.val_interval(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.val_interval])}}" id="timeline-traces" style="display:none;">
-                    {{form.traces_interval.label}}
-                    {{form.traces_interval.tooltip}}
-                    {{form.traces_interval(class='form-control')}}
-                </div>
-                {# TODO: neat progress bar #}
-                <div class="form-group{{mark_errors([form.random_seed])}}">
-                    {{form.random_seed.label}}
-                    {{form.random_seed.tooltip}}
-                    {{form.random_seed(class='form-control', placeholder='[none]')}}
-                </div>
-                <div class="form-group{{mark_errors([form.batch_size])}}">
-                    {{form.batch_size.label}}
-                    {{form.batch_size.tooltip}}
-                    <small class="pull-right">
-                        {{form.batch_size.small_text}}
-                    </small>
-                    {{form.batch_size(class='form-control', placeholder='[network defaults]')}}
-                </div>
-                <div class="form-group{{mark_errors([form.batch_accumulation])}}"
-                    id="batch-accumulation-option" style="display:none;">
-                    {{form.batch_accumulation.label}}
-                    {{form.batch_accumulation.tooltip}}
-                    {{form.batch_accumulation(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.rampup_lr])}}">
-                    {{form.rampup_lr.label}}
-                    {{form.rampup_lr.tooltip}}
-                    {{form.rampup_lr(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.rampup_epoch])}}">
-                    {{form.rampup_epoch.label}}
-                    {{form.rampup_epoch.tooltip}}
-                    {{form.rampup_epoch(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.solver_type])}}">
-                    {{form.solver_type.label}}
-                    {{form.solver_type.tooltip}}
-                    {{form.solver_type(class='form-control')}}
-                </div>
-                <div class="solver-specific-RMSPROP form-group{{mark_errors([form.rms_decay])}}">
-                    {{form.rms_decay.label}}
-                    {{form.rms_decay.tooltip}}
-                    {{form.rms_decay(class='form-control')}}
-                </div>
-                <div class="form-group{{mark_errors([form.learning_rate])}}">
-                    {{form.learning_rate.label}}
-                    {{form.learning_rate.tooltip}}
-                    <small class="pull-right">
-                        {{form.learning_rate.small_text}}
-                    </small>
-                    {{form.learning_rate(class='form-control learning-rate-option')}}
-                </div>
-                <div class="form-group{{mark_errors([form.weight_decay])}}">
-                    {{form.weight_decay.label}}
-                    {{form.weight_decay.tooltip}}
-                    {{form.weight_decay(class='form-control')}}
-                </div>
-                <p>
-                <label class="checkbox-inline">
-                    <input id="show-advanced-lr-options" type="checkbox" />
-                    Show advanced learning rate options
-                </label>
-                </p>
-                <script>
+                    <div class="form-group{{mark_errors([form.train_epochs])}}">
+                        {{form.train_epochs.label}}
+                        {{form.train_epochs.tooltip}}
+                        {{form.train_epochs(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.snapshot_interval])}}">
+                        {{form.snapshot_interval.label}}
+                        {{form.snapshot_interval.tooltip}}
+                        {{form.snapshot_interval(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.val_interval])}}">
+                        {{form.val_interval.label}}
+                        {{form.val_interval.tooltip}}
+                        {{form.val_interval(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.val_interval])}}" id="timeline-traces" style="display:none;">
+                        {{form.traces_interval.label}}
+                        {{form.traces_interval.tooltip}}
+                        {{form.traces_interval(class='form-control')}}
+                    </div>
+                    {# TODO: neat progress bar #}
+                    <div class="form-group{{mark_errors([form.random_seed])}}">
+                        {{form.random_seed.label}}
+                        {{form.random_seed.tooltip}}
+                        {{form.random_seed(class='form-control', placeholder='[none]')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.batch_size])}}">
+                        {{form.batch_size.label}}
+                        {{form.batch_size.tooltip}}
+                        <small class="pull-right">
+                            {{form.batch_size.small_text}}
+                        </small>
+                        {{form.batch_size(class='form-control', placeholder='[network defaults]')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.batch_accumulation])}}"
+                         id="batch-accumulation-option" style="display:none;">
+                        {{form.batch_accumulation.label}}
+                        {{form.batch_accumulation.tooltip}}
+                        {{form.batch_accumulation(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.rampup_lr])}}">
+                        {{form.rampup_lr.label}}
+                        {{form.rampup_lr.tooltip}}
+                        {{form.rampup_lr(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.rampup_epoch])}}">
+                        {{form.rampup_epoch.label}}
+                        {{form.rampup_epoch.tooltip}}
+                        {{form.rampup_epoch(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.solver_type])}}">
+                        {{form.solver_type.label}}
+                        {{form.solver_type.tooltip}}
+                        {{form.solver_type(class='form-control')}}
+                    </div>
+                    <div class="solver-specific-RMSPROP form-group{{mark_errors([form.rms_decay])}}">
+                        {{form.rms_decay.label}}
+                        {{form.rms_decay.tooltip}}
+                        {{form.rms_decay(class='form-control')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.learning_rate])}}">
+                        {{form.learning_rate.label}}
+                        {{form.learning_rate.tooltip}}
+                        <small class="pull-right">
+                            {{form.learning_rate.small_text}}
+                        </small>
+                        {{form.learning_rate(class='form-control learning-rate-option')}}
+                    </div>
+                    <div class="form-group{{mark_errors([form.weight_decay])}}">
+                        {{form.weight_decay.label}}
+                        {{form.weight_decay.tooltip}}
+                        {{form.weight_decay(class='form-control')}}
+                    </div>
+                    <p>
+                        <label class="checkbox-inline">
+                            <input id="show-advanced-lr-options" type="checkbox" />
+                            Show advanced learning rate options
+                        </label>
+                    </p>
+
+                    <script>
 {% for choice in form.solver_type.choices %}
 {% for fw in frameworks %}
 {% if fw.supports_solver_type(choice[0]) %}
@@ -221,70 +231,70 @@ showHideAdvancedLROptions();
 showHideSolverSpecificOptions();
                 </script>
 
-                <div id="advanced-lr-options" style="display:none;">
+                    <div id="advanced-lr-options" style="display:none;">
 
-                    <div class="form-group{{mark_errors([form.lr_policy])}}">
-                        {{form.lr_policy.label}}
-                        {{form.lr_policy(class='form-control learning-rate-option')}}
-                    </div>
+                        <div class="form-group{{mark_errors([form.lr_policy])}}">
+                            {{form.lr_policy.label}}
+                            {{form.lr_policy(class='form-control learning-rate-option')}}
+                        </div>
 
-                    <div class="form-group{{mark_errors([form.lr_step_size])}}">
-                        {{form.lr_step_size.label}}
-                        <div class="input-group">
-                            {{form.lr_step_size(class='form-control learning-rate-option')}}
-                            <span class="input-group-addon">%</span>
+                        <div class="form-group{{mark_errors([form.lr_step_size])}}">
+                            {{form.lr_step_size.label}}
+                            <div class="input-group">
+                                {{form.lr_step_size(class='form-control learning-rate-option')}}
+                                <span class="input-group-addon">%</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_step_gamma])}}">
-                        {{form.lr_step_gamma.label}}
-                        {{form.lr_step_gamma(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_multistep_values])}}">
-                        {{form.lr_multistep_values.label}}
-                        <div class="input-group">
-                            {{form.lr_multistep_values(class='form-control learning-rate-option')}}
-                            <span class="input-group-addon">%</span>
+                        <div class="form-group{{mark_errors([form.lr_step_gamma])}}">
+                            {{form.lr_step_gamma.label}}
+                            {{form.lr_step_gamma(class='form-control learning-rate-option')}}
                         </div>
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_multistep_gamma])}}">
-                        {{form.lr_multistep_gamma.label}}
-                        {{form.lr_multistep_gamma(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_exp_gamma])}}">
-                        {{form.lr_exp_gamma.label}}
-                        {{form.lr_exp_gamma(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_inv_gamma])}}">
-                        {{form.lr_inv_gamma.label}}
-                        {{form.lr_inv_gamma(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_inv_power])}}">
-                        {{form.lr_inv_power.label}}
-                        {{form.lr_inv_power(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_poly_power])}}">
-                        {{form.lr_poly_power.label}}
-                        {{form.lr_poly_power(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_sigmoid_step])}}">
-                        {{form.lr_sigmoid_step.label}}
-                        <div class="input-group">
-                            {{form.lr_sigmoid_step(class='form-control learning-rate-option')}}
-                            <span class="input-group-addon">%</span>
+                        <div class="form-group{{mark_errors([form.lr_multistep_values])}}">
+                            {{form.lr_multistep_values.label}}
+                            <div class="input-group">
+                                {{form.lr_multistep_values(class='form-control learning-rate-option')}}
+                                <span class="input-group-addon">%</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group{{mark_errors([form.lr_sigmoid_gamma])}}">
-                        {{form.lr_sigmoid_gamma.label}}
-                        {{form.lr_sigmoid_gamma(class='form-control learning-rate-option')}}
-                    </div>
-                    <a id="showLRGraphBtn" class="btn btn-info btn-sm" href="#" onClick="return getLRGraph();">Visualize LR</a>
-                    <div id="visualize-lr" style="display:none;">
-                        <a class="close" onClick="$('#visualize-lr').hide();return false;">&times;</a>
-                        <br>
-                        <div id="visualize-lr-graph" style="background:white;"></div>
-                    </div>
+                        <div class="form-group{{mark_errors([form.lr_multistep_gamma])}}">
+                            {{form.lr_multistep_gamma.label}}
+                            {{form.lr_multistep_gamma(class='form-control learning-rate-option')}}
+                        </div>
+                        <div class="form-group{{mark_errors([form.lr_exp_gamma])}}">
+                            {{form.lr_exp_gamma.label}}
+                            {{form.lr_exp_gamma(class='form-control learning-rate-option')}}
+                        </div>
+                        <div class="form-group{{mark_errors([form.lr_inv_gamma])}}">
+                            {{form.lr_inv_gamma.label}}
+                            {{form.lr_inv_gamma(class='form-control learning-rate-option')}}
+                        </div>
+                        <div class="form-group{{mark_errors([form.lr_inv_power])}}">
+                            {{form.lr_inv_power.label}}
+                            {{form.lr_inv_power(class='form-control learning-rate-option')}}
+                        </div>
+                        <div class="form-group{{mark_errors([form.lr_poly_power])}}">
+                            {{form.lr_poly_power.label}}
+                            {{form.lr_poly_power(class='form-control learning-rate-option')}}
+                        </div>
+                        <div class="form-group{{mark_errors([form.lr_sigmoid_step])}}">
+                            {{form.lr_sigmoid_step.label}}
+                            <div class="input-group">
+                                {{form.lr_sigmoid_step(class='form-control learning-rate-option')}}
+                                <span class="input-group-addon">%</span>
+                            </div>
+                        </div>
+                        <div class="form-group{{mark_errors([form.lr_sigmoid_gamma])}}">
+                            {{form.lr_sigmoid_gamma.label}}
+                            {{form.lr_sigmoid_gamma(class='form-control learning-rate-option')}}
+                        </div>
+                        <a id="showLRGraphBtn" class="btn btn-info btn-sm" href="#" onClick="return getLRGraph();">Visualize LR</a>
+                        <div id="visualize-lr" style="display:none;">
+                            <a class="close" onClick="$('#visualize-lr').hide();return false;">&times;</a>
+                            <br>
+                            <div id="visualize-lr-graph" style="background:white;"></div>
+                        </div>
 
-                    <script>
+                        <script>
                         function showHideAdvancedLROption(selector, show) {
                             show = show || true;
                             var element = $(selector);
@@ -377,6 +387,7 @@ showHideSolverSpecificOptions();
                         });
                         showSelectedAdvancedLROptions();
                     </script>
+                    </div>
                 </div>
             </div>
         </div>
