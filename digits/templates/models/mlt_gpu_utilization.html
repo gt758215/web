@@ -1,6 +1,6 @@
 <div class="row">
     {% for info in data_gpu %}
-    <div class="col-sm-12">
+    <div class="col">
         <h3 class="mb-3">GPU Utilization</h3>
         <div class="jumbotron">
             <h3>{{info.name}} (#{{info.index}})</h3>
@@ -25,7 +25,7 @@
     </div>
     {% endfor %}
     {% if data_cpu %}
-    <div class="col-sm-12">
+    <div class="col">
         <h3 class="mb-3">CPU Utilization</h3>
         <div class="jumbotron">
     <h3>Process {% if 'pid' in data_cpu %}#{{data_cpu.pid}}{% endif %}</h3>
