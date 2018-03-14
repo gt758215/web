@@ -273,11 +273,11 @@ class Task(StatusCls):
                     self.logger.warning('Sent SIGKILL to task "%s"' % self.name())
                     time.sleep(0.1)
                 # check for gpu temperature
-                gpus_info = self.get_gpu_info()
-                if gpus_info is not None:
-                    for info in gpus_info:
-                        if 'temperature' in info:
-                            self.logger.debug('gpu temp: %s.' % (info.temperature))
+                # gpus_info = self.get_gpu_info()
+                # if gpus_info is not None:
+                #     for info in gpus_info:
+                #         if 'temperature' in info:
+                #             self.logger.debug('gpu temp: %s.' % (info.temperature))
                 time.sleep(0.01)
         except:
             self.p.terminate()
