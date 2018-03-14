@@ -87,6 +87,7 @@ Datasets
                    ng-click="!enabled || delete_jobs();">
                     Delete
                 </a>
+                <button type="button" class="btn btn-primary" onclick="window.location.href='#';">New Dataset</a></button>
                 </div>
                 <!-- Table -->
                 <table id="dataset-table" ng-mouseleave="mouseleave()"
@@ -165,6 +166,9 @@ Datasets
                             <h5>
                                 No Datasets
                             </h5>
+                            <div class="card-body">
+                                <button type="button" class="btn btn-primary" onclick="window.location.href='#';">New Dataset</a></button>
+                            </div>
                         </td>
                     </tr>
                     </tbody>
@@ -183,7 +187,5 @@ Datasets
         </section>
 </div>
 </div>
-
-<button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('digits.dataset.images.classification.views.new') }}';">New Dataset</a></button>
 
 {% endblock %}
