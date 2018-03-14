@@ -15,6 +15,7 @@ import gevent.event
 from . import utils
 from .config import config_value
 from .status import Status, StatusCls
+from digits import device_query
 import digits.log
 
 # NOTE: Increment this every time the pickled version changes
@@ -179,6 +180,30 @@ class Task(StatusCls):
         """
         pass
 
+    def get_gpu_info(self):
+        data_gpu = []
+        devices = []
+        gpus = None
+        if 'gpus' in self.current_resources:
+            gpus = [identifier for (identifier, value) in self.current_resources['gpus']]
+        if gpus is None:
+            return None
+
+        for index in gpus:
+            device = device_query.get_device(index)
+            if device:
+                devices.append((index, device))
+            else:
+                raise RuntimeError('Failed to load gpu information for GPU #"%s"' % index)
+
+        for index, device in devices:
+            update = {'name': device.name, 'index': index}
+            nvml_info = device_query.get_nvml_info(index)
+            if nvml_info is not None:
+                update.update(nvml_info)
+            data_gpu.append(update)
+        return data_gpu
+
     def run(self, resources):
         """
         Execute the task
@@ -247,6 +272,12 @@ class Task(StatusCls):
                     self.p.send_signal(signal.SIGKILL)
                     self.logger.warning('Sent SIGKILL to task "%s"' % self.name())
                     time.sleep(0.1)
+                # check for gpu temperature
+                gpus_info = self.get_gpu_info()
+                if gpus_info is not None:
+                    for info in gpus_info:
+                        if 'temperature' in info:
+                            self.logger.debug('gpu temp: %s.' % (info.temperature))
                 time.sleep(0.01)
         except:
             self.p.terminate()
