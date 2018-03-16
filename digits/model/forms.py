@@ -164,7 +164,7 @@ class ModelForm(FlaskForm):
     )
 
     rampup_lr = utils.forms.FloatField(
-        'Rampup Learning Rate',
+        'Gradual Warmup Starting LR',
         validators=[
             validators.NumberRange(min=0),
             validators.Optional(),
@@ -173,7 +173,7 @@ class ModelForm(FlaskForm):
     )
 
     rampup_epoch = utils.forms.IntegerField(
-        'Rampup end epoch',
+        'Gradual Warmup Period (epoch)',
         validators=[
             validators.NumberRange(min=1),
             validators.Optional(),
@@ -301,8 +301,9 @@ class ModelForm(FlaskForm):
     )
 
     # The options for this get set in the view (since they are dependent on the data type)
-    standard_networks = wtforms.RadioField(
-        'Standard Networks',
+    standard_networks = utils.forms.SelectField(
+        'Select Networks',
+        choices=[],
         validators=[
             validate_required_iff(method='standard'),
         ],
