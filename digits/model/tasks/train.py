@@ -11,8 +11,7 @@ import psutil
 
 from digits import device_query
 from digits.task import Task
-from digits.utils import subclass, override, constants
-from digits.status import Status
+from digits.utils import subclass, override, constants, time_filters
 
 # NOTE: Increment this every time the picked object changes
 PICKLE_VERSION = 2
@@ -226,7 +225,7 @@ class TrainTask(Task):
                 data_gpu.append(update)
 
             with app.app_context():
-                html = flask.render_template('models/gpu_utilization.html',
+                html = flask.render_template('models/mlt_gpu_utilization.html',
                                              data_gpu=data_gpu,
                                              data_cpu=data_cpu)
 
@@ -257,14 +256,18 @@ class TrainTask(Task):
         Calculate images trained so far
         """
         dataset_images = self.dataset.get_entry_count(constants.TRAIN_DB)
-        return self.current_epoch * dataset_images
+        return int(self.current_epoch * dataset_images)
+
+    def total_images(self):
+        dataset_images = self.dataset.get_entry_count(constants.TRAIN_DB)
+        return self.train_epochs * dataset_images
 
     def images_processed_per_sec(self):
-        if self.status != Status.RUN or self.progress == 0:
-            return None
-        elapsed = time.time() - self.status_history[-1][1]
+        elapsed = self.job.runtime_of_tasks()
         images = self.images_processed()
-        return round(images / elapsed, 2)
+        if elapsed or elapsed != 0:
+            return round(images / elapsed, 2)
+        return 0
 
     def save_train_output(self, *args):
         """
@@ -284,7 +287,15 @@ class TrainTask(Task):
         # loss graph data
         data = self.combined_graph_data()
         if data:
-
+            socketio.emit('task update',
+                          {
+                              'task': self.html_id(),
+                              'update': 'train_accuracy',
+                              'data': str(self.get_accuracy()),
+                          },
+                          namespace='/jobs',
+                          root=self.job_id,
+                          )
             socketio.emit('task update',
                           {
                               'task': self.html_id(),
@@ -299,10 +310,20 @@ class TrainTask(Task):
                               'task': self.html_id(),
                               'update': 'images_processed',
                               'data': str(self.images_processed()),
+                              'total': str(self.total_images()),
                           },
                           namespace='/jobs',
                           root=self.job_id,
                           )
+            socketio.emit('task update',
+                         {
+                             'task': self.html_id(),
+                             'update': 'time_elapsed',
+                             'data': time_filters.print_time_diff(self.job.runtime_of_tasks()),
+                         },
+                         namespace='/jobs',
+                         root=self.job_id
+                         )
             socketio.emit('task update',
                           {
                               'task': self.html_id(),
@@ -582,6 +603,13 @@ class TrainTask(Task):
         Returns an array of timeline trace id's for creating an HTML select field
         """
         return [[s[1], 'Trace #%s' % s[1]] for s in reversed(self.timeline_traces)]
+
+    def get_accuracy(self):
+        if self.train_outputs and 'epoch' in self.train_outputs:
+            for name, output in self.train_outputs.iteritems():
+                if 'accuracy' in name.lower():
+                    return (self.train_outputs['accuracy'].data[-1:][0] * 100)
+        return '?'
 
     def combined_graph_data(self, cull=True):
         """

@@ -11,6 +11,7 @@ import werkzeug.exceptions
 
 from .forms import ImageClassificationModelForm
 from .job import ImageClassificationModelJob
+from digits.log import logger
 from digits import frameworks
 from digits import utils
 from digits.config import config_value
@@ -226,6 +227,11 @@ def create():
                     'Unrecognized method: "%s"' % form.method.data)
 
             policy = {'policy': form.lr_policy.data}
+            if form.optimized.data:
+                logger.debug('DNN Optimization selected!')
+
+            logger.debug('DNN Optimization %s' % (form.optimized.data))
+
             if form.lr_policy.data == 'fixed':
                 pass
             elif form.lr_policy.data == 'step':

@@ -21,6 +21,7 @@
 <script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/home_app.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/model-graphs.js', ver=dir_hash) }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/bootbox-4.3.0.min.js', ver=dir_hash) }}"></script>
 
     {% if job.status.is_running() %}
         {% with namespace = "/jobs" %}
@@ -66,12 +67,20 @@ socket.on('task update', function (msg) {
             $(status_selector+" .task-progress .progress-bar").width(msg['percentage'] + '%');
             $(status_selector+" .task-progress .progress-bar").html(msg['percentage'] + '%');
             $(status_selector+" .task-progress .task-eta").html(msg['eta']);
+            $('.task-eta').html(msg['eta']);
         }
         else if (msg['update'] == 'images_processed_per_sec') {
             $('.images_per_sec').html(msg['data']);
         }
+        else if (msg['update'] == 'time_elapsed') {
+            $('.time_elapsed').html(msg['data']);
+        }
+        else if (msg['update'] == 'train_accuracy') {
+            $('.accuracy').html(msg['data']);
+        }
         else if (msg['update'] == 'images_processed') {
             $('.images_count').html(msg['data']);
+            $('.images_total').html(msg['total']);
         }
         else if (msg['update'] == 'distribution') {
             drawDistributionGraph(msg['task'], msg['data']);
@@ -98,6 +107,12 @@ socket.on('task update', function (msg) {
     });
         </script>
     {% endif %}
+
+<style>
+    .font-large {
+        font-size: 1.25rem;
+    }
+</style>
 {% endblock %}
 
 {% block pagetitle %}
@@ -143,31 +158,56 @@ socket.on('task update', function (msg) {
 </div>
 
 <div class="row">
-    <div class="col-sm-6">
-        <div class="card text-white bg-flat-color-1">
+    <div class="col-sm">
+        <div class="card text-white bg-flat-color-2">
             <div class="card-body pb-0">
-                <div id="images_processed" class="images_processed">
-                    <div class="text-light">
-                        {% set images = job.train_task().images_processed() %}
-                        <span class="images_count">{{ images }}</span>
-                        <p class="text-light">Images processed</p>
-                    </div>
+                <div class="text-light font-large" align="center">
+                    <span class="time_elapsed">{{ job.runtime_of_tasks()|print_time_diff }}</span>
+                    <p class="text-light font-large">Elapsed Time</p>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6">
-        <div class="card text-white bg-flat-color-5">
+    <div class="col-sm">
+        <div class="card text-white bg-flat-color-3">
             <div class="card-body pb-0">
-                <div class="text-light">
-                    {% set images_per_sec = job.train_task().images_processed_per_sec() %}
-                    <span class="images_per_sec">{{ images_per_sec }}</span>
-                    <p class="text-light">Images/sec</p>
+                <div class="text-light font-large" align="center">
+                    <span class="accuracy">{{ job.train_task().get_accuracy() }}</span>%
+                    <p class="text-light font-large">Accuracy</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+<div class="row">
+    <div class="col-sm">
+        <div class="card text-white bg-flat-color-1">
+            <div class="card-body pb-0">
+                <div id="images_processed" class="images_processed">
+                    <div class="text-light font-large" align="center">
+                        {% set images = job.train_task().images_processed() %}
+                        {% set total = job.train_task().total_images() %}
+                        <span class="images_count">{{ images }}</span> /
+                        <span class="images_total">{{ total }}</span>
+                        <p class="text-light font-large">Images processed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm">
+        <div class="card text-white bg-flat-color-5">
+            <div class="card-body pb-0">
+                <div class="text-light font-large" align="center">
+                    {% set images_per_sec = job.train_task().images_processed_per_sec() %}
+                    <span class="images_per_sec">{{ images_per_sec }}</span>
+                    <p class="text-light font-large">Images/sec</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="gpu-utilization-info" style="display:none;"></div>
 
 <div class="row">
     <!-- Job content -->

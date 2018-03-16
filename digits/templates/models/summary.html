@@ -89,6 +89,7 @@ Training
                    ng-click="!enabled || delete_jobs();">
                     Delete
                 </a>
+                <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('digits.model.images.classification.views.new') }}';">New Training</a></button>
                 </div>
 
                 {[ colspan = (storage.model_fields | filter:show(true)).length + (storage.model_output_fields | filter:show(true)).length;'' ]}
@@ -198,13 +199,16 @@ Training
             <h5 class="card-title">
                 No Train Jobs
             </h5>
+            <div class="card-body">
+                <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('digits.model.images.classification.views.new') }}';">New Training</a></button>
+
+            </div>
         </div>
         </div>
         </section>
     </div>
 </div>
-<button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('digits.model.images.classification.views.new') }}';">New Training</a></button>
-<br>
+
 <br>
 
 <script type="text/javascript">
