@@ -142,6 +142,13 @@ tf.app.flags.DEFINE_float(
     'augHSVs', 0., """The stddev of HSV's Saturation shift as pre-processing  augmentation""")
 tf.app.flags.DEFINE_float(
     'augHSVv', 0., """The stddev of HSV's Value shift as pre-processing augmentation""")
+tf.app.flags.DEFINE_integer(
+    'small_chunk', 4, """ TBC""")
+tf.app.flags.DEFINE_bool(
+    'allow_growth', False, """gpu memory saving.""")
+tf.app.flags.DEFINE_float(
+    'gpu_mem_ratio', 1.0, """if allow_growth is false, occupy a ratio of gpu memory in the beginning""")
+
 
 
 def save_timeline_trace(run_metadata, save_dir, step):
@@ -480,15 +487,42 @@ def main(_):
             exit(-1)
         # @TODO(tzaman) - add mode checks to UserModel
 
+        # A bug ref. to https://github.com/tensorflow/tensorflow/issues/9374
+        #               https://github.com/tensorflow/tensorflow/issues/16753
+        # The config must pass into session ahead of the device_lib.list_local_devices() function call
+        # in train_model.create_model
+
+        # Start running operations on the Graph. allow_soft_placement must be set to
+        # True to build towers on GPU, as some of the ops do not have GPU
+        # implementations.
+        sess_config=tf.ConfigProto(
+                        allow_soft_placement=True,  # will automatically do non-gpu supported ops on cpu
+                        inter_op_parallelism_threads=TF_INTER_OP_THREADS,
+                        intra_op_parallelism_threads=TF_INTRA_OP_THREADS,
+                        #gpu_options=tf.GPUOptions(
+                        #    allow_growth=FLAGS.allow_growth
+                        #    #,per_process_gpu_memory_fraction = 0.4
+                        #  ),
+                        log_device_placement=FLAGS.log_device_placement)
+
+        if FLAGS.allow_growth:
+            sess_config.gpu_options.allow_growth = True
+        else: 
+            if FLAGS.gpu_mem_ratio < 1: 
+                sess_config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_mem_ratio
+
+        sess = tf.Session(config=sess_config)
+
         if FLAGS.train_db:
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
+                train_model.small_chunk = FLAGS.small_chunk
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
                                              FLAGS.bitdepth,
                                              batch_size_train,
-                                             FLAGS.epoch,
+                                             FLAGS.epoch*FLAGS.small_chunk,
                                              FLAGS.seed)
                 train_model.dataloader.set_augmentation(mean_loader, aug_dict)
                 train_model.create_model(UserModel, stage_scope)  # noqa
@@ -513,15 +547,6 @@ def main(_):
                 inf_model.dataloader.setup(None, False, FLAGS.bitdepth, FLAGS.batch_size, 1, FLAGS.seed)
                 inf_model.dataloader.set_augmentation(mean_loader)
                 inf_model.create_model(UserModel, stage_scope)  # noqa
-
-        # Start running operations on the Graph. allow_soft_placement must be set to
-        # True to build towers on GPU, as some of the ops do not have GPU
-        # implementations.
-        sess = tf.Session(config=tf.ConfigProto(
-                          allow_soft_placement=True,  # will automatically do non-gpu supported ops on cpu
-                          inter_op_parallelism_threads=TF_INTER_OP_THREADS,
-                          intra_op_parallelism_threads=TF_INTRA_OP_THREADS,
-                          log_device_placement=FLAGS.log_device_placement))
 
         if FLAGS.visualizeModelPath:
             visualize_graph(sess.graph_def, FLAGS.visualizeModelPath)
@@ -623,6 +648,14 @@ def main(_):
                                                             options=run_options,
                                                             run_metadata=run_metadata)
                     else:
+                        # to do accumulations
+                        if(FLAGS.small_chunk > 1):
+                            for i in xrange(FLAGS.small_chunk-1):
+                                sess.run([train_model.accum],
+                                         feed_dict=feed_dict,
+                                         options=run_options,
+                                         run_metadata=run_metadata)
+
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
                                                          train_model.global_step],
