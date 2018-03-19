@@ -2,6 +2,10 @@
 .radiotext {
     margin: 10px 10px 0px 0px;
 }
+.largeWidth {
+    margin: 0 auto;
+    width: 90%;
+}
 </style>
 
 <table class="table table-bordered table-striped list_group selectable"
@@ -88,12 +92,123 @@
                     [2015]
                 </label>
             </th>
-            <th>?</th>
+            <th>224x224</th>
             </div>
         </tr>
     </form>
     </tbody>
 </table>
+
+<script>
+
+function process_tf_vis(data){
+    // Processes a tensorflow graph_def string such that it is loaded in a tensorboard-style graph
+    var height = String($(window).height() - 200) + 'px' // Bootbox dynamic height hack
+    var the_data = '<script>function load() {document.getElementById("test1").pbtxt = ' + data + ' ;}</scr'+'ipt>';
+    the_data += '<link rel="import" href="{{ url_for('static', filename='tb/tf-graph-basic.build.html', ver=dir_hash) }}" onload=load()>';
+    the_data += '<div style="height:' + height + '"><tf-graph-basic id="test1"></tf-graph-basic></div>';
+    return the_data;
+}
+
+// From https://stackoverflow.com/a/13348618
+function isChrome() {
+    var isChromium = window.chrome,
+    winNav = window.navigator,
+    vendorName = winNav.vendor,
+    isOpera = winNav.userAgent.indexOf("OPR") > -1,
+    isIEedge = winNav.userAgent.indexOf("Edge") > -1,
+    isIOSChrome = winNav.userAgent.match("CriOS");
+
+    if(isIOSChrome){
+        return true;
+    } else if(isChromium !== null && isChromium !== undefined && vendorName === "Google Inc." && isOpera == false && isIEedge == false) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function visualizeNetwork() {
+    var is_tf = 1; //hardcode framework to tensorflow
+
+    if (is_tf) {
+        if (!isChrome()) {
+            bootbox.alert({title: "Visualization Error", message: "Tensorflow network visualization is only available for Google Chrome"});
+            return;
+        }
+    }
+
+    var nets = document.getElementsByName('optradio');
+    var net_value;
+    for(var i = 0; i < nets.length; i++){
+        if(nets[i].checked){
+            net_value = nets[i].id;
+            console.log(net_value);
+            break;
+        }
+    }
+
+    var num_sel_gpus = 0
+    /*
+    *no gpus for visualization
+    *var sel_gpus = $("#select_gpus").val()
+    *if (sel_gpus) {
+    *    num_sel_gpus = sel_gpus.length
+    *} else if ($("#select_gpu_count").val()) {
+    *    num_sel_gpus = $("#select_gpu_count").val()
+    *}
+    */
+    var bootboxClass = (is_tf ? "full-bootbox" : "wide-bootbox");
+    //syncAceEditor(); most probably not needed now, Sync ace editor to custom_network editor
+    var bbox_content = $('<div class="text-center"><i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Loading...</div>' );
+
+    var bbox = bootbox.alert({
+        size: 'large',
+        message: bbox_content,
+        animate: false,
+        closeButton: false,
+        });
+    var net_def = function () {
+        var tmp = $.ajax("{{url_for('digits.networks.views.standard_networks')}}" + "?job_id=" + net_value,
+            {
+                    type: "GET",
+                    async: false
+            })
+            .done(function(data) {
+            }).responseText;
+        return tmp;
+    }();
+
+    console.log(net_def)
+
+    $.ajax("{{url_for('digits.model.views.visualize_network')}}?framework=tensorflow",
+        {
+            type: "POST",
+            data: {custom_network: net_def,
+                dataset_id: '20180223-022129-4cfc',
+                solver_type: 'SGD',
+                use_mean: null,
+                crop_size: null,
+                num_gpus: num_sel_gpus,
+                },
+            }
+        )
+    .done(function(data) {
+            if (is_tf)
+                data = process_tf_vis(data);
+            bbox_content.html(data);
+            $("."+bootboxClass).animate({scrollTop: 0}, "");
+        })
+    .fail(function(data) {
+        bbox.modal("hide")
+        errorAlert(data);
+    });
+
+
+    return false;
+}
+</script>
+
 <button type="button" class="btn btn-outline-primary btn-sm">Add New Network</button>
 <button type="button" class="btn btn-outline-primary btn-sm">Customize</button>
-<button type="button" class="btn btn-outline-primary btn-sm">View</button>
+<button type="button" class="btn btn-outline-primary btn-sm", onclick="return visualizeNetwork();">View</button>
