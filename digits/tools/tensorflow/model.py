@@ -194,6 +194,7 @@ class Model(object):
             grad_averages = []
             n_gpus = len(available_devices)
             if n_gpus == 1:
+                n_losses = len(grad_towers[0])
                 for loss in xrange(n_losses):
                     grad_averages.append(grad_towers[0][loss])
                     for g, _ in grad_towers[0][loss]:

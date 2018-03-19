@@ -466,20 +466,20 @@ def networks_from_request():
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 3.2,
             'weight_decay': 0.0001,
             'learning_rate': 0.1,
+            'small_chunk': 1,
         }
     elif network_id == 'vgg16':
         data = {
-            'train_epochs': 20,
+            'train_epochs': 3,
             'batch_size': 16,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 3.2,
             'weight_decay': 0.0001,
             'learning_rate': 0.1,
+            'small_chunk': 1,
         }
     elif network_id == 'googlenet':
         data = {
@@ -488,18 +488,20 @@ def networks_from_request():
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 3.2,
-            'weight_decay': 0.0001,
             'learning_rate': 0.1,
+            'weight_decay': 0.0001,
+            'small_chunk': 1,
         }
     elif network_id == 'lenet':
         data = {
             'train_epochs': 3,
             'batch_size': 32,
             'solver_type': 'SGD',
-            'learning_rate': 3.2,
-            'weight_decay': 0.0001,
+            'rampup_lr': 0,
+            'rampup_epoch': 0,
             'learning_rate': 0.1,
+            'weight_decay': 0.0001,
+            'small_chunk': 4,
         }
     else:
         data = {
@@ -510,6 +512,7 @@ def networks_from_request():
             'rampup_epoch': 0,
             'learning_rate': 3.2,
             'weight_decay': 0.0001,
+            'small_chunk': 1,
         }
     logger.debug('network_id: %s, data: %s' % (network_id, data))
     return data

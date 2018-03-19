@@ -107,6 +107,15 @@ class ModelForm(FlaskForm):
         tooltip="How many passes through the training data?"
     )
 
+    small_chunk = utils.forms.IntegerField(
+        'Number of chunks',
+        validators=[
+            validators.NumberRange(min=1)
+        ],
+        default=1,
+        tooltip="How many chunks for a batch size"
+    )
+
     snapshot_interval = utils.forms.FloatField(
         'Snapshot interval (in epochs)',
         default=1,
