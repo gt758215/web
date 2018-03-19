@@ -311,6 +311,7 @@ def create():
                 rampup_lr=form.rampup_lr.data,
                 rampup_epoch=form.rampup_epoch.data,
                 weight_decay=form.weight_decay.data,
+                small_chunk=form.small_chunk.data,
             )
             )
 

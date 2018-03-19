@@ -7,6 +7,7 @@ import math
 import os
 import tarfile
 import zipfile
+import logging
 
 import flask
 from flask import flash
@@ -23,6 +24,8 @@ from digits.webapp import scheduler
 from digits.views import get_job_list
 
 blueprint = flask.Blueprint(__name__, __name__)
+
+logger = logging.getLogger('digits.model.views')
 
 
 @blueprint.route('/', methods=['GET'])
@@ -443,3 +446,78 @@ def get_column_attrs():
                 for j in scheduler.jobs.values() if isinstance(j, ModelJob)]
 
     return reduce(lambda acc, j: acc.union(j), job_outs, set())
+
+def networks_from_request():
+    """
+    Returns the job after grabbing job_id from request.args or request.form
+    Raises werkzeug.exceptions
+    """
+    from digits.webapp import scheduler
+
+    network_id = get_request_arg('network_id')
+    if network_id is None:
+        raise werkzeug.exceptions.BadRequest('network_id is a required field')
+
+    data = {}
+    if network_id == 'resnet50':
+        data = {
+            'train_epochs': 30,
+            'batch_size': 16,
+            'solver_type': 'SGD',
+            'rampup_lr': 0,
+            'rampup_epoch': 0,
+            'weight_decay': 0.0001,
+            'learning_rate': 0.1,
+            'small_chunk': 1,
+        }
+    elif network_id == 'vgg16':
+        data = {
+            'train_epochs': 3,
+            'batch_size': 16,
+            'solver_type': 'SGD',
+            'rampup_lr': 0,
+            'rampup_epoch': 0,
+            'weight_decay': 0.0001,
+            'learning_rate': 0.1,
+            'small_chunk': 1,
+        }
+    elif network_id == 'googlenet':
+        data = {
+            'train_epochs': 40,
+            'batch_size': 16,
+            'solver_type': 'SGD',
+            'rampup_lr': 0,
+            'rampup_epoch': 0,
+            'learning_rate': 0.1,
+            'weight_decay': 0.0001,
+            'small_chunk': 1,
+        }
+    elif network_id == 'lenet':
+        data = {
+            'train_epochs': 3,
+            'batch_size': 32,
+            'solver_type': 'SGD',
+            'rampup_lr': 0,
+            'rampup_epoch': 0,
+            'learning_rate': 0.1,
+            'weight_decay': 0.0001,
+            'small_chunk': 4,
+        }
+    else:
+        data = {
+            'train_epochs': 3,
+            'batch_size': 32,
+            'solver_type': 'SGD',
+            'rampup_lr': 0,
+            'rampup_epoch': 0,
+            'learning_rate': 3.2,
+            'weight_decay': 0.0001,
+            'small_chunk': 1,
+        }
+    logger.debug('network_id: %s, data: %s' % (network_id, data))
+    return data
+
+@blueprint.route('/summary', methods=['GET'])
+def summary():
+    data = networks_from_request()
+    return flask.jsonify(data)
