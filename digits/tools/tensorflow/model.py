@@ -67,6 +67,57 @@ def average_gradients(tower_grads):
             average_grads.append(grad_and_var)
         return average_grads
 
+def allreduce_gradients_bak(tower_grads):
+    from tensorflow.contrib import nccl
+    nr_tower = len(tower_grads)
+    new_all_grads = []  # NVar * NGPU * 2
+    with tf.name_scope('gradient_allreduce'):
+        for grad_and_vars in zip(*tower_grads):
+            #v = grad_and_vars[0][1]
+            grads = [g for g, _ in grad_and_vars]
+            summed = nccl.all_sum(grads)
+
+            grads_for_a_var = []
+            for (_, v), g in zip(grad_and_vars, summed):
+                with tf.device(g.device):
+                    g = tf.multiply(g, 1.0 / nr_tower)
+                    grads_for_a_var.append((g, v))
+            new_all_grads.append(grads_for_a_var)
+
+    # transpose
+    ret =  [list(k) for k in zip(*new_all_grads)]
+    
+  
+
+    return ret
+
+def allreduce_gradients(tower_grads):
+    from tensorflow.contrib import nccl
+    nr_tower = len(tower_grads)
+
+    # main updating gpu
+    t_gpu = 0
+
+    with tf.name_scope('gradient_allreduce'):
+        average_grads = []
+        for grad_and_vars in zip(*tower_grads):
+            #v = grad_and_vars[0][1]
+            grads = [g for g, _ in grad_and_vars]
+            summed = nccl.all_sum(grads)
+            with tf.control_dependencies(summed):
+                g = summed[t_gpu]
+                with tf.device(g.device):
+                    g = tf.multiply(g, 1.0 / nr_tower)
+                
+            v = grad_and_vars[t_gpu][1]
+            grad_and_var = (g, v)
+
+            average_grads.append(grad_and_var)
+            #t_gpu +=1
+            #t_gpu = t_gpu % nr_tower
+
+        return average_grads
+
 
 class Model(object):
     """
@@ -94,6 +145,7 @@ class Model(object):
 
         self._accum = None
         self.small_chunk = 1
+        self.nccl = False
 
         # Touch to initialize
         # if optimization:
@@ -203,7 +255,10 @@ class Model(object):
                 with tf.device(available_devices[0]):
                     n_losses = len(grad_towers[0])
                     for loss in xrange(n_losses):
-                        grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        if not self.nccl:
+                            grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        else:
+                            grad_averages.append(allreduce_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
                         for gpu in xrange(n_gpus):
                             for g, _ in grad_towers[gpu][loss]:
                                 grad_accum.append(g)
