@@ -148,6 +148,8 @@ tf.app.flags.DEFINE_bool(
     'allow_growth', False, """gpu memory saving.""")
 tf.app.flags.DEFINE_float(
     'gpu_mem_ratio', 1.0, """if allow_growth is false, occupy a ratio of gpu memory in the beginning""")
+tf.app.flags.DEFINE_bool(
+    'nccl', False, """nccl allreduce.""")
 
 
 
@@ -517,6 +519,7 @@ def main(_):
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
                 train_model.small_chunk = FLAGS.small_chunk
+                train_model.nccl = FLAGS.nccl
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
