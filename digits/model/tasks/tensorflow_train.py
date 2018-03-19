@@ -183,7 +183,9 @@ class TensorflowTrainTask(TrainTask):
                 '--snapshotPrefix=%s' % self.snapshot_prefix,
                 '--snapshotInterval=%s' % self.snapshot_interval,
                 '--lr_base_rate=%s' % self.learning_rate,
-                '--lr_policy=%s' % str(self.lr_policy['policy'])
+                '--lr_policy=%s' % str(self.lr_policy['policy']),
+                '--small_chunk=%d' % int(self.small_chunk),
+                '--allow_growth=True'
                 ]
 
         if self.batch_size is not None:

@@ -68,6 +68,7 @@ class TrainTask(Task):
         self.rampup_lr = kwargs.pop('rampup_lr', None)
         self.rampup_epoch = kwargs.pop('rampup_epoch', None)
         self.weight_decay = kwargs.pop('weight_decay', None)
+        self.small_chunk = kwargs.pop('small_chunk', None)
 
         super(TrainTask, self).__init__(job_dir=job.dir(), **kwargs)
         self.pickver_task_train = PICKLE_VERSION
