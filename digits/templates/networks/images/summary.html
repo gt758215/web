@@ -53,12 +53,12 @@
         <tr>
             <th>
                 <div class="radio">
-                    <label><input type="radio" id='vgg-16' name="optradio">VGG-16</label>
+                    <label><input type="radio" id='vgg16' name="optradio">VGG-16</label>
                 </div>
             </th>
             <div class="radiotext">
             <th>
-                <label for='vgg-16'><a href="http://arxiv.org/abs/1409.1556" target="_blank">Original paper</a>
+                <label for='vgg16'><a href="http://arxiv.org/abs/1409.1556" target="_blank">Original paper</a>
                 [2014]
                 </label>
             </th>
@@ -159,7 +159,7 @@ function visualizeNetwork() {
     *}
     */
     var bootboxClass = (is_tf ? "full-bootbox" : "wide-bootbox");
-    //syncAceEditor(); most probably not needed now, Sync ace editor to custom_network editor
+    // syncAceEditor(); most probably not needed now, Sync ace editor to custom_network editor
     var bbox_content = $('<div class="text-center"><i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Loading...</div>' );
 
     var bbox = bootbox.alert({
@@ -179,7 +179,6 @@ function visualizeNetwork() {
         return tmp;
     }();
 
-    console.log(net_def)
 
     $.ajax("{{url_for('digits.model.views.visualize_network')}}?framework=tensorflow",
         {
@@ -207,8 +206,44 @@ function visualizeNetwork() {
 
     return false;
 }
+
+function editNetwork() {
+    var nets = document.getElementsByName('optradio');
+    var net_value;
+    for(var i = 0; i < nets.length; i++){
+        if(nets[i].checked){
+            net_value = nets[i].id;
+            console.log(net_value);
+            break;
+        }
+    }
+
+
+    // syncAceEditor(); most probably not needed now, Sync ace editor to custom_network editor
+    var bbox_content = $('<div class="text-left"><i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Loading...</div>' );
+
+    var bbox = bootbox.alert({
+        size: 'large',
+        message: bbox_content,
+        animate: false,
+        closeButton: false,
+        });
+
+    $.ajax("{{url_for('digits.networks.views.standard_networks')}}" + "?job_id=" + net_value,
+            {
+                    type: "GET",
+                    async: false
+            })
+            .done(function(data) {
+                data = data.replace(new RegExp(' ', 'g'), '&nbsp');
+                data = data.replace(new RegExp('\r?\n','g'), '<br />');
+                bbox_content.html(data);
+            })
+
+}
+
 </script>
 
 <button type="button" class="btn btn-outline-primary btn-sm">Add New Network</button>
-<button type="button" class="btn btn-outline-primary btn-sm">Customize</button>
+<button type="button" class="btn btn-outline-primary btn-sm", onclick="return editNetwork();">Customize</button>
 <button type="button" class="btn btn-outline-primary btn-sm", onclick="return visualizeNetwork();">View</button>

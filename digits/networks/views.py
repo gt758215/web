@@ -22,7 +22,7 @@ def standard_networks():
     filepath = path.abspath(path.join(basepath, "..", "standard-networks/tensorflow/", job_id+'.py'))
     with open(filepath, 'r') as network_file:
         network_def = network_file.read()
-    print network_def
+
     return network_def
 
 @blueprint.route('/summary', methods=['GET'])
