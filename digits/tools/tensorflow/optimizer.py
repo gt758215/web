@@ -69,8 +69,19 @@ class AccumGradOptimizerAlt(ProxyOptimizer):
         #    trainable_var = (
         #        variables.trainable_variables() +
         #        ops.get_collection(ops.GraphKeys.TRAINABLE_RESOURCE_VARIABLES))
-        #    raise RuntimeError("var_list can't be empty")
+            #raise RuntimeError("var_list can't be empty")
         #trainable_var += ops.get_collection(ops.GraphKeys._STREAMING_MODEL_PORTS)
+        
+        #if(kwargs.get("var_list") != None):
+        #    trainable_col = set([kwargs.get("var_list")])
+        #else:
+        #    trainable_col = set([tf.GraphKeys.GLOBAL_VARIABLES])
+        #trainable_col.remove(tf.GraphKeys.GLOBAL_VARIABLES)
+        #trainable_col.add(tf.GraphKeys.LOCAL_VARIABLES)
+
+        #kwargs['var_list'] = trainable_var
+        #print kwargs['var_list']
+        
 
 
         # Counter variable 
@@ -81,6 +92,8 @@ class AccumGradOptimizerAlt(ProxyOptimizer):
 
         # Get gradients and weights from original Optimizer
         grads_and_vars = self._opt.compute_gradients(*args, **kwargs)
+        grads_and_vars = [(g, v) for g, v in grads_and_vars if g != None]
+        #print grads_and_vars
 
         trainable_var =  [v for _, v in grads_and_vars]
         # Create slots for storing accumulated gradients
