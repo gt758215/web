@@ -494,14 +494,14 @@ def networks_from_request():
         }
     elif network_id == 'lenet':
         data = {
-            'train_epochs': 3,
+            'train_epochs': 8,
             'batch_size': 32,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 0.1,
+            'learning_rate': 0.01,
             'weight_decay': 0.0001,
-            'small_chunk': 4,
+            'small_chunk': 1,
         }
     else:
         data = {

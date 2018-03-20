@@ -421,8 +421,11 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
-        batch_size_train = FLAGS.batch_size
-        batch_size_val = FLAGS.batch_size
+        if (FLAGS.batch_size % FLAGS.small_chunk):
+            logging.error("Batch size %d should be multiply of small_chunk %d" % (FLAGS.batch_size, FLAGS.small_chunk))
+            exit(-1)
+        batch_size_train = int(FLAGS.batch_size / FLAGS.small_chunk)
+        batch_size_val = int(FLAGS.batch_size / FLAGS.small_chunk)
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
 
         # This variable keeps track of next epoch, when to perform validation.
