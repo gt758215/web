@@ -461,8 +461,8 @@ def networks_from_request():
     data = {}
     if network_id == 'resnet50':
         data = {
-            'train_epochs': 30,
-            'batch_size': 16,
+            'train_epochs': 105,
+            'batch_size': 256,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
@@ -472,24 +472,24 @@ def networks_from_request():
         }
     elif network_id == 'vgg16':
         data = {
-            'train_epochs': 3,
-            'batch_size': 16,
+            'train_epochs': 100,
+            'batch_size': 256,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'weight_decay': 0.0001,
-            'learning_rate': 0.1,
+            'weight_decay': 0.0005,
+            'learning_rate': 0.01,
             'small_chunk': 1,
         }
     elif network_id == 'googlenet':
         data = {
-            'train_epochs': 40,
-            'batch_size': 16,
-            'solver_type': 'SGD',
+            'train_epochs': 80,
+            'batch_size': 256,
+            'solver_type': 'MOMENTUM',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 0.1,
-            'weight_decay': 0.0001,
+            'learning_rate': 0.045,
+            'weight_decay': 0.0002,
             'small_chunk': 1,
         }
     elif network_id == 'lenet':
