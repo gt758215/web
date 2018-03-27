@@ -230,8 +230,6 @@ def create():
             if form.optimized.data:
                 logger.debug('DNN Optimization selected!')
 
-            logger.debug('DNN Optimization %s' % (form.optimized.data))
-
             if form.lr_policy.data == 'fixed':
                 pass
             elif form.lr_policy.data == 'step':
