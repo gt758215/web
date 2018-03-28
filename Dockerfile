@@ -20,6 +20,9 @@ RUN git clone -b ${BRANCH} https://github.com/myelintek/web.git /build/ && \
 
 RUN pip install tensorflow-gpu
 
+RUN git clone https://github.com/myelintek/tensorpack.git /tensorpack &&
+    pip instsall -e /tensorpack
+
 EXPOSE 2500
 ENV DIGITS_JOBS_DIR=/data
 
