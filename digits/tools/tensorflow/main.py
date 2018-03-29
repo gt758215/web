@@ -1,6 +1,7 @@
 from tensorpack import *
 import tensorflow as tf
 import os
+from dataset_utils import get_data
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -11,16 +12,17 @@ tf.app.flags.DEFINE_string('networkDirectory', '', """Directory in which network
 tf.app.flags.DEFINE_string('network', '', """File containing network (model)""")
 tf.app.flags.DEFINE_integer('epoch', 1, """Number of epochs to train""")
 tf.app.flags.DEFINE_integer('batch_size', 16, """Number of images to process in a batch""")
+tf.app.flags.DEFINE_string('train_db', '', """Directory with training file source""")
 
 
-def get_config(networkDirectory="", network="", epoch=1, batch_size=16):
+def get_config():
     logger.auto_set_dir(action='d')
 
-    path_network = os.path.join(os.path.dirname(os.path.realpath(__file__)), networkDirectory, network)
+    path_network = os.path.join(os.path.dirname(os.path.realpath(__file__)), FLAGS.networkDirectory, FLAGS.network)
     print(path_network)
     exec(open(path_network).read(), globals())
 
-    dataset_train, dataset_test = get_data()
+    dataset_train, dataset_test = get_data(FLAGS.batch_size, FLAGS.train_db)
     from tensorpack.callbacks import (
         TFEventWriter, JSONWriter, ScalarPrinter,
         MovingAverageSummary, ProgressBar, MergeAllSummaries, RunUpdateOps)
@@ -38,7 +40,7 @@ def get_config(networkDirectory="", network="", epoch=1, batch_size=16):
         ],
         monitors=monitors,
         extra_callbacks=callbacks,
-        max_epoch=epoch,
+        max_epoch=FLAGS.epoch,
     )
 
 
@@ -46,7 +48,7 @@ def main(_):
     if FLAGS.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu
 
-    config = get_config(FLAGS.networkDirectory, FLAGS.network, FLAGS.epoch, FLAGS.batch_size)
+    config = get_config()
     launch_train_with_config(config, SimpleTrainer())
 
 if __name__ == '__main__':

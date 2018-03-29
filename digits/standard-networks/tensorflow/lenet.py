@@ -68,7 +68,7 @@ class Model(ModelDesc):
         return tf.train.AdamOptimizer(lr)
 
 
-def get_data():
-    train = BatchData(dataset.Mnist('train'), 128)
-    test = BatchData(dataset.Mnist('test'), 256, remainder=True)
-    return train, test
+#def get_data():
+#    train = BatchData(dataset.Mnist('train'), 128)
+#    test = BatchData(dataset.Mnist('test'), 256, remainder=True)
+#    return train, test
