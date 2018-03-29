@@ -462,13 +462,13 @@ def networks_from_request():
     if network_id == 'resnet50':
         data = {
             'train_epochs': 105,
-            'batch_size': 256,
+            'batch_size': 8192,
             'solver_type': 'SGD',
-            'rampup_lr': 0,
-            'rampup_epoch': 0,
+            'rampup_lr': 0.1,
+            'rampup_epoch': 5,
             'weight_decay': 0.0001,
-            'learning_rate': 0.1,
-            'small_chunk': 1,
+            'learning_rate': 3.2,
+            'small_chunk': 32,
         }
     elif network_id == 'vgg16':
         data = {

@@ -33,7 +33,7 @@ SUMMARIZE_TOWER_STATS = False
 
 # from
 # https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/image/cifar10/cifar10_multi_gpu_train.py
-def average_gradients(tower_grads):
+def average_gradients(tower_grads, target_device):
     """Calculate the average gradient for each shared variable across all towers.
     Note that this function provides a synchronization point across all towers.
     Args:
@@ -44,6 +44,9 @@ def average_gradients(tower_grads):
        List of pairs of (gradient, variable) where the gradient has been averaged
        across all towers.
     """
+    # main updating gpu
+    t_gpu = target_device
+
     with tf.name_scope('gradient_average'):
         average_grads = []
         for grad_and_vars in zip(*tower_grads):
@@ -56,17 +59,54 @@ def average_gradients(tower_grads):
                 # Append on a 'tower' dimension which we will average over below.
                 grads.append(expanded_g)
             # Average over the 'tower' dimension.
-            grads_transformed = tf.concat(grads, 0)
-            grads_transformed = tf.reduce_mean(grads_transformed, 0)
+            with tf.device(grads[t_gpu].device):
+                grads_transformed = tf.concat(grads, 0)
+                grads_transformed = tf.reduce_mean(grads_transformed, 0)
 
             # Keep in mind that the Variables are redundant because they are shared
             # across towers. So .. we will just return the first tower's pointer to
             # the Variable.
-            v = grad_and_vars[0][1]
+            v = grad_and_vars[t_gpu][1]
             grad_and_var = (grads_transformed, v)
             average_grads.append(grad_and_var)
         return average_grads
 
+
+# from tensorpack
+def average_grads(all_grads):
+    """
+    Average the gradients, on the device of each variable.
+
+    Args:
+        all_grads (K x N x 2): A list of K lists. Each of the list is a list of N (grad, var) tuples.
+            The variables have to be the same across the K lists.
+        colocation (bool): colocate gradient averaging with the variable
+
+    Returns:
+        (N x 2): A list of N (grad, var) tuples, where grad is averaged over K.
+    """
+
+    nr_tower = len(all_grads)
+    if nr_tower == 1:
+        return all_grads[0]
+
+    new_all_grads = []  # NVar * NGPU * 2
+    with tf.name_scope('AvgGrad'):
+        for grad_and_vars in zip(*all_grads):
+            # Ngpu * 2
+            grads = [g for (g, _) in grad_and_vars]
+            summed = tf.multiply(tf.add_n(grads), 1.0 / nr_tower)
+
+            grads_for_a_var = []
+            for (_, v), g in zip(grad_and_vars, [summed]*nr_tower):
+                grads_for_a_var.append((g, v))
+            new_all_grads.append(grads_for_a_var)
+
+    ret =  [list(k) for k in zip(*new_all_grads)]
+    return ret
+
+
+# from tensorpack
 def allreduce_gradients_bak(tower_grads):
     from tensorflow.contrib import nccl
     nr_tower = len(tower_grads)
@@ -86,17 +126,15 @@ def allreduce_gradients_bak(tower_grads):
 
     # transpose
     ret =  [list(k) for k in zip(*new_all_grads)]
-    
-  
 
     return ret
 
-def allreduce_gradients(tower_grads):
+def allreduce_gradients(tower_grads, target_device):
     from tensorflow.contrib import nccl
     nr_tower = len(tower_grads)
 
     # main updating gpu
-    t_gpu = 0
+    t_gpu = target_device
 
     with tf.name_scope('gradient_allreduce'):
         average_grads = []
@@ -144,14 +182,54 @@ class Model(object):
         self._reuse = reuse_variable
 
         self._accum = None
+        self._init = None
         self.small_chunk = 1
         self.nccl = False
+        self.replica = False
 
         # Touch to initialize
         # if optimization:
         #     self.learning_rate
         #     self.global_step
         #     self.optimizer
+
+    @staticmethod
+    def get_post_init_ops():
+        """
+        Copy values of variables on GPU 0 to other GPUs.
+        """
+        # literally all variables, because it's better to sync optimizer-internal variables as well
+        all_vars = tf.global_variables() + tf.local_variables()
+        var_by_name = dict()
+        for v in all_vars:
+            if v.name.startswith('model'):
+                split_name = v.name.split('/')
+                realname = '/'.join(split_name[1:])
+                var_by_name[realname] = v
+
+        post_init_ops = []
+        for v in all_vars:
+            if not v.name.startswith('tower'):
+                continue
+            if v.name.startswith('model'):
+                continue
+            # in this trainer, the master name doesn't have the towerx/ prefix
+            split_name = v.name.split('/')
+            prefix = split_name[0]
+            realname = '/'.join(split_name[1:])
+            if 'AccumGrad' in realname:
+                continue
+            if 'counter' in realname:
+                continue
+            if prefix in realname:
+                logger.error("[SyncMultiGPUReplicatedBuilder] variable "
+                             "{} has its prefix {} appears multiple times in its name!".format(v.name, prefix))
+            copy_from = var_by_name.get(realname)
+            assert copy_from is not None, (realname, var_by_name.keys())
+            #assert copy_from is not None, var_by_name.keys()
+            post_init_ops.append(v.assign(copy_from.read_value()))
+        return tf.group(*post_init_ops, name='sync_variables_from_main_tower')
+
 
     def create_dataloader(self, db_path):
         self.dataloader = tf_data.LoaderFactory.set_source(db_path, is_inference=(self.stage == digits.STAGE_INF))
@@ -199,8 +277,7 @@ class Model(object):
         for dev_i, dev_name in enumerate(available_devices):
             with tf.device(dev_name):
                 current_scope = stage_scope if len(available_devices) == 1 else ('tower_%d' % dev_i)
-                with tf.name_scope(current_scope) as scope_tower:
-
+                with tf.name_scope(('tower_%d' % dev_i)) as scope_tower:
                     if self.stage != digits.STAGE_INF:
                         tower_model = self.add_tower(obj_tower=obj_UserModel,
                                                      x=batch_x_split[dev_i],
@@ -210,7 +287,9 @@ class Model(object):
                                                      x=batch_x_split[dev_i],
                                                      y=None)
 
-                    with tf.variable_scope(digits.GraphKeys.MODEL, reuse=dev_i > 0 or self._reuse):
+                    tower_name = 'model' if self.replica == False or dev_i == 0 else ('tower_%d' % dev_i)
+                    var_reuse = False if self.replica else dev_i > 0
+                    with tf.variable_scope(tower_name, reuse=var_reuse or self._reuse):
                         tower_model.inference  # touch to initialize
 
                         # Reuse the variables in this scope for the next tower/device
@@ -223,10 +302,12 @@ class Model(object):
                         with tf.name_scope(digits.GraphKeys.LOSS):
                             for loss in self.get_tower_losses(tower_model):
                                 tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
+                                #tf.add_to_collection(digits.GraphKeys.LOSSES, loss)
 
                             # Assemble all made within this scope so far. The user can add custom
                             # losses to the digits.GraphKeys.LOSSES collection
                             losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=scope_tower)
+                            #losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=tf.contrib.framework.get_name_scope())
                             losses += ops.get_collection(ops.GraphKeys.REGULARIZATION_LOSSES, scope=None)
                             tower_loss = tf.add_n(losses, name='loss')
 
@@ -236,6 +317,7 @@ class Model(object):
                             grad_tower_losses = []
                             for loss in self.get_tower_losses(tower_model):
                                 grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
+                                #grad_tower_loss = self.optimizer.compute_gradients(loss)
                                 grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
                                 grad_tower_losses.append(grad_tower_loss)
                             grad_towers.append(grad_tower_losses)
@@ -245,28 +327,52 @@ class Model(object):
             grad_accum = []
             grad_averages = []
             n_gpus = len(available_devices)
+
             if n_gpus == 1:
                 n_losses = len(grad_towers[0])
                 for loss in xrange(n_losses):
-                    grad_averages.append(grad_towers[0][loss])
+                    if(self.replica):
+                        grad_averages.append([grad_towers[0][loss]])
+                    else:
+                        grad_averages.append(grad_towers[0][loss])
                     for g, _ in grad_towers[0][loss]:
                         grad_accum.append(g)
             else:
-                with tf.device(available_devices[0]):
-                    n_losses = len(grad_towers[0])
-                    for loss in xrange(n_losses):
-                        if not self.nccl:
-                            grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                n_losses = len(grad_towers[0])
+                for loss in xrange(n_losses):
+                    if not self.nccl:
+                        if(self.replica):
+                            grad_averages.append(average_grads([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
                         else:
-                            grad_averages.append(allreduce_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
-                        for gpu in xrange(n_gpus):
-                            for g, _ in grad_towers[gpu][loss]:
-                                grad_accum.append(g)
+                            grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)], 0))
+                    else:
+                        if(self.replica):
+                            grad_averages.append(allreduce_gradients_bak([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        else:
+                            grad_averages.append(allreduce_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)], 0))
+
+                    for gpu in xrange(n_gpus):
+                        for g, _ in grad_towers[gpu][loss]:
+                            grad_accum.append(g)
+
             apply_gradient_ops = []
             for grad_avg in grad_averages:
-                apply_gradient_ops.append(self.optimizer.apply_gradients(grad_avg, global_step=self.global_step))
+                if(self.replica):
+                    tmp = []
+                    for grad_and_vars in grad_avg:
+                        for (g, v) in grad_and_vars:
+                            tmp.append((g, v))
+                else:
+                    tmp = grad_avg
+
+                apply_gradient_ops.append(self.optimizer.apply_gradients(tmp, global_step=self.global_step))
+
             self._train = apply_gradient_ops
             self._accum = tf.group(*grad_accum)
+            if(self.replica):
+                self._init = self.get_post_init_ops()
+            else:
+                self._init = []
 
     def start_queue_runners(self, sess):
         logging.info('Starting queue runners (%s)', self.stage)
@@ -303,6 +409,10 @@ class Model(object):
     @model_property
     def accum(self):
         return self._accum
+
+    @model_property
+    def init(self):
+        return self._init
 
     @model_property
     def summary(self):
@@ -360,10 +470,7 @@ class Model(object):
 
     @model_property
     def optimizer(self):
-        if(self.small_chunk <= 1):
-            return self._optimizer()
-        else:
-            return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
+        return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
 
     def get_tower_losses(self, tower):
         """
