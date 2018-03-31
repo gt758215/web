@@ -200,18 +200,19 @@ class Model(object):
         """
         # literally all variables, because it's better to sync optimizer-internal variables as well
         all_vars = tf.global_variables() + tf.local_variables()
+        #var_by_name = dict([(v.name, v) for v in all_vars])
         var_by_name = dict()
         for v in all_vars:
-            if v.name.startswith('model'):
+            if v.name.startswith('tower_0'):
                 split_name = v.name.split('/')
                 realname = '/'.join(split_name[1:])
                 var_by_name[realname] = v
 
         post_init_ops = []
         for v in all_vars:
-            if not v.name.startswith('tower'):
+            if not v.name.startswith('tower_'):
                 continue
-            if v.name.startswith('model'):
+            if v.name.startswith('tower_0'):
                 continue
             # in this trainer, the master name doesn't have the towerx/ prefix
             split_name = v.name.split('/')
@@ -272,12 +273,56 @@ class Model(object):
                 if self.stage != digits.STAGE_INF:  # Has no labels
                     batch_y_split = tf.split(batch_y, len(available_devices), 0, name='split_batch')
 
+        # Get global regularizaion loss collection reference as a list named r_loss_global.
+        # Now we can edit regularizaion loss collection by operation r_loss_global list
+        r_loss_global = tf.get_collection_ref(ops.GraphKeys.REGULARIZATION_LOSSES)
+
+
+        # Note: 
+        # (In training stage)
+        # r_loss_train_bak = [] (a bak to store all tower's regularizaion loss)
+        # r_loss_global = (global regularizaion loss)'s reference 
+        # For each Tower:
+        #     empty r_loss_global
+        #     Tower.inference (may add regularizaion loss globally) 
+        #     r_loss_tain_bak += r_loss_global
+        #     ...
+        #
+        # (restore all tower's reg. loss so validation stage could use it)
+        # r_loss_global[:] = r_loss_train_bak[:] 
+        #
+
+        # (In validation stage)
+        # r_loss_global = (global regularizaion loss)'s reference 
+        # r_loss_val_bak = list(r_loss_global)   <= deep copy
+        # For each Tower:
+        #     empty r_loss_global
+        #     parse element name start with 'tower_%d' % dev_i  in r_loss_val_bak
+        #         ... and save to r_loss_global
+        # 
+        #     Tower.inference (will not add any regularizaion loss cause reuse=True)
+        #     ( Some operations only catch regularizaion losses belong to current tower)
+        #     ...
+        #
+
+        if self.replica:
+            # Save regularizaion loss of all tower in training stage
+            if self.stage != digits.STAGE_TRAIN:
+                r_loss_val_bak = list(r_loss_global)
+            # Create a list to store regularizaion loss
+            if self.stage == digits.STAGE_TRAIN:
+                r_loss_train_bak = list()
+
         # Run the user model through the build_model function that should be filled in
         grad_towers = []
         for dev_i, dev_name in enumerate(available_devices):
             with tf.device(dev_name):
-                current_scope = stage_scope if len(available_devices) == 1 else ('tower_%d' % dev_i)
-                with tf.name_scope(('tower_%d' % dev_i)) as scope_tower:
+                if self.replica :
+                    r_loss_global[:] = []
+                    if self.stage != digits.STAGE_TRAIN:
+                        r_loss_global = [loss for loss in r_loss_val_bak if loss.name.startswith('train/tower_%d' % dev_i)]
+
+                with tf.name_scope('tower_%d' % dev_i) as scope_tower:
                     if self.stage != digits.STAGE_INF:
                         tower_model = self.add_tower(obj_tower=obj_UserModel,
                                                      x=batch_x_split[dev_i],
@@ -287,9 +332,8 @@ class Model(object):
                                                      x=batch_x_split[dev_i],
                                                      y=None)
 
-                    tower_name = 'model' if self.replica == False or dev_i == 0 else ('tower_%d' % dev_i)
-                    var_reuse = False if self.replica else dev_i > 0
-                    with tf.variable_scope(tower_name, reuse=var_reuse or self._reuse):
+                    with tf.variable_scope('tower_0' if not self.replica else 'tower_%d' % dev_i, 
+                                            reuse=(False if self.replica else dev_i > 0 ) or self._reuse):
                         tower_model.inference  # touch to initialize
 
                         # Reuse the variables in this scope for the next tower/device
@@ -300,14 +344,16 @@ class Model(object):
                             continue
 
                         with tf.name_scope(digits.GraphKeys.LOSS):
-                            for loss in self.get_tower_losses(tower_model):
+                            for loss in self.get_tower_losses(tower_model, dev_i):
                                 tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
-                                #tf.add_to_collection(digits.GraphKeys.LOSSES, loss)
 
                             # Assemble all made within this scope so far. The user can add custom
                             # losses to the digits.GraphKeys.LOSSES collection
                             losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=scope_tower)
-                            #losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=tf.contrib.framework.get_name_scope())
+
+                            if(self.replica) and self.stage == digits.STAGE_TRAIN:
+                                r_loss_train_bak += r_loss_global
+
                             losses += ops.get_collection(ops.GraphKeys.REGULARIZATION_LOSSES, scope=None)
                             tower_loss = tf.add_n(losses, name='loss')
 
@@ -315,15 +361,18 @@ class Model(object):
 
                         if self.stage == digits.STAGE_TRAIN:
                             grad_tower_losses = []
-                            for loss in self.get_tower_losses(tower_model):
-                                grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
-                                #grad_tower_loss = self.optimizer.compute_gradients(loss)
+                            for loss in self.get_tower_losses(tower_model, dev_i):
+                                # use loss + regularization loss instead of loss only
+                                grad_tower_loss = self.optimizer.compute_gradients(tower_loss, loss['vars'])
                                 grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
                                 grad_tower_losses.append(grad_tower_loss)
                             grad_towers.append(grad_tower_losses)
 
         # Assemble and average the gradients from all towers
         if self.stage == digits.STAGE_TRAIN:
+            if self.replica:
+                r_loss_global[:] = r_loss_train_bak[:]
+
             grad_accum = []
             grad_averages = []
             n_gpus = len(available_devices)
@@ -472,19 +521,25 @@ class Model(object):
     def optimizer(self):
         return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
 
-    def get_tower_losses(self, tower):
+    def get_tower_losses(self, tower, device):
         """
         Return list of losses
 
         If user-defined model returns only one loss then this is encapsulated into
         the expected list of dicts structure
         """
-
+        # Note: Network editor have to maintain each loss with 'loss' and 'vars' if it's a list.
         if isinstance(tower.loss, list):
             return tower.loss
         else:
-            return [{'loss': tower.loss, 'vars': tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)}]
+            tower_vars = []
+            trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+            if self.replica:
+                tower_vars = [var for var in trainable_vars if(var.name.startswith('tower_%d' % device))]
+            else:
+                tower_vars = trainable_vars
 
+            return [{'loss': tower.loss, 'vars': tower_vars}]
 
 class Tower(object):
 

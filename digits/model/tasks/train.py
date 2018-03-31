@@ -239,6 +239,45 @@ class TrainTask(Task):
                               namespace='/jobs',
                               room=self.job_id,
                               )
+            # job dashboard
+            socketio.emit('task update',
+                          {
+                              'task': self.html_id(),
+                              'update': 'train_accuracy',
+                              'data': str(self.get_accuracy()),
+                          },
+                          namespace='/jobs',
+                          room=self.job_id,
+                          )
+            socketio.emit('task update',
+                          {
+                              'task': self.html_id(),
+                              'update': 'images_processed_per_sec',
+                              'data': str(self.images_processed_per_sec()),
+                          },
+                          namespace='/jobs',
+                          room=self.job_id,
+                          )
+            socketio.emit('task update',
+                          {
+                              'task': self.html_id(),
+                              'update': 'images_processed',
+                              'data': str(self.images_processed()),
+                              'total': str(self.total_images()),
+                          },
+                          namespace='/jobs',
+                          room=self.job_id,
+                          )
+            socketio.emit('task update',
+                         {
+                             'task': self.html_id(),
+                             'update': 'time_elapsed',
+                             'data': time_filters.print_time_diff(self.job.runtime_of_tasks()),
+                         },
+                         namespace='/jobs',
+                         room=self.job_id
+                         )
+
             gevent.sleep(1)
 
     def send_progress_update(self, epoch):
@@ -288,43 +327,6 @@ class TrainTask(Task):
         # loss graph data
         data = self.combined_graph_data()
         if data:
-            socketio.emit('task update',
-                          {
-                              'task': self.html_id(),
-                              'update': 'train_accuracy',
-                              'data': str(self.get_accuracy()),
-                          },
-                          namespace='/jobs',
-                          root=self.job_id,
-                          )
-            socketio.emit('task update',
-                          {
-                              'task': self.html_id(),
-                              'update': 'images_processed_per_sec',
-                              'data': str(self.images_processed_per_sec()),
-                          },
-                          namespace='/jobs',
-                          root=self.job_id,
-                          )
-            socketio.emit('task update',
-                          {
-                              'task': self.html_id(),
-                              'update': 'images_processed',
-                              'data': str(self.images_processed()),
-                              'total': str(self.total_images()),
-                          },
-                          namespace='/jobs',
-                          root=self.job_id,
-                          )
-            socketio.emit('task update',
-                         {
-                             'task': self.html_id(),
-                             'update': 'time_elapsed',
-                             'data': time_filters.print_time_diff(self.job.runtime_of_tasks()),
-                         },
-                         namespace='/jobs',
-                         root=self.job_id
-                         )
             socketio.emit('task update',
                           {
                               'task': self.html_id(),

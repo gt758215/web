@@ -153,6 +153,10 @@ tf.app.flags.DEFINE_bool(
     'nccl', True, """nccl allreduce.""")
 tf.app.flags.DEFINE_bool(
     'replica', True, """replica variables on gpus.""")
+tf.app.flags.DEFINE_float(
+    'warm_lr', 0, """ TBC""")
+tf.app.flags.DEFINE_float(
+    'warm_epoch', 0, """ TBC""")
 
 
 def save_timeline_trace(run_metadata, save_dir, step):
@@ -423,11 +427,11 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
-        if (FLAGS.batch_size % FLAGS.small_chunk):
-            logging.error("Batch size %d should be multiply of small_chunk %d" % (FLAGS.batch_size, FLAGS.small_chunk))
-            exit(-1)
-        batch_size_train = int(FLAGS.batch_size / FLAGS.small_chunk)
-        batch_size_val = int(FLAGS.batch_size / FLAGS.small_chunk)
+        assert FLAGS.batch_size % FLAGS.small_chunk == 0, (FLAGS.batch_size, FLAGS.small_chunk)
+        batch_size_train = FLAGS.batch_size//FLAGS.small_chunk
+        batch_size_val = FLAGS.batch_size//FLAGS.small_chunk
+        batch_size_inf = FLAGS.batch_size//FLAGS.small_chunk
+
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
 
         # This variable keeps track of next epoch, when to perform validation.
@@ -539,6 +543,7 @@ def main(_):
         if FLAGS.validation_db:
             with tf.name_scope(digits.STAGE_VAL) as stage_scope:
                 val_model = Model(digits.STAGE_VAL, FLAGS.croplen, nclasses, reuse_variable=True)
+                val_model.replica = FLAGS.replica
                 val_model.create_dataloader(FLAGS.validation_db)
                 val_model.dataloader.setup(FLAGS.validation_labels,
                                            False,
@@ -553,7 +558,7 @@ def main(_):
             with tf.name_scope(digits.STAGE_INF) as stage_scope:
                 inf_model = Model(digits.STAGE_INF, FLAGS.croplen, nclasses)
                 inf_model.create_dataloader(FLAGS.inference_db)
-                inf_model.dataloader.setup(None, False, FLAGS.bitdepth, FLAGS.batch_size, 1, FLAGS.seed)
+                inf_model.dataloader.setup(None, False, FLAGS.bitdepth, batch_size_inf, 1, FLAGS.seed)
                 inf_model.dataloader.set_augmentation(mean_loader)
                 inf_model.create_model(UserModel, stage_scope)  # noqa
 
@@ -601,32 +606,35 @@ def main(_):
 
         if FLAGS.train_db:
             # During training, a log output should occur at least X times per epoch or every X images, whichever lower
-            train_steps_per_epoch = train_model.dataloader.get_total() / batch_size_train
-            if math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH) < math.ceil(5000/batch_size_train):
+            virtual_batch_size = batch_size_train * FLAGS.small_chunk
+            train_data_total = train_model.dataloader.get_total()
+            train_steps_per_epoch = train_data_total / virtual_batch_size
+            if math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH) < math.ceil(5000/virtual_batch_size):
                 logging_interval_step = int(math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH))
             else:
-                logging_interval_step = int(math.ceil(5000/batch_size_train))
+                logging_interval_step = int(math.ceil(5000/virtual_batch_size))
             logging.info("During training. details will be logged after every %s steps (batches)",
                          logging_interval_step)
 
             # epoch value will be calculated for every batch size. To maintain unique epoch value between batches,
             # it needs to be rounded to the required number of significant digits.
             epoch_round = 0  # holds the required number of significant digits for round function.
-            tmp_batchsize = batch_size_train*logging_interval_step
-            while tmp_batchsize <= train_model.dataloader.get_total():
+            tmp_batchsize = virtual_batch_size*logging_interval_step
+            while tmp_batchsize <= train_data_total:
                 tmp_batchsize = tmp_batchsize * 10
                 epoch_round += 1
             logging.info("While logging, epoch value will be rounded to %s significant digits", epoch_round)
 
             # Create the learning rate policy
-            total_training_steps = train_model.dataloader.num_epochs * train_model.dataloader.get_total() / \
-                train_model.dataloader.batch_size
+            total_training_steps = train_steps_per_epoch * FLAGS.epoch
             lrpolicy = lr_policy.LRPolicy(FLAGS.lr_policy,
                                           FLAGS.lr_base_rate,
                                           FLAGS.lr_gamma,
                                           FLAGS.lr_power,
                                           total_training_steps,
-                                          FLAGS.lr_stepvalues)
+                                          FLAGS.lr_stepvalues,
+                                          FLAGS.warm_lr,
+                                          (FLAGS.warm_epoch * train_steps_per_epoch))
             train_model.start_queue_runners(sess)
 
             # Training
@@ -691,7 +699,7 @@ def main(_):
                     print_vals_sum = print_vals + print_vals_sum
 
                     # @TODO(tzaman): account for variable batch_size value on very last epoch
-                    current_epoch = round((step * batch_size_train) / train_model.dataloader.get_total(), epoch_round)
+                    current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
                         steps_since_log = step - step_last_log

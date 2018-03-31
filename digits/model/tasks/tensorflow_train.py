@@ -185,6 +185,8 @@ class TensorflowTrainTask(TrainTask):
                 '--lr_base_rate=%s' % self.learning_rate,
                 '--lr_policy=%s' % str(self.lr_policy['policy']),
                 '--small_chunk=%d' % int(self.small_chunk),
+                '--warm_lr=%f' % float(self.rampup_lr),
+                '--warm_epoch=%d' % self.rampup_epoch,
                 '--allow_growth=True'
                 ]
 

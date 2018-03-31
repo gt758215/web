@@ -36,7 +36,7 @@ class LRPolicy(object):
          return base_lr ( 1/(1 + exp(-gamma * (iter - stepsize))))
     """
 
-    def __init__(self, policy, base_rate, gamma, power, max_steps, step_values):
+    def __init__(self, policy, base_rate, gamma, power, max_steps, step_values, warm_lr=0., warm_steps=0.):
         """Initialize a learning rate policy
         Args:
             policy: Learning rate policy
@@ -54,6 +54,8 @@ class LRPolicy(object):
         self.power = power
         self.max_steps = max_steps
         self.step_values = step_values
+        self.warm_lr = warm_lr
+        self.warm_steps = warm_steps
         if self.step_values:
             self.stepvalues_list = map(float, step_values.split(','))
         else:
@@ -92,6 +94,10 @@ class LRPolicy(object):
         """
         rate = 0
         progress = 100 * (step / self.max_steps)  # expressed in percent units
+
+        if self.warm_lr and step < self.warm_steps:
+            rate = self.warm_lr + (step / self.warm_steps ) * (self.base_rate - self.warm_lr)
+            return rate
 
         if self.policy == "fixed":
             rate = self.base_rate
