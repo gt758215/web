@@ -20,8 +20,8 @@ RUN git clone -b ${BRANCH} https://github.com/myelintek/web.git /build/ && \
 
 RUN pip install tensorflow-gpu
 
-RUN git clone https://github.com/myelintek/tensorpack.git /tensorpack &&
-    pip instsall -e /tensorpack
+RUN git clone https://github.com/myelintek/tensorpack.git /tensorpack && \
+    pip install --upgrade opencv-python setuptools && pip install -e /tensorpack
 
 EXPOSE 2500
 ENV DIGITS_JOBS_DIR=/data
