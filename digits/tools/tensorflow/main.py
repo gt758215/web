@@ -19,6 +19,9 @@ tf.app.flags.DEFINE_string('train_db', '', """Directory with training file sourc
 def get_config():
     nr_tower = max(get_nr_gpu(), 1)
     batch = FLAGS.batch_size // nr_tower
+    total_batch = FLAGS.batch_size
+    BASE_LR = 0.1 * (total_batch / 256.)
+
     logger.auto_set_dir(action='d')
     logger.info("Running on {} towers. Batch size per tower: {}".format(nr_tower, batch))
 
@@ -34,8 +37,12 @@ def get_config():
     callbacks = [
         ModelSaver(),
         # FIXME this is not working
-        ScheduledHyperParamSetter('learning_rate',
-                                  [(30, 1e-2), (60, 1e-3), (85, 1e-4), (95, 1e-5), (105, 1e-6)]),
+        ScheduledHyperParamSetter(
+            'learning_rate',
+            [(0, 0.01), (3, max(BASE_LR, 0.01))], interp='linear'),
+        ScheduledHyperParamSetter(
+            'learning_rate',
+            [(30, BASE_LR * 1e-1), (60, BASE_LR * 1e-2), (80, BASE_LR * 1e-3)]),
     ]
 
     infs = [ClassificationError('wrong-top1', 'val-error-top1'),

@@ -453,8 +453,8 @@ def networks_from_request():
     Raises werkzeug.exceptions
     """
     from digits.webapp import scheduler
-    from tensorpack.utils.gpu import get_nr_gpu
-    nr_tower = max(get_nr_gpu(), 1)
+    from digits.config import config_value
+    nr_tower = len(config_value('gpu_list').split(','))
 
     network_id = get_request_arg('network_id')
     if network_id is None:
