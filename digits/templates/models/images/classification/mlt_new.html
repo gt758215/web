@@ -235,6 +235,9 @@ function get_hyperparameters(){
       if (data['small_chunk']) {
         $("#small_chunk").val(data['small_chunk']);
       }
+      if (data['select_gpu_count']) {
+        $("#select_gpu_count").val(data['select_gpu_count']);
+      }
     })
     .fail(function(data) {
       $("#train_epochs").html("");

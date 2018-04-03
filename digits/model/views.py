@@ -453,6 +453,8 @@ def networks_from_request():
     Raises werkzeug.exceptions
     """
     from digits.webapp import scheduler
+    from tensorpack.utils.gpu import get_nr_gpu
+    nr_tower = max(get_nr_gpu(), 1)
 
     network_id = get_request_arg('network_id')
     if network_id is None:
@@ -462,35 +464,38 @@ def networks_from_request():
     if network_id == 'resnet50':
         data = {
             'train_epochs': 105,
-            'batch_size': 256,
+            'batch_size': nr_tower*32,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
             'weight_decay': 0.0001,
             'learning_rate': 0.1,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
         }
     elif network_id == 'vgg16':
         data = {
             'train_epochs': 8,
-            'batch_size': 256,
+            'batch_size': nr_tower*32,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
             'weight_decay': 0.0005,
             'learning_rate': 0.01,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
         }
     elif network_id == 'googlenet':
         data = {
             'train_epochs': 80,
-            'batch_size': 256,
+            'batch_size': nr_tower*32,
             'solver_type': 'MOMENTUM',
             'rampup_lr': 0,
             'rampup_epoch': 0,
             'learning_rate': 0.045,
             'weight_decay': 0.0002,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
         }
     elif network_id == 'lenet':
         data = {
@@ -502,6 +507,7 @@ def networks_from_request():
             'learning_rate': 0.01,
             'weight_decay': 0.0001,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
         }
     else:
         data = {
@@ -513,6 +519,7 @@ def networks_from_request():
             'learning_rate': 3.2,
             'weight_decay': 0.0001,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
         }
     logger.debug('network_id: %s, data: %s' % (network_id, data))
     return data
