@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 from tensorpack import imgaug
 from tensorpack import *
+import multiprocessing
+import cv2
 
 
 _ID_TO_DATASET = {
@@ -60,15 +62,12 @@ def get_data(batch_size, dataset_dir):
         if k in dataset_dir:
             name = v
 
-    print("dataset: {}".format(name))
-    print("batch_size: {}".format(batch_size))
-
     if str(name).lower() in "mnist":
         train = BatchData(dataset.Mnist('train'), batch_size)
         test = BatchData(dataset.Mnist('test'), batch_size, remainder=True)
     elif str(name).lower() in "imagenet":
         augmentors = fbresnet_augmentor()
         train = get_imagenet_dataflow(dataset_dir, 'train', batch_size, augmentors)
-        test = get_imagenet_dataflow(dataset_dir, 'test', batch_size, augmentors)
+        test = get_imagenet_dataflow(dataset_dir, 'val', batch_size, augmentors)
 
     return train, test
