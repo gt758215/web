@@ -670,10 +670,20 @@ def main(_):
                         # to do accumulations
                         if(FLAGS.small_chunk > 1):
                             for i in xrange(FLAGS.small_chunk-1):
-                                sess.run([train_model.accum],
-                                         feed_dict=feed_dict,
-                                         options=run_options,
-                                         run_metadata=run_metadata)
+                                _, summary_str, step = sess.run([train_model.accum,
+                                                                 train_model.summary,
+                                                                 train_model.global_step],
+                                                                feed_dict=feed_dict,
+                                                                options=run_options,
+                                                                run_metadata=run_metadata)
+                                if log_runtime:
+                                    writer.add_run_metadata(run_metadata, str(step))
+                                    save_timeline_trace(run_metadata, FLAGS.save, int(step))
+
+                                writer.add_summary(summary_str, step)
+                                # Parse the summary
+                                tags, print_vals = summary_to_lists(summary_str)
+                                print_vals_sum = print_vals + print_vals_sum
 
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
