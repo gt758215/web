@@ -202,6 +202,9 @@ class ImageNetModel(ModelDesc):
                 x = tf.logical_not(tf.nn.in_top_k(logits, label, topk))
             return tf.cast(x, tf.float32, name=name)
 
+        acc = tf.to_float(tf.nn.in_top_k(logits, label, 1))
+        add_moving_summary(tf.reduce_mean(acc, name='accuracy'))
+
         wrong = prediction_incorrect(logits, label, 1, name='wrong-top1')
         add_moving_summary(tf.reduce_mean(wrong, name='train-error-top1'))
 
