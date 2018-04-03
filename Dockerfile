@@ -6,6 +6,7 @@ ENV BRANCH ${BRANCH:-master}
 RUN apt-get update && apt-get install -y \
     curl \
     openjdk-8-jdk \
+    protobuf-compiler \
     python-dev \
     python-pip \
     python-tk \
@@ -25,6 +26,7 @@ RUN git clone https://github.com/myelintek/tensorpack.git /tensorpack && \
 
 EXPOSE 2500
 ENV DIGITS_JOBS_DIR=/data
+ENV TENSORPACK_DATASET=${DIGITS_JOBS_DIR}/tensorpack_data
 
 ADD run.sh /root/.bashrc
 
