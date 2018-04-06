@@ -712,7 +712,7 @@ def main(_):
                     current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
-                        steps_since_log = step - step_last_log
+                        steps_since_log = (step - step_last_log)*small_chunk # real step = accum+train
                         print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
                         logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
                         print_vals_sum = 0
