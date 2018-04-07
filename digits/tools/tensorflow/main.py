@@ -670,10 +670,20 @@ def main(_):
                         # to do accumulations
                         if(FLAGS.small_chunk > 1):
                             for i in xrange(FLAGS.small_chunk-1):
-                                sess.run([train_model.accum],
-                                         feed_dict=feed_dict,
-                                         options=run_options,
-                                         run_metadata=run_metadata)
+                                _, summary_str, step = sess.run([train_model.accum,
+                                                                 train_model.summary,
+                                                                 train_model.global_step],
+                                                                feed_dict=feed_dict,
+                                                                options=run_options,
+                                                                run_metadata=run_metadata)
+                                if log_runtime:
+                                    writer.add_run_metadata(run_metadata, str(step))
+                                    save_timeline_trace(run_metadata, FLAGS.save, int(step))
+
+                                writer.add_summary(summary_str, step)
+                                # Parse the summary
+                                tags, print_vals = summary_to_lists(summary_str)
+                                print_vals_sum = print_vals + print_vals_sum
 
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
@@ -702,7 +712,7 @@ def main(_):
                     current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
-                        steps_since_log = step - step_last_log
+                        steps_since_log = (step - step_last_log)*small_chunk # real step = accum+train
                         print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
                         logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
                         print_vals_sum = 0
