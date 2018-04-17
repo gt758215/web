@@ -436,7 +436,16 @@ class LmdbLoader(LoaderFactory):
         self.lmdb_env = lmdb.open(self.db_path, readonly=True, lock=False)
         self.lmdb_txn = self.lmdb_env.begin(buffers=False)
         self.total = self.lmdb_txn.stat()['entries']
-        self.keys = [key for key, _ in self.lmdb_txn.cursor()]
+
+        # Keys Saver
+        import cPickle as pickle
+
+        key_path = self.db_path + '/keys.mdb'
+        if os.path.isfile(key_path):
+            self.keys = pickle.load(open(key_path, "rb"))
+        else:
+            self.keys = [key for key, _ in self.lmdb_txn.cursor()]
+            pickle.dump(self.keys, open(key_path, "wb"), protocol=True)
 
         # Read the first entry to get some info
         lmdb_val = self.lmdb_txn.get(self.keys[0])
