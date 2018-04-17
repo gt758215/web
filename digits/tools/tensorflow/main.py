@@ -518,8 +518,8 @@ def main(_):
 
         if FLAGS.allow_growth:
             sess_config.gpu_options.allow_growth = True
-        else: 
-            if FLAGS.gpu_mem_ratio < 1: 
+        else:
+            if FLAGS.gpu_mem_ratio < 1:
                 sess_config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_mem_ratio
 
         sess = tf.Session(config=sess_config)
@@ -712,7 +712,7 @@ def main(_):
                     current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
-                        steps_since_log = (step - step_last_log)*small_chunk # real step = accum+train
+                        steps_since_log = (step - step_last_log)*FLAGS.small_chunk # real step = accum+train
                         print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
                         logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
                         print_vals_sum = 0
