@@ -339,7 +339,7 @@ def Inference(sess, model):
     """
     Runs one inference (evaluation) epoch (all the files in the loader)
     """
-
+    sess.run(model.dataloader.init_op)
     inference_op = model.towers[0].inference
     if FLAGS.labels_list:  # Classification -> assume softmax usage
         # Append a softmax op
@@ -360,7 +360,7 @@ def Inference(sess, model):
                     continue
 
     try:
-        while not model.queue_coord.should_stop():
+        while True:
             keys, preds, [w], [a] = sess.run([model.dataloader.batch_k,
                                               inference_op,
                                               [weight_vars],
@@ -384,9 +384,7 @@ def Validation(sess, model, current_epoch):
     Runs one validation epoch.
     """
 
-    # @TODO(tzaman): utilize the coordinator by resetting the queue after 1 epoch.
-    # see https://github.com/tensorflow/tensorflow/issues/4535#issuecomment-248990633
-
+    sess.run(model.dataloader.init_op)
     print_vals_sum = 0
     steps = 0
     while (steps * model.dataloader.batch_size) < model.dataloader.get_total():
@@ -589,7 +587,6 @@ def main(_):
 
         # If we are inferencing, only do that.
         if FLAGS.inference_db:
-            inf_model.start_queue_runners(sess)
             Inference(sess, inf_model)
 
         queue_size_op = []
@@ -601,7 +598,6 @@ def main(_):
 
         # Initial Forward Validation Pass
         if FLAGS.validation_db:
-            val_model.start_queue_runners(sess)
             Validation(sess, val_model, 0)
 
         if FLAGS.train_db:
@@ -635,7 +631,7 @@ def main(_):
                                           FLAGS.lr_stepvalues,
                                           FLAGS.warm_lr,
                                           (FLAGS.warm_epoch * train_steps_per_epoch))
-            train_model.start_queue_runners(sess)
+            sess.run(train_model.dataloader.init_op)
 
             # Training
             logging.info('Started training the model')
@@ -647,7 +643,7 @@ def main(_):
                 step = 0
                 step_last_log = 0
                 print_vals_sum = 0
-                while not train_model.queue_coord.should_stop():
+                while True:
                     log_runtime = FLAGS.log_runtime_stats_per_step and (step % FLAGS.log_runtime_stats_per_step == 0)
 
                     run_options = None
