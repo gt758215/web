@@ -547,7 +547,7 @@ def main(_):
                                            False,
                                            FLAGS.bitdepth,
                                            batch_size_val,
-                                           1e9,
+                                           int(1e9),
                                            FLAGS.seed)  # @TODO(tzaman): set numepochs to 1
                 val_model.dataloader.set_augmentation(mean_loader)
                 val_model.create_model(UserModel, stage_scope)  # noqa

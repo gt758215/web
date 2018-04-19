@@ -400,7 +400,10 @@ class LoaderFactory(object):
         dataset = dataset.batch(self.batch_size)
         dataset = dataset.repeat(self.num_epochs)
 
-        iterator = dataset.make_one_shot_iterator()
+        #iterator = dataset.make_one_shot_iterator()
+        iterator = dataset.make_initializable_iterator()
+        self.iterator = iterator
+        self.init_op = iterator.initializer
         next_batch = iterator.get_next()
 
         self.batch_k = next_batch[0]  # Key
