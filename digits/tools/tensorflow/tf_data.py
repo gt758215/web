@@ -397,8 +397,9 @@ class LoaderFactory(object):
             dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed)
         else:
             dataset = dataset.prefetch(max_queue_capacity)
-        dataset = dataset.batch(self.batch_size)
         dataset = dataset.repeat(self.num_epochs)
+        dataset = dataset.batch(self.batch_size)
+
 
         #iterator = dataset.make_one_shot_iterator()
         iterator = dataset.make_initializable_iterator()
