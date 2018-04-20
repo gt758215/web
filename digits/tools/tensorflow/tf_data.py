@@ -413,7 +413,7 @@ class LoaderFactory(object):
         dataset = dataset.map(reshape_and_aug, num_parallel_calls=self.aug_cpu)
         if self.shuffle:
             # shuffled data range = 5 * batch_size
-            dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed, reshuffle_each_iteration=False)
+            dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed, reshuffle_each_iteration=True)
 
         dataset = dataset.repeat(self.num_epochs)
         # batch of one gpu
