@@ -177,10 +177,6 @@ class LoaderFactory(object):
         self.unencoded_channel_scheme = 'rgb'
         self.summaries = None
         self.aug_dict = {}
-        self.gpus = 0
-        self.batch2gpu_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
-        self.reader_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
-        self.aug_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count()) if not self.is_inference else 1
 
         # @TODO(tzaman) rewrite this factory again
         pass
@@ -219,6 +215,10 @@ class LoaderFactory(object):
             self.batch_size = batch_size
             self.num_epochs = num_epochs
             self._seed = seed
+            self.gpus = 0
+            self.batch2gpu_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
+            self.reader_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
+            self.aug_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count()) if not self.is_inference else 1
 
             if self.labels_db_path:
                 self.labels_db = LoaderFactory.set_source(self.labels_db_path)
