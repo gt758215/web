@@ -146,7 +146,7 @@ def allreduce_gradients(tower_grads, target_device):
                 g = summed[t_gpu]
                 with tf.device(g.device):
                     g = tf.multiply(g, 1.0 / nr_tower)
-                
+
             v = grad_and_vars[t_gpu][1]
             grad_and_var = (g, v)
 
@@ -186,7 +186,8 @@ class Model(object):
         self.small_chunk = 1
         self.nccl = False
         self.replica = False
-
+        self.devices = digits.get_available_gpus()
+        self.gpus = len(self.devices)
         # Touch to initialize
         # if optimization:
         #     self.learning_rate
@@ -255,7 +256,7 @@ class Model(object):
             assert self.stage == digits.STAGE_INF
             batch_x = batch_x
 
-        available_devices = digits.get_available_gpus()
+        available_devices = self.devices
         if not available_devices:
             available_devices.append('/cpu:0')
 
@@ -269,37 +270,42 @@ class Model(object):
         else:
             with tf.name_scope('parallelize'):
                 # Split them up
-                batch_x_split = tf.split(batch_x, len(available_devices), 0, name='split_batch')
+                batch_x_split = []
+                for i in range(self.gpus):
+                    batch_x_split.append(batch_x[i])
+
                 if self.stage != digits.STAGE_INF:  # Has no labels
-                    batch_y_split = tf.split(batch_y, len(available_devices), 0, name='split_batch')
+                    batch_y_split = []
+                    for i in range(self.gpus):
+                        batch_y_split.append(batch_y[i])
 
         # Get global regularizaion loss collection reference as a list named r_loss_global.
         # Now we can edit regularizaion loss collection by operation r_loss_global list
         r_loss_global = tf.get_collection_ref(ops.GraphKeys.REGULARIZATION_LOSSES)
 
 
-        # Note: 
+        # Note:
         # (In training stage)
         # r_loss_train_bak = [] (a bak to store all tower's regularizaion loss)
-        # r_loss_global = (global regularizaion loss)'s reference 
+        # r_loss_global = (global regularizaion loss)'s reference
         # For each Tower:
         #     empty r_loss_global
-        #     Tower.inference (may add regularizaion loss globally) 
+        #     Tower.inference (may add regularizaion loss globally)
         #     r_loss_tain_bak += r_loss_global
         #     ...
         #
         # (restore all tower's reg. loss so validation stage could use it)
-        # r_loss_global[:] = r_loss_train_bak[:] 
+        # r_loss_global[:] = r_loss_train_bak[:]
         #
 
         # (In validation stage)
-        # r_loss_global = (global regularizaion loss)'s reference 
+        # r_loss_global = (global regularizaion loss)'s reference
         # r_loss_val_bak = list(r_loss_global)   <= deep copy
         # For each Tower:
         #     empty r_loss_global
         #     parse element name start with 'tower_%d' % dev_i  in r_loss_val_bak
         #         ... and save to r_loss_global
-        # 
+        #
         #     Tower.inference (will not add any regularizaion loss cause reuse=True)
         #     ( Some operations only catch regularizaion losses belong to current tower)
         #     ...
@@ -332,7 +338,7 @@ class Model(object):
                                                      x=batch_x_split[dev_i],
                                                      y=None)
 
-                    with tf.variable_scope('tower_0' if not self.replica else 'tower_%d' % dev_i, 
+                    with tf.variable_scope('tower_0' if not self.replica else 'tower_%d' % dev_i,
                                             reuse=(False if self.replica else dev_i > 0 ) or self._reuse):
                         tower_model.inference  # touch to initialize
 
@@ -562,3 +568,4 @@ class Tower(object):
 
     def gradientUpdate(self, grad):
         return grad
+

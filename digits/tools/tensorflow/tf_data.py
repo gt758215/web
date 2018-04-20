@@ -30,8 +30,11 @@ import multiprocessing
 
 # Constants
 MIN_FRACTION_OF_EXAMPLES_IN_QUEUE = 0.4
-MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 4096  # The queue size cannot exceed this number
-NUM_THREADS_DATA_LOADER = 6
+MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 8192  # The queue size cannot exceed this number
+#PREFETCH_BATCH = 32  # The queue size cannot exceed this number
+NUM_THREADS_DATA_LOADER = 16
+NUM_THREADS_DATA_READER = 16
+NUM_THREADS_DATA_BATCHER = 8
 LOG_MEAN_FILE = False  # Logs the mean file as loaded in TF to TB
 
 # Supported extensions for Loaders
@@ -174,6 +177,10 @@ class LoaderFactory(object):
         self.unencoded_channel_scheme = 'rgb'
         self.summaries = None
         self.aug_dict = {}
+        self.gpus = 0
+        self.batch2gpu_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
+        self.reader_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
+        self.aug_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count()) if not self.is_inference else 1
 
         # @TODO(tzaman) rewrite this factory again
         pass
@@ -276,6 +283,19 @@ class LoaderFactory(object):
             data = tf.to_float(data)
             # data = tf.image.convert_image_dtype(data, tf.float32) # normalize to [0:1) range
         return data
+
+    def load_to_gpu(self, k, d, l):
+            d_g = []
+            l_g = []
+            dev = range(self.gpus)
+
+            for i in dev:
+                with tf.device("/gpu:%d" % i):
+                    d_g.append(tf.identity(d[i]))
+                    l_g.append(tf.identity(l[i]))
+            d_2 = tf.stack(d_g, 0)
+            l_2 = tf.stack(l_g, 0)
+            return k, d_2, l_2
 
     def create_input_pipeline(self):
         """
@@ -387,19 +407,28 @@ class LoaderFactory(object):
 
         max_queue_capacity = min(math.ceil(self.total * MIN_FRACTION_OF_EXAMPLES_IN_QUEUE),
                                  MAX_ABSOLUTE_EXAMPLES_IN_QUEUE)
-        batch_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count()) if not self.is_inference else 1
-
+        prefetch_batches = max_queue_capacity//self.batch_size
         key_queue = self.get_queue()
         dataset = self.get_single_data(key_queue)
-        dataset = dataset.map(reshape_and_aug, num_parallel_calls=batch_cpu)
+        dataset = dataset.map(reshape_and_aug, num_parallel_calls=self.aug_cpu)
         if self.shuffle:
-            dataset = dataset.prefetch(10*self.batch_size)
+            # shuffled data range = 5 * batch_size
             dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed)
-        else:
-            dataset = dataset.prefetch(max_queue_capacity)
-        dataset = dataset.repeat(self.num_epochs)
-        dataset = dataset.batch(self.batch_size)
 
+        dataset = dataset.repeat(self.num_epochs)
+        # batch of one gpu
+        dataset = dataset.batch(self.batch_size//(self.gpus if self.gpus else 1))
+        # prefetch batches of all gpus
+        dataset = dataset.prefetch(prefetch_batches*self.gpus)
+
+        if(self.gpus > 0):
+            # batch all gpus to one
+            dataset = dataset.batch(self.gpus)
+            # unpack batches of all gpus, and direct each batch tensor on it's gpu
+            dataset = dataset.map(self.load_to_gpu, num_parallel_calls=self.batch2gpu_cpu)
+
+        # now prefetch store batches on different gpus
+        dataset = dataset.prefetch(prefetch_batches)
 
         #iterator = dataset.make_one_shot_iterator()
         iterator = dataset.make_initializable_iterator()
@@ -545,7 +574,7 @@ class LmdbLoader(LoaderFactory):
         py_func_return_type = [tf.string, self.get_tf_data_type(), tf.int32, self.get_tf_label_type(), tf.int32]
         return key_queue.map(
             lambda key: tf.py_func(self.generate_data_op(), [key], py_func_return_type),
-            num_parallel_calls=12
+            num_parallel_calls=self.reader_cpu
         )
 
     def __del__(self):
@@ -619,7 +648,7 @@ class FileListLoader(LoaderFactory):
             shape = np.array([self.width, self.height, self.channels], dtype=np.int32)  # @TODO: this is not dynamic
             shape = tf.convert_to_tensor(shape, tf.int32)
             return key, value, shape  # @TODO(tzaman) - Note: will only work for inferencing stage!
-        return key_queue.map(func, num_parallel_calls=12)
+        return key_queue.map(func, num_parallel_calls=self.reader_cpu)
 
 class TFRecordsLoader(LoaderFactory):
     """ The TFRecordsLoader connects directly into the tensorflow graph.
@@ -704,7 +733,7 @@ class TFRecordsLoader(LoaderFactory):
             ls = tf.convert_to_tensor(ls, tf.int32)
             return d, ds, l, ls
 
-        tf_db = key_queue.map(parser, num_parallel_calls=12)
+        tf_db = key_queue.map(parser, num_parallel_calls=self.reader_cpu)
         key_db = tf.data.Dataset.from_tensor_slices(self.keys)
         return tf.data.Dataset.zip((key_db, tf_db))
 
@@ -829,7 +858,7 @@ class Hdf5Loader(LoaderFactory):
         py_func_return_type = [tf.int64, self.get_tf_data_type(), tf.int32, self.get_tf_label_type(), tf.int32]
         return key_queue.map(
             lambda key: tf.py_func(self.generate_data_op(), [key], py_func_return_type),
-            num_parallel_calls=12
+            num_parallel_calls=self.reader_cpu
         )
 
 
@@ -875,4 +904,4 @@ class GanGridLoader(LoaderFactory):
             ds = np.array([1, 1, 1], dtype=np.int32)
             ds = tf.convert_to_tensor(ds, dtype=tf.int32)
             return key, d, ds, None, None
-        return key_queue.map(func, num_parallel_calls=12)
+        return key_queue.map(func, num_parallel_calls=self.reader_cpu)
