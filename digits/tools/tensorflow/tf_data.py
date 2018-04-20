@@ -405,36 +405,45 @@ class LoaderFactory(object):
             else:
                 return k, d
 
-        max_queue_capacity = min(math.ceil(self.total * MIN_FRACTION_OF_EXAMPLES_IN_QUEUE),
-                                 MAX_ABSOLUTE_EXAMPLES_IN_QUEUE)
+        # how mang element of (key, data, label) to be prefetched
+        max_queue_capacity = min(math.ceil(self.total * MIN_FRACTION_OF_EXAMPLES_IN_QUEUE), MAX_ABSOLUTE_EXAMPLES_IN_QUEUE)
+        # represent by batch number
         prefetch_batches = max_queue_capacity//self.batch_size
+
+        # get a key dataset which produces keys element
         key_queue = self.get_queue()
+        # a dataset which produces a (key, data, label) element onece
         dataset = self.get_single_data(key_queue)
+        # do something on data
         dataset = dataset.map(reshape_and_aug, num_parallel_calls=self.aug_cpu)
+        # shuffled data range in 5 batch size
         if self.shuffle:
-            # shuffled data range = 5 * batch_size
             dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed, reshuffle_each_iteration=True)
 
         dataset = dataset.repeat(self.num_epochs)
-        # batch of one gpu
+        # batch data for one gpu, size = batch_size // gpus
         dataset = dataset.batch(self.batch_size//(self.gpus if self.gpus else 1))
-        # prefetch batches of all gpus
-        dataset = dataset.prefetch(prefetch_batches*self.gpus)
 
+        # @NOTE(gt758215): a crucial step for gpu performance, using two layer for buffering, this is 1st layer
+        # prefetch batches with cpu consuming work
+        dataset = dataset.prefetch(prefetch_batches*self.gpus)
+        # batch all to one, it will be [batch_dev_1, batch_dev_2,...]
+        dataset = dataset.batch(self.gpus if self.gpus > 0 else 1)
+
+        # @NOTE(gt758215): a crucial step for gpu performance
+        # if we using gpus, preload data from cpu to gpu
         if(self.gpus > 0):
-            # batch all gpus to one
-            dataset = dataset.batch(self.gpus)
-            # unpack batches of all gpus, and direct each batch tensor on it's gpu
+            # unpack batches, mapping each batch to a specified gpu, and pack them back again
             dataset = dataset.map(self.load_to_gpu, num_parallel_calls=self.batch2gpu_cpu)
 
-        # now prefetch store batches on different gpus
+        # @NOTE(gt758215): a crucial step for gpu performance, using two layer for buffering, this is 2nd layer
+        # prefetch batches with communication consuming work for cpu to gpus
         dataset = dataset.prefetch(prefetch_batches)
 
         #iterator = dataset.make_one_shot_iterator()
-        iterator = dataset.make_initializable_iterator()
-        self.iterator = iterator
-        self.init_op = iterator.initializer
-        next_batch = iterator.get_next()
+        self.iterator = dataset.make_initializable_iterator()
+        self.init_op = self.iterator.initializer
+        next_batch = self.iterator.get_next()
 
         self.batch_k = next_batch[0]  # Key
         self.batch_x = next_batch[1]  # Input

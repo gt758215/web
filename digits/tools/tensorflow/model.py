@@ -186,7 +186,7 @@ class Model(object):
         self.small_chunk = 1
         self.nccl = False
         self.replica = False
-        self.devices = digits.get_available_gpus()
+        self.devices = digits.get_available_gpus() # it will append cpu further if empty
         self.gpus = len(self.devices)
         # Touch to initialize
         # if optimization:
@@ -264,9 +264,9 @@ class Model(object):
 
         # Split the batch over the batch dimension over the number of available gpu's
         if len(available_devices) == 1:
-            batch_x_split = [batch_x]
+            batch_x_split = [batch_x[0]]
             if self.stage != digits.STAGE_INF:  # Has no labels
-                batch_y_split = [batch_y]
+                batch_y_split = [batch_y[0]]
         else:
             with tf.name_scope('parallelize'):
                 # Split them up
@@ -568,4 +568,3 @@ class Tower(object):
 
     def gradientUpdate(self, grad):
         return grad
-
