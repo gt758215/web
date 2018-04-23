@@ -32,9 +32,9 @@ import multiprocessing
 MIN_FRACTION_OF_EXAMPLES_IN_QUEUE = 0.4
 MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 8192  # The queue size cannot exceed this number
 #PREFETCH_BATCH = 32  # The queue size cannot exceed this number
-NUM_THREADS_DATA_LOADER = 16
-NUM_THREADS_DATA_READER = 16
-NUM_THREADS_DATA_BATCHER = 8
+NUM_THREADS_DATA_LOADER = 18
+NUM_THREADS_DATA_READER = 18
+NUM_THREADS_DATA_BATCHER = 12
 LOG_MEAN_FILE = False  # Logs the mean file as loaded in TF to TB
 
 # Supported extensions for Loaders
@@ -416,29 +416,29 @@ class LoaderFactory(object):
         dataset = self.get_single_data(key_queue)
         # do something on data
         dataset = dataset.map(reshape_and_aug, num_parallel_calls=self.aug_cpu)
+        # @NOTE(gt758215): a crucial step for gpu performance, using three layers for buffering
+        # 1st buffer layer for reader of disk io
+        dataset = dataset.prefetch(max_queue_capacity)
+
         # shuffled data range in 5 batch size
         if self.shuffle:
             dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed, reshuffle_each_iteration=True)
-
+        # repeat
         dataset = dataset.repeat(self.num_epochs)
         # batch data for one gpu, size = batch_size // gpus
         dataset = dataset.batch(self.batch_size//(self.gpus if self.gpus else 1))
-
-        # @NOTE(gt758215): a crucial step for gpu performance, using two layer for buffering, this is 1st layer
-        # prefetch batches with cpu consuming work
+        # 2nd buffer layer for cpu consuming work
         dataset = dataset.prefetch(prefetch_batches*self.gpus)
+
         # batch all to one, it will be [batch_dev_1, batch_dev_2,...]
         dataset = dataset.batch(self.gpus if self.gpus > 0 else 1)
-
         # @NOTE(gt758215): a crucial step for gpu performance
         # if we using gpus, preload data from cpu to gpu
         if(self.gpus > 0):
             # unpack batches, mapping each batch to a specified gpu, and pack them back again
             dataset = dataset.map(self.load_to_gpu, num_parallel_calls=self.batch2gpu_cpu)
-
-        # @NOTE(gt758215): a crucial step for gpu performance, using two layer for buffering, this is 2nd layer
-        # prefetch batches with communication consuming work for cpu to gpus
-        dataset = dataset.prefetch(prefetch_batches)
+            # 3rd buffer layer for communication consuming work for cpu to gpus
+            dataset = dataset.prefetch(prefetch_batches)
 
         #iterator = dataset.make_one_shot_iterator()
         self.iterator = dataset.make_initializable_iterator()
