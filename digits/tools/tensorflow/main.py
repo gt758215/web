@@ -339,7 +339,7 @@ def Inference(sess, model):
     """
     Runs one inference (evaluation) epoch (all the files in the loader)
     """
-
+    sess.run(model.dataloader.init_op)
     inference_op = model.towers[0].inference
     if FLAGS.labels_list:  # Classification -> assume softmax usage
         # Append a softmax op
@@ -360,7 +360,7 @@ def Inference(sess, model):
                     continue
 
     try:
-        while not model.queue_coord.should_stop():
+        while True:
             keys, preds, [w], [a] = sess.run([model.dataloader.batch_k,
                                               inference_op,
                                               [weight_vars],
@@ -384,9 +384,7 @@ def Validation(sess, model, current_epoch):
     Runs one validation epoch.
     """
 
-    # @TODO(tzaman): utilize the coordinator by resetting the queue after 1 epoch.
-    # see https://github.com/tensorflow/tensorflow/issues/4535#issuecomment-248990633
-
+    sess.run(model.dataloader.init_op)
     print_vals_sum = 0
     steps = 0
     while (steps * model.dataloader.batch_size) < model.dataloader.get_total():
@@ -518,8 +516,8 @@ def main(_):
 
         if FLAGS.allow_growth:
             sess_config.gpu_options.allow_growth = True
-        else: 
-            if FLAGS.gpu_mem_ratio < 1: 
+        else:
+            if FLAGS.gpu_mem_ratio < 1:
                 sess_config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_mem_ratio
 
         sess = tf.Session(config=sess_config)
@@ -537,6 +535,7 @@ def main(_):
                                              batch_size_train,
                                              FLAGS.epoch*FLAGS.small_chunk,
                                              FLAGS.seed)
+                train_model.dataloader.gpus = train_model.gpus
                 train_model.dataloader.set_augmentation(mean_loader, aug_dict)
                 train_model.create_model(UserModel, stage_scope)  # noqa
 
@@ -549,8 +548,9 @@ def main(_):
                                            False,
                                            FLAGS.bitdepth,
                                            batch_size_val,
-                                           1e9,
+                                           int(1e9),
                                            FLAGS.seed)  # @TODO(tzaman): set numepochs to 1
+                val_model.dataloader.gpus = val_model.gpus
                 val_model.dataloader.set_augmentation(mean_loader)
                 val_model.create_model(UserModel, stage_scope)  # noqa
 
@@ -559,6 +559,7 @@ def main(_):
                 inf_model = Model(digits.STAGE_INF, FLAGS.croplen, nclasses)
                 inf_model.create_dataloader(FLAGS.inference_db)
                 inf_model.dataloader.setup(None, False, FLAGS.bitdepth, batch_size_inf, 1, FLAGS.seed)
+                inf_model.dataloader.gpus = inf_model.gpus
                 inf_model.dataloader.set_augmentation(mean_loader)
                 inf_model.create_model(UserModel, stage_scope)  # noqa
 
@@ -589,7 +590,6 @@ def main(_):
 
         # If we are inferencing, only do that.
         if FLAGS.inference_db:
-            inf_model.start_queue_runners(sess)
             Inference(sess, inf_model)
 
         queue_size_op = []
@@ -601,7 +601,6 @@ def main(_):
 
         # Initial Forward Validation Pass
         if FLAGS.validation_db:
-            val_model.start_queue_runners(sess)
             Validation(sess, val_model, 0)
 
         if FLAGS.train_db:
@@ -635,7 +634,7 @@ def main(_):
                                           FLAGS.lr_stepvalues,
                                           FLAGS.warm_lr,
                                           (FLAGS.warm_epoch * train_steps_per_epoch))
-            train_model.start_queue_runners(sess)
+            sess.run(train_model.dataloader.init_op)
 
             # Training
             logging.info('Started training the model')
@@ -647,7 +646,7 @@ def main(_):
                 step = 0
                 step_last_log = 0
                 print_vals_sum = 0
-                while not train_model.queue_coord.should_stop():
+                while True:
                     log_runtime = FLAGS.log_runtime_stats_per_step and (step % FLAGS.log_runtime_stats_per_step == 0)
 
                     run_options = None
@@ -712,7 +711,7 @@ def main(_):
                     current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
-                        steps_since_log = (step - step_last_log)*small_chunk # real step = accum+train
+                        steps_since_log = (step - step_last_log)*FLAGS.small_chunk # real step = accum+train
                         print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
                         logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
                         print_vals_sum = 0

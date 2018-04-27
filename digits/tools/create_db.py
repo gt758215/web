@@ -429,6 +429,7 @@ def _create_lmdb(image_count, write_queue, batch_size, output_dir,
     image_sum = None
     batch = []
     compute_mean = bool(mean_files)
+    keys = []
 
     db = lmdb.open(output_dir,
                    map_size=lmdb_map_size,
@@ -461,7 +462,7 @@ def _create_lmdb(image_count, write_queue, batch_size, output_dir,
             batch.append(datum)
 
             if len(batch) == batch_size:
-                _write_batch_lmdb(db, batch, images_written)
+                _write_batch_lmdb(db, batch, keys, images_written)
                 images_written += len(batch)
                 batch = []
             processed_something = True
@@ -470,8 +471,13 @@ def _create_lmdb(image_count, write_queue, batch_size, output_dir,
             time.sleep(0.2)
 
     if len(batch) > 0:
-        _write_batch_lmdb(db, batch, images_written)
+        _write_batch_lmdb(db, batch, keys, images_written)
         images_written += len(batch)
+
+    # Keys Saver
+    import cPickle as pickle
+    keys.sort()
+    pickle.dump(keys, open(output_dir + '/keys.mdb', "wb"), protocol=True)
 
     if images_loaded == 0:
         raise LoadError('no images loaded from input file')
@@ -808,7 +814,7 @@ def _array_to_tf_feature(image, label, encoding):
 #     return datum
 
 
-def _write_batch_lmdb(db, batch, image_count):
+def _write_batch_lmdb(db, batch, keys, image_count):
     """
     Write a batch to an LMDB database
     """
@@ -817,6 +823,7 @@ def _write_batch_lmdb(db, batch, image_count):
             for i, datum in enumerate(batch):
                 key = '%08d_%d' % (image_count + i, datum.label)
                 lmdb_txn.put(key, datum.SerializeToString())
+                keys.append(key)
 
     except lmdb.MapFullError:
         # double the map_size
@@ -831,7 +838,7 @@ def _write_batch_lmdb(db, batch, image_count):
             else:
                 raise e
         # try again
-        _write_batch_lmdb(db, batch, image_count)
+        _write_batch_lmdb(db, batch, keys, image_count)
 
 
 def _save_means(image_sum, image_count, mean_files):
