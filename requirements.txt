@@ -5,7 +5,7 @@ six
 requests
 gevent
 gevent-websocket
-Flask
+Flask==0.12.2
 Flask-WTF
 wtforms
 Flask-SocketIO

@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN git clone -b ${BRANCH} https://github.com/myelintek/web.git /build/ && \
-    pip install --upgrade pip && pip install numpy && pip install -e /build/
+    pip install --upgrade pip==9.0.3 && pip install numpy && pip install -e /build/
 
 RUN pip install tensorflow-gpu
 
