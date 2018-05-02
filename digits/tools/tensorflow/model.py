@@ -188,6 +188,7 @@ class Model(object):
         self.replica = False
         self.devices = digits.get_available_gpus() # it will append cpu further if empty
         self.gpus = len(self.devices)
+        self._nesterov = False
         # Touch to initialize
         # if optimization:
         #     self.learning_rate
@@ -518,7 +519,8 @@ class Model(object):
                                                global_step=self.global_step)
         elif self._optimization == 'momentum':
             return tf.train.MomentumOptimizer(learning_rate=self.learning_rate,
-                                              momentum=self._momentum)
+                                              momentum=self._momentum,
+                                              use_nesterov=self._nesterov)
         elif self._optimization == 'adam':
             return tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         elif self._optimization == 'ftrl':
