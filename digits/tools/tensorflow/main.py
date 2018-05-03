@@ -157,6 +157,8 @@ tf.app.flags.DEFINE_float(
     'warm_lr', 0, """ TBC""")
 tf.app.flags.DEFINE_float(
     'warm_epoch', 0, """ TBC""")
+tf.app.flags.DEFINE_boolean(
+    'nesterov', False, """use nesterov if Momentum on.""")
 
 
 def save_timeline_trace(run_metadata, save_dir, step):
@@ -525,6 +527,7 @@ def main(_):
         if FLAGS.train_db:
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
+                train_model._nesterov = FLAGS.nesterov
                 train_model.small_chunk = FLAGS.small_chunk
                 train_model.nccl = FLAGS.nccl
                 train_model.replica = FLAGS.replica
