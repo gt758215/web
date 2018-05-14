@@ -26,6 +26,6 @@ class UserModel(Tower):
         loss = digits.classification_loss(model, self.y)
         acc_top1 = digits.classification_accuracy_top_n(model, self.y, 1)
         acc_top5 = digits.classification_accuracy_top_n(model, self.y, 5)
-        self.summaries.append(tf.summary.scalar(accuracy.op.name, acc_top1))
-        self.summaries.append(tf.summary.scalar(accuracy.op.name, acc_top5))
+        self.summaries.append(tf.summary.scalar(acc_top1.op.name, acc_top1))
+        self.summaries.append(tf.summary.scalar(acc_top5.op.name, acc_top5))
         return loss
