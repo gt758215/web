@@ -184,7 +184,7 @@ class ModelForm(FlaskForm):
     rampup_epoch = utils.forms.IntegerField(
         'Gradual Warmup Period (epoch)',
         validators=[
-            validators.NumberRange(min=1),
+            validators.NumberRange(min=0),
             validators.Optional(),
         ],
         tooltip=("Warmup learning rate until epoch")
