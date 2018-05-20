@@ -280,55 +280,11 @@ class Model(object):
                     for i in range(self.gpus):
                         batch_y_split.append(batch_y[i])
 
-        # Get global regularizaion loss collection reference as a list named r_loss_global.
-        # Now we can edit regularizaion loss collection by operation r_loss_global list
-        r_loss_global = tf.get_collection_ref(ops.GraphKeys.REGULARIZATION_LOSSES)
-
-
-        # Note:
-        # (In training stage)
-        # r_loss_train_bak = [] (a bak to store all tower's regularizaion loss)
-        # r_loss_global = (global regularizaion loss)'s reference
-        # For each Tower:
-        #     empty r_loss_global
-        #     Tower.inference (may add regularizaion loss globally)
-        #     r_loss_tain_bak += r_loss_global
-        #     ...
-        #
-        # (restore all tower's reg. loss so validation stage could use it)
-        # r_loss_global[:] = r_loss_train_bak[:]
-        #
-
-        # (In validation stage)
-        # r_loss_global = (global regularizaion loss)'s reference
-        # r_loss_val_bak = list(r_loss_global)   <= deep copy
-        # For each Tower:
-        #     empty r_loss_global
-        #     parse element name start with 'tower_%d' % dev_i  in r_loss_val_bak
-        #         ... and save to r_loss_global
-        #
-        #     Tower.inference (will not add any regularizaion loss cause reuse=True)
-        #     ( Some operations only catch regularizaion losses belong to current tower)
-        #     ...
-        #
-
-        if self.replica:
-            # Save regularizaion loss of all tower in training stage
-            if self.stage != digits.STAGE_TRAIN:
-                r_loss_val_bak = list(r_loss_global)
-            # Create a list to store regularizaion loss
-            if self.stage == digits.STAGE_TRAIN:
-                r_loss_train_bak = list()
 
         # Run the user model through the build_model function that should be filled in
         grad_towers = []
         for dev_i, dev_name in enumerate(available_devices):
             with tf.device(dev_name):
-                if self.replica :
-                    r_loss_global[:] = []
-                    if self.stage != digits.STAGE_TRAIN:
-                        r_loss_global = [loss for loss in r_loss_val_bak if loss.name.startswith('train/tower_%d' % dev_i)]
-
                 with tf.name_scope('tower_%d' % dev_i) as scope_tower:
                     if self.stage != digits.STAGE_INF:
                         tower_model = self.add_tower(obj_tower=obj_UserModel,
@@ -358,10 +314,7 @@ class Model(object):
                             # losses to the digits.GraphKeys.LOSSES collection
                             losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=scope_tower)
 
-                            if(self.replica) and self.stage == digits.STAGE_TRAIN:
-                                r_loss_train_bak += r_loss_global
-
-                            losses += ops.get_collection(ops.GraphKeys.REGULARIZATION_LOSSES, scope=None)
+                            losses += tf.losses.get_regularization_losses(scope=scope_tower)
                             tower_loss = tf.add_n(losses, name='loss')
 
                             self.summaries.append(tf.summary.scalar(tower_loss.op.name, tower_loss))
@@ -384,9 +337,6 @@ class Model(object):
 
         # Assemble and average the gradients from all towers
         if self.stage == digits.STAGE_TRAIN:
-            if self.replica:
-                r_loss_global[:] = r_loss_train_bak[:]
-
             grad_accum = []
             grad_averages = []
             n_gpus = len(available_devices)
