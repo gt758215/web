@@ -57,6 +57,35 @@ def home(tab=2):
     )
 
 
+@blueprint.route('/training', methods=['GET'])
+def training(tab=2):
+    running_models = get_job_list(model.ModelJob, True)
+    completed_models = get_job_list(model.ModelJob, False)
+
+    new_dataset_options = {
+        'Images': {
+            'image-classification': {
+                'title': 'Classification',
+                'url': flask.url_for(
+                    'digits.dataset.images.classification.views.new'),
+            },
+            'image-other': {
+                'title': 'Other',
+                'url': flask.url_for(
+                    'digits.dataset.images.generic.views.new'),
+            },
+        },
+    }
+
+    return flask.render_template(
+        'models/training.html',
+        tab=tab,
+        new_dataset_options=new_dataset_options,
+        running_models=running_models,
+        completed_models=completed_models,
+    )
+
+
 @blueprint.route('/<job_id>.json', methods=['GET'])
 @blueprint.route('/<job_id>', methods=['GET'])
 def show(job_id):

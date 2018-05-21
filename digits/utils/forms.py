@@ -107,7 +107,7 @@ class Tooltip(object):
 
         return wtforms.widgets.HTMLString(
             ('<span name="%s_explanation"'
-             '    class="explanation-tooltip glyphicon glyphicon-question-sign"'
+             '    class="fa fa-question-circle"'
              '    data-container="body"'
              '    title="%s"'
              '    ></span>') % (self.for_name, self.text))

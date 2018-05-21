@@ -1,243 +1,204 @@
-{% from "helper.html" import print_flashes, print_exception %}
-
-{% extends "mlt_layout.html" %}
-
-{% block title %}
-{{job.name()}}
-{% endblock %}
+{% extends "base.html" %}
 
 {% block head %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/table_selection.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/3rdparty/c3-v0.4.21.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/3rdparty/c3-v0.4.21.min.css', ver=dir_hash) }}">
+{% with namespace = "/jobs" %}
+{% set room = job.id() %}
+{% include 'socketio.html' %}
+{% endwith %}
 
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/3rdparty/c3-v0.4.21.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/3rdparty/c3-v0.4.21.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/time_filters.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/angular-1.5.3.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ui-bootstrap-tpls-1.3.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ngStorage-0.3.10.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/home_app.js', ver=dir_hash) }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/model-graphs.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/bootbox-4.3.0.min.js', ver=dir_hash) }}"></script>
-
-    {% if job.status.is_running() %}
-        {% with namespace = "/jobs" %}
-            {% set room = job.id() %}
-            {% include 'socketio.html' %}
-        {% endwith %}
-        <script>
-function setPanelClass(selector, css) {
-    $(selector).removeClass("panel-default panel-primary panel-success panel-info panel-warning panel-danger");
-    $(selector).addClass('panel-'+css);
-}
-
-socket.on('job update', function (msg) {
-        if (msg['update'] == 'status') {
-            $("#job-statuses .panel-title small").html(msg['status']);
-            setPanelClass('#job-statuses', msg['css']);
-            $("#job-statuses .job-statuses").html(msg['html']);
-            if (!msg['running']) {
-                $("#abort-job").hide();
-                $('.gpu-utilization-info').hide();
-            }
-        }
-    });
-
-socket.on('task update', function (msg) {
-        var status_selector = "#"+msg['task']+"-status";
-        if (msg['update'] == 'status') {
-            if (msg['show']) {
-                $(status_selector+"-collapse").collapse('show');
-            } else {
-                $(status_selector+"-collapse").collapse('hide');
-            }
-            if (msg['running']) {
-                $(status_selector+" .task-progress").show();
-            } else {
-                $(status_selector+" .task-progress").hide();
-            }
-            $(status_selector+" .panel-title small").html(msg['status']);
-            setPanelClass(status_selector, msg['css']);
-            $(status_selector+" .task-statuses").html(msg['html']);
-        }
-        else if (msg['update'] == 'progress') {
-            $(status_selector+" .task-progress .progress-bar").width(msg['percentage'] + '%');
-            $(status_selector+" .task-progress .progress-bar").html(msg['percentage'] + '%');
-            $(status_selector+" .task-progress .task-eta").html(msg['eta']);
-            $('.task-eta').html(msg['eta']);
-        }
-        else if (msg['update'] == 'images_processed_per_sec') {
-            $('.images_per_sec').html(msg['data']);
-        }
-        else if (msg['update'] == 'time_elapsed') {
-            $('.time_elapsed').html(msg['data']);
-        }
-        else if (msg['update'] == 'train_accuracy') {
-            $('.accuracy').html(msg['data']);
-        }
-        else if (msg['update'] == 'images_processed') {
-            $('.images_count').html(msg['data']);
-            $('.images_total').html(msg['total']);
-        }
-        else if (msg['update'] == 'distribution') {
-            drawDistributionGraph(msg['task'], msg['data']);
-        }
-        else if (msg['update'] == 'mean-image') {
-            displayMeanImage(msg['task'], msg['data']);
-        }
-        else if (msg['update'] == 'exploration-ready') {
-            showExplorationLink(msg['task']);
-        }
-        else if (msg['update'] == 'combined_graph') {
-            drawCombinedGraph(msg['data']);
-        }
-        else if (msg['update'] == 'lr_graph') {
-            drawLRGraph(msg['data']);
-        }
-        else if (msg['update'] == 'snapshots') {
-            updateSnapshotList(msg['data']);
-        }
-        else if (msg['update'] == 'gpu_utilization') {
-            $('.gpu-utilization-info').show();
-            $('.gpu-utilization-info').html(msg['html']);
-        }
-    });
-        </script>
-    {% endif %}
-
-<style>
-    .font-large {
-        font-size: 1.25rem;
-    }
-</style>
 {% endblock %}
 
-{% block pagetitle %}
-{{ job.name() }}
+{% block page_title %} {{job.name()}} {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li><a href="#"> Training </a></li>
+<li class="active"> {{ job.name() }} </li>
 {% endblock %}
+
+
+<!-- Content -->
 
 {% block content %}
-{{ print_flashes() }}
+<script>
+jQuery(document).ready(function($) {
+  socket.on('job update', function (msg) {
+    if (msg['update'] == 'status') {
+      $("#job-statuses .panel-title small").html(msg['status']);
+      setPanelClass('#job-statuses', msg['css']);
+      $("#job-statuses .job-statuses").html(msg['html']);
+      if (!msg['running']) {
+        $("#abort-job").hide();
+        $('.gpu-utilization-info').hide();
+      }
+    }
+  });
+  socket.on('task update', function (msg) {
+    var status_selector = "#"+msg['task']+"-status";
+    if (msg['update'] == 'status') {
+      if (msg['show']) {
+        $(status_selector+"-collapse").collapse('show');
+      } else {
+        $(status_selector+"-collapse").collapse('hide');
+      }
+      if (msg['running']) {
+        $(status_selector+" .task-progress").show();
+      } else {
+        $(status_selector+" .task-progress").hide();
+      }
+      $(status_selector+" .panel-title small").html(msg['status']);
+      setPanelClass(status_selector, msg['css']);
+      $(status_selector+" .task-statuses").html(msg['html']);
+    }
+    else if (msg['update'] == 'progress') {
+      $(status_selector+" .task-progress .progress-bar").width(msg['percentage'] + '%');
+      $(status_selector+" .task-progress .progress-bar").html(msg['percentage'] + '%');
+      $(status_selector+" .task-progress .task-eta").html(msg['eta']);
+      $('.task-eta').html(msg['eta']);
+    }
+    else if (msg['update'] == 'images_processed_per_sec') {
+      $('.images_per_sec').html(msg['data']);
+    }
+    else if (msg['update'] == 'time_elapsed') {
+      $('.time_elapsed').html(msg['data']);
+    }
+    else if (msg['update'] == 'train_accuracy') {
+      $('.accuracy').html(msg['data']);
+    }
+    else if (msg['update'] == 'images_processed') {
+      $('.images_count').html(msg['data']);
+      $('.images_total').html(msg['total']);
+    }
+    else if (msg['update'] == 'mean-image') {
+      displayMeanImage(msg['task'], msg['data']);
+    }
+    else if (msg['update'] == 'exploration-ready') {
+      showExplorationLink(msg['task']);
+    }
+    else if (msg['update'] == 'distribution') {
+      drawDistributionGraph(msg['task'], msg['data']);
+    }
+    else if (msg['update'] == 'combined_graph') {
+      drawCombinedGraph(msg['data']);
+    }
+    else if (msg['update'] == 'lr_graph') {
+      drawLRGraph(msg['data']);
+    }
+    else if (msg['update'] == 'snapshots') {
+      updateSnapshotList(msg['data']);
+    }
+    else if (msg['update'] == 'gpu_utilization') {
+      $('.gpu-utilization-info').show();
+      $('.gpu-utilization-info').html(msg['html']);
+    }
+  });
+});
+</script>
 
 <div class="row">
-    <div class="col-sm-12">
-        <div id="job-statuses class="job-statuses">
-        {% if job.status.is_running() %}
-        {% for task in job.tasks %}
-            <div class="alert alert-primary alert-dismissible fade show" role="alert">
-                <div id="{{task.html_id()}}-status" class="panel panel-{{task.status.css}}">
-                    <div id="task-progress" class="task-progress" {% autoescape false %}{{' style="display:none;"' if not task.status == 'R' else ''}}{% endautoescape %}>
-                        <div class="progress">
-                            {% set percentage = (100*task.progress)|round|int %}
-                            <div class="progress-bar" style="width:{{percentage}}%">
-                                {{percentage}}%
-                            </div>
-                        </div>
-                        Estimated time remaining: <span class="task-eta">{{ task.est_done()|print_time_diff }}</span>
-                        <br />
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-        {% elif job.status.is_done() %}
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                Job Status
-                <small>{{job.status.name}}</small>
-            </div>
-        {% else %}
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                Job Status
-                <small>{{job.status.name}}</small>
-            </div>
-        {% endif %}
+  <div class="col-sm-12">
+    <div id="job-statuses class="job-statuses">
+    {% if job.status.is_running() %}
+    {% for task in job.tasks %}
+    <div class="alert alert-primary alert-dismissible fade show" role="alert">
+      <div id="{{task.html_id()}}-status" class="panel panel-{{task.status.css}}">
+        <div id="task-progress" class="task-progress" {% autoescape false %}{{' style="display:none;"' if not task.status == 'R' else ''}}{% endautoescape %}>
+          <div class="progress">
+          {% set percentage = (100*task.progress)|round|int %}
+          <div class="progress-bar" style="width:{{percentage}}%">
+          {{percentage}}%
+          </div>
+          </div>
+          Estimated time remaining: <span class="task-eta">{{ task.est_done()|print_time_diff }}</span>
+          <br />
         </div>
+      </div>
     </div>
+    {% endfor %}
+    {% elif job.status.is_done() %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+    Job Status
+    <small>{{job.status.name}}</small>
+    </div>
+    {% else %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+    Job Status
+    <small>{{job.status.name}}</small>
+    </div>
+    {% endif %}
+    </div>
+  </div>
 </div>
 
 <div class="row">
-    <div class="col-sm">
-        <div class="card text-white bg-flat-color-2">
-            <div class="card-body pb-0">
-                <div class="text-light font-large" align="center">
-                    <span class="time_elapsed">{{ job.runtime_of_tasks()|print_time_diff }}</span>
-                    <p class="text-light font-large">Elapsed Time</p>
-                </div>
-            </div>
+  <div class="col-sm">
+    <div class="card text-white bg-flat-color-2">
+      <div class="card-body pb-0">
+        <div class="text-light font-large" align="center">
+          <span class="time_elapsed">{{ job.runtime_of_tasks()|print_time_diff }}</span>
+          <p class="text-light font-large">Elapsed Time</p>
         </div>
+      </div>
     </div>
-    <div class="col-sm">
-        <div class="card text-white bg-flat-color-3">
-            <div class="card-body pb-0">
-                <div class="text-light font-large" align="center">
-                    <span class="accuracy">{{ job.train_task().get_accuracy() }}</span>%
-                    <p class="text-light font-large">Accuracy</p>
-                </div>
-            </div>
+  </div>
+  <div class="col-sm">
+    <div class="card text-white bg-flat-color-3">
+      <div class="card-body pb-0">
+        <div class="text-light font-large" align="center">
+          <span class="accuracy">{{ job.train_task().get_accuracy() }}</span>%
+          <p class="text-light font-large">Accuracy</p>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 <div class="row">
-    <div class="col-sm">
-        <div class="card text-white bg-flat-color-1">
-            <div class="card-body pb-0">
-                <div id="images_processed" class="images_processed">
-                    <div class="text-light font-large" align="center">
-                        {% set images = job.train_task().images_processed() %}
-                        {% set total = job.train_task().total_images() %}
-                        <span class="images_count">{{ images }}</span> /
-                        <span class="images_total">{{ total }}</span>
-                        <p class="text-light font-large">Images processed</p>
-                    </div>
-                </div>
-            </div>
+  <div class="col-sm">
+    <div class="card text-white bg-flat-color-1">
+      <div class="card-body pb-0">
+        <div id="images_processed" class="images_processed">
+          <div class="text-light font-large" align="center">
+            {% set images = job.train_task().images_processed() %}
+            {% set total = job.train_task().total_images() %}
+            <span class="images_count">{{ images }}</span> /
+            <span class="images_total">{{ total }}</span>
+            <p class="text-light font-large">Images processed</p>
+          </div>
         </div>
+      </div>
     </div>
-    <div class="col-sm">
-        <div class="card text-white bg-flat-color-5">
-            <div class="card-body pb-0">
-                <div class="text-light font-large" align="center">
-                    {% set images_per_sec = job.train_task().images_processed_per_sec() %}
-                    <span class="images_per_sec">{{ images_per_sec }}</span>
-                    <p class="text-light font-large">Images/sec</p>
-                </div>
-            </div>
+  </div>
+  <div class="col-sm">
+    <div class="card text-white bg-flat-color-5">
+      <div class="card-body pb-0">
+        <div class="text-light font-large" align="center">
+          {% set images_per_sec = job.train_task().images_processed_per_sec() %}
+          <span class="images_per_sec">{{ images_per_sec }}</span>
+          <p class="text-light font-large">Images/sec</p>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 <div class="gpu-utilization-info" style="display:none;"></div>
 
 <div class="row">
-    <!-- Job content -->
-    <div class="col-sm-12">
-        {% block job_content %}
-        {% endblock %}
-    </div>
+  <!-- Job content -->
+  <div class="col-sm-12">
+    {% block job_content %}
+    {% endblock %}
+  </div>
 
 </div>
+
 <a id="abort-job" class="btn btn-warning {{ 'hidden' if not job.status.is_running() }} ">Abort Job</a>
 
 </div>
 
-    <script>
-$('#abort-job').on('click', function(event) {
-        event.preventDefault();
-        bootbox.confirm(
-            'Are you sure you want to abort this job?',
-            function(result) {
-                if (result)
-                    $.ajax("{{url_for('digits.views.abort_job', job_id=job.id())}}",
-                        {type: "POST"})
-                    .done(function() {
-                        $("#abort-job").hide();
-                        })
-                    .fail(function(data) { errorAlert(data); });
-            });
-        });
-    </script>
 <br>
+
 
 {% endblock %}
 

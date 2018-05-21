@@ -1,248 +1,540 @@
-{% from "helper.html" import print_flashes %}
-{% from "helper.html" import print_errors %}
-{% from "helper.html" import mark_errors %}
 
-{% extends "mlt_layout.html" %}
+{% from "print.html" import print_errors %}
+{% extends "base.html" %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/3rdparty/c3-v0.4.21.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/3rdparty/c3-v0.4.21.min.css', ver=dir_hash) }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.css">
 
-<script type="text/javascript" src="{{ url_for('static', filename='js/time_filters.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/angular-1.5.3.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ui-bootstrap-tpls-1.3.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ngStorage-0.3.10.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js', ver=dir_hash) }}"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/table_selection.css', ver=dir_hash) }}">
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.js"></script>
+
 {% endblock %}
+<!--    head    -->
 
-{% block pagetitle %}
-New Image Classification Model
+{% block page_title %} New Image Classification Model {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li><a href="#"> Training </a></li>
+<li class="active"> New </li>
 {% endblock %}
-
-{% block pagelist %}
-<li class="active">Training</li>
-{% endblock %}
-
 
 {% block content %}
-{{ print_flashes() }}
+<style>
+* {
+  box-sizing: border-box;
+}
+#newForm {
+  margin: 30px auto;
+  padding: 10px;
+  width: 60%;
+  min-width: 200px;
+}
+h1 {
+  text-align: center;  
+}
+select {
+  padding: 10px;
+  width: 100%;
+  font-size: 17px;
+  font-family: Raleway;
+  border: 1px solid #aaaaaa;
+}
+select.invalid {
+  background-color: #ffdddd;
+}
+input {
+  padding: 10px;
+  width: 100%;
+  font-size: 17px;
+  font-family: Raleway;
+  border: 1px solid #aaaaaa;
+}
+/* Mark input boxes that gets an error on validation: */
+input.invalid {
+  background-color: #ffdddd;
+}
+/* Hide all steps by default: */
+.tab {
+  display: none;
+}
+#prevBtn {
+  background-color: #bbbbbb;
+}
+/* Make circles that indicate the steps of the form: */
+.step {
+  height: 15px;
+  width: 15px;
+  margin: 0 2px;
+  background-color: #bbbbbb;
+  border: none;  
+  border-radius: 50%;
+  display: inline-block;
+  opacity: 0.5;
+}
+.step.active {
+  opacity: 1;
+}
+/* Mark the steps that are finished and valid: */
+.step.finish {
+  background-color: #4CAF50;
+}
+</style>
+
+<div class="animated fadeIn">
+  <div class="col">
+    <div class="card">
+      <div class="card-body">
+        <form onsubmit="syncAceEditor();" id="newForm" action="{{url_for('digits.model.images.classification.views.create')}}" class="newForm" enctype="multipart/form-data" method="post">
+          {{ print_errors(form) }}
+          <h1> DNN Training: </h1>
+          <div style="overflow:auto;">
+            <div style="float:right;">
+              <button type="button" id="prevBtn" class="btn btn-secondary" onclick="nextPrev(-1)">Previous</button>
+              <button type="button" id="nextBtn" class="btn btn-primary" onclick="nextPrev(1)"><i class="fa fa-dot-circle-o"></i>&nbsp; Next</button>
+            </div>
+          </div>
+
+          <!-- One "tab" for each step -->
+          <div class="tab">
+            {{form.dataset.label}}
+            {{form.dataset(class='form-control', size=5)}}
+            <div id="dataset-summary"></div>
+          </div>
+
+          <div class="tab">
+            {{form.standard_networks.label}}
+            {{form.standard_networks(class='form-control', size=5)}}
+            <div id="network-summary"></div>
+          </div>
+
+          <div class="tab">
+            <div class="form-group">
+              Define Hyperparameters:
+            </div>
+            <div id="hyperparameters" style="display:block">
+              <div class="form-group">
+                {{form.optimized.label.text}}
+                <label class="switch switch-default switch-primary mr-2">
+                  <input id="optimized" type="checkbox" class="switch-input" onclick="get_hyperparameters();">
+                  <span class="switch-label"></span>
+                  <span class="switch-handle"></span>
+                </label>
+              </div>
+              <div class="form-group">
+                {{form.train_epochs.label}}
+                {{form.train_epochs.tooltip}}
+                {{form.train_epochs(class='form-control')}}
+              </div>
+
+              <div class="form-group">
+                {{form.small_chunk.label}}
+                {{form.small_chunk.tooltip}}
+                {{form.small_chunk(class='form-control')}}
+              </div>
+
+              <div class="form-group">
+                {{form.batch_size.label}}
+                {{form.batch_size.tooltip}}
+                {{form.batch_size(class='form-control', placeholder='[network defaults]')}}
+              </div>
+
+              <div class="form-group">
+                {{form.solver_type.label}}
+                {{form.solver_type.tooltip}}
+                {{form.solver_type(class='form-control')}}
+              </div>
+
+              <div class="solver-specific-RMSPROP form-group">
+                {{form.rms_decay.label}}
+                {{form.rms_decay(class='form-control')}}
+              </div>
+              <div class="form-group">
+                {{form.learning_rate.label}}
+                {{form.learning_rate.tooltip}}
+                {{form.learning_rate(class='form-control learning-rate-option')}}
+              </div>
+              <div class="form-group">
+                {{form.weight_decay.label}}
+                {{form.weight_decay.tooltip}}
+                {{form.weight_decay(class='form-control')}}
+              </div>
+              <div class="form-group">
+                {{form.rampup_lr.label}}
+                {{form.rampup_lr.tooltip}}
+                {{form.rampup_lr(class='form-control')}}
+              </div>
+              <div class="form-group">
+                {{form.rampup_epoch.label}}
+                {{form.rampup_epoch.tooltip}}
+                {{form.rampup_epoch(class='form-control')}}
+              </div>
+              <div>
+                <label><input type="checkbox" id="show-advanced-lr-options" align="left"/> Show advanced learning rate options </label>
+              </div>
+              <div id="advanced-lr-options" style="display:none;">
+                <div class="form-group">
+                  {{form.lr_policy.label}}
+                  {{form.lr_policy.tooltip}}
+                  {{form.lr_policy(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_step_size.label}}
+                  <div class="input-group">
+                    {{form.lr_step_size(class='form-control learning-rate-option')}}
+                    <span class="input-group-addon">%</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  {{form.lr_step_gamma.label}}
+                  {{form.lr_step_gamma(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_multistep_values.label}}
+                  <div class="input-group">
+                    {{form.lr_multistep_values(class='form-control learning-rate-option')}}
+                    <span class="input-group-addon">%</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  {{form.lr_multistep_gamma.label}}
+                  {{form.lr_multistep_gamma(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_exp_gamma.label}}
+                  {{form.lr_exp_gamma(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_inv_gamma.label}}
+                  {{form.lr_inv_gamma(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_inv_power.label}}
+                  {{form.lr_inv_power(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_poly_power.label}}
+                  {{form.lr_poly_power(class='form-control learning-rate-option')}}
+                </div>
+                <div class="form-group">
+                  {{form.lr_sigmoid_step.label}}
+                  <div class="input-group">
+                    {{form.lr_sigmoid_step(class='form-control learning-rate-option')}}
+                    <span class="input-group-addon">%</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  {{form.lr_sigmoid_gamma.label}}
+                  {{form.lr_sigmoid_gamma(class='form-control learning-rate-option')}}
+                </div>
+                <a id="showLRGraphBtn" class="btn btn-info btn-sm" href="javascript:void();" onClick="return getLRGraph();">Visualize LR</a>
+                <div id="visualize-lr" style="display:none;">
+                  <a class="close" onClick="$('#visualize-lr').hide();return false;">&times;</a>
+                  <br>
+                  <div id="visualize-lr-graph" style="background:white;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tab">
+            <div>
+              Select GPUs
+            </div>
+            <div class="col-sm-6 col-sm-offset-3 well">
+              {% if form.select_gpu.choices|length > 2 and not multi_gpu %}
+              <div class="form-group">
+                <b>{{form.select_gpu.label.text}}</b><br>
+                {% for choice in form.select_gpu %}
+                <div class="radio">
+                  <label>
+                    {{choice}}
+                    {{choice.label.text}}
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if form.select_gpus.choices| length > 1 and multi_gpu %}
+              <div class="form-group">
+                {{form.select_gpu_count.label}}
+                {{form.select_gpu_count(class='form-control')}}
+              </div>
+              <p class="text-center"><i>or</i></p>
+              <div class="form-group">
+                {{form.select_gpus.label}}
+                {{form.select_gpus.tooltip}}
+                {{form.select_gpus(class='form-control', size=4)}}
+              </div>
+              {% endif %}
+              <div class="form-group">
+                {{form.model_name.label}}
+                {{form.model_name.tooltip}}
+                {{form.model_name(class='form-control')}}
+              </div>
+            </div>
+          </div>
+          <!-- Circles which indicates the steps of the form: -->
+          <div style="text-align:center;margin-top:40px;">
+            <span class="step"></span>
+            <span class="step"></span>
+            <span class="step"></span>
+            <span class="step"></span>
+          </div>
+          <div class="form-group" style="display:none">
+            {{form.framework.label}}
+            {{form.framework.tooltip}}
+            {{form.framework(class='form-control')}}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+// Only allow one of these to be selected
+$("#select_gpus").change(function(){
+  document.getElementById("select_gpu_count").value = "";
+});
+$("#select_gpu_count").change(function(){
+  document.getElementById("select_gpus").value = "";
+});
+ 
+</script>
 
 <script>
-function syncAceEditor(){
-    // Syncs (copies) the ace editor's contents to the custom_network flask container
-    $("textarea#custom_network").val(editor.getValue());
+function showHideAdvancedLROption(selector, show) {
+  jQuery(function($) {
+    show = show || true;
+    var element = $(selector);
+    while (!element.hasClass('form-group')) {
+      element = element.parent();
+      if (element.attr('id') == 'advanced_lr_options')
+        // We've gone too far
+        return;
+    }
+    if (show)
+      element.show();
+    else
+      element.hide();
+  })
+}
+function showSelectedAdvancedLROptions() {
+  jQuery(function($) {
+    $("#advanced-lr-options div.form-group").hide();
+    showHideAdvancedLROption('#lr_policy');
+
+    // Turn some back on
+    switch($("#lr_policy").val()) {
+      case 'step':
+        showHideAdvancedLROption('#lr_step_size');
+        showHideAdvancedLROption('#lr_step_gamma');
+        break;
+      case 'multistep':
+        showHideAdvancedLROption('#lr_multistep_values');
+        showHideAdvancedLROption('#lr_multistep_gamma');
+        break;
+      case 'exp':
+        showHideAdvancedLROption('#lr_exp_gamma');
+        break;
+      case 'inv':
+        showHideAdvancedLROption('#lr_inv_gamma');
+        showHideAdvancedLROption('#lr_inv_power');
+        break;
+      case 'poly':
+        showHideAdvancedLROption('#lr_poly_power');
+        break;
+      case 'sigmoid':
+        showHideAdvancedLROption('#lr_sigmoid_step');
+        showHideAdvancedLROption('#lr_sigmoid_gamma');
+        break;
+      default:
+        break;
+    }
+  })
+}
+function drawLRGraph(data) {
+  jQuery(function($) {
+    $("#visualize-lr").show();
+    c3.generate($.extend(true, data, {
+      bindto: '#visualize-lr-graph',
+      size: {height: 200},
+      axis: {
+        x: {
+          label: {
+            text: 'Training (%)',
+            position: 'outer-center',
+          },
+        },
+        y: {
+          min: 0,
+          padding: {bottom: 0},
+        }
+      },
+      legend: {show: false},
+    }));
+  })
+}
+function getLRGraph() {
+  jQuery(function($) {
+    $.ajax("{{url_for('digits.model.views.visualize_lr')}}",
+        {
+          type: "POST",
+          data: $(".learning-rate-option").serialize()
+        }
+        )
+      .done(function(data) {
+        drawLRGraph($.parseJSON(data));
+      })
+    .fail(function(data) {
+      $("#visualize-lr-graph").html("");
+      errorAlert(data);
+    });
+    return false;
+  })
+}
+
+$("input.learning-rate-option").change(function() {
+  getLRGraph();
+});
+$("select.learning-rate-option").change(function() {
+  showSelectedAdvancedLROptions();
+  getLRGraph();
+});
+showSelectedAdvancedLROptions();
+</script>
+
+
+<script>
+var currentTab = 0; // Current tab is set to be the first tab (0)
+showTab(currentTab); // Display the crurrent tab
+
+function showTab(n) {
+  // This function will display the specified tab of the form...
+  var x = document.getElementsByClassName("tab");
+  x[n].style.display = "block";
+  //... and fix the Previous/Next buttons:
+  if (n == 0) {
+    document.getElementById("prevBtn").style.display = "none";
+  } else {
+    document.getElementById("prevBtn").style.display = "inline";
+  }
+  if (n == (x.length - 1)) {
+    document.getElementById("nextBtn").innerHTML = "Create";
+  } else {
+    document.getElementById("nextBtn").innerHTML = "Next";
+  }
+  //... and run a function that will display the correct step indicator:
+  fixStepIndicator(n)
+}
+
+function nextPrev(n) {
+  // This function will figure out which tab to display
+  var x = document.getElementsByClassName("tab");
+  // Exit the function if any field in the current tab is invalid:
+  // if (n == 1 && !validateForm()) return false;
+  // Hide the current tab:
+  x[currentTab].style.display = "none";
+  // Increase or decrease the current tab by 1:
+  currentTab = currentTab + n;
+  // if you have reached the end of the form...
+  if (currentTab >= x.length) {
+    // ... the form gets submitted:
+    document.getElementById("newForm").submit();
+    return false;
+  }
+  // Otherwise, display the correct tab:
+  showTab(currentTab);
+}
+
+function validateForm() {
+  // This function deals with validation of the form fields
+  var x, y, i, valid = true;
+  x = document.getElementsByClassName("tab");
+  y = x[currentTab].getElementsByTagName("select");
+  // A loop that checks every input field in the current tab:
+  for (i = 0; i < y.length; i++) {
+    // If a field is empty...
+    if (y[i].value == "") {
+      // add an "invalid" class to the field:
+      y[i].className += " invalid";
+      // and set the current valid status to false
+      valid = false;
+    }
+  }
+  // If the valid status is true, mark the step as finished and valid:
+  if (valid) {
+    document.getElementsByClassName("step")[currentTab].className += " finish";
+  }
+  return valid; // return the valid status
+}
+
+function fixStepIndicator(n) {
+  // This function removes the "active" class of all steps...
+  var i, x = document.getElementsByClassName("step");
+  for (i = 0; i < x.length; i++) {
+    x[i].className = x[i].className.replace(" active", "");
+  }
+  //... and adds the "active" class on the current step:
+  x[n].className += " active";
 }
 </script>
 
-<form onsubmit="syncAceEditor();" id="model-form" action="{{url_for('digits.model.images.classification.views.create')}}" enctype="multipart/form-data" method="post">
-    {{ form.hidden_tag() }}
+<script>
+function syncAceEditor(){
+  // Syncs (copies) the ace editor's contents to the custom_network flask container
+  $("textarea#custom_network").val(editor.getValue());
+}
 
-    {{ print_errors(form) }}
+// Show/home python_layer_file form fields according to the checkbox
+function python_layer_file_state() {
+  var from_client = $("#python_layer_from_client").prop("checked");
+  if (from_client) {
+    $(".python-layer-server-side-file").hide();
+    $(".python-layer-client-side-file").show();
+  }
+  else{
+    $(".python-layer-server-side-file").show();
+    $(".python-layer-client-side-file").hide();
+  }
+}
 
-    <div class="row">
-        <div class="col-md-3">
-            <div class="well">
-                <h4> Datasets </h4>
-                <div class="form-group{{mark_errors([form.dataset])}}">
-                    {{form.dataset.label}}
-                    {{form.dataset.tooltip}}
-                    {{form.dataset(class='form-control', size=5)}}
-                    <div id="dataset-summary"></div>
-                </div>
-            </div>
-        </div>
-        <script>
+$("#python_layer_from_client").click(function() {
+  python_layer_file_state();
+});
+python_layer_file_state();
 
-        // Show/home python_layer_file form fields according to the checkbox
-        function python_layer_file_state() {
-            var from_client = $("#python_layer_from_client").prop("checked");
-            if (from_client) {
-                $(".python-layer-server-side-file").hide();
-                $(".python-layer-client-side-file").show();
-            }
-            else{
-                $(".python-layer-server-side-file").show();
-                $(".python-layer-client-side-file").hide();
-            }
-        }
-
-        $("#python_layer_from_client").click(function() {
-            python_layer_file_state();
-        });
-        python_layer_file_state();
-
-$("#dataset").change(function() {
-    if ($(this).val()) {
-        $.ajax("{{url_for('digits.dataset.views.summary')}}" + "?job_id=" + $(this).val(),
-            {
-                type: "GET",
-                }
-            )
-        .done(function(data) {
-            $("#dataset-summary").html(data);
-            })
-        .fail(function(data) {
-            $("#dataset-summary").html("");
-            errorAlert(data);
-            });
-        }
-    });
-$("#dataset").change();
-        </script>
-
-        <div class="col-md-4">
-            <div class="well">
-                <h4> Networks </h4>
-                <div class="form-group{{mark_errors([form.standard_networks])}}" onclick="get_hyperparameters();">
-                    {{form.standard_networks.label}}
-                    {{form.standard_networks.tooltip}}
-                    {{form.standard_networks(class='form-control', size=5)}}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="well">
-                <h4>Solver Options</h4>
-
-                <div class="form-group{{mark_errors([form.optimized])}}">
-                        {{form.optimized.label.text}}
-                    <label class="switch switch-default switch-primary mr-2">
-                        <input id="optimized" type="checkbox" class="switch-input" onclick="get_hyperparameters();">
-                        <span class="switch-label"></span>
-                        <span class="switch-handle"></span>
-                    </label>
-                </div>
-                <!-- Length -->
-                <div id="hyperparameters" style="display:block">
-                    <div class="form-group{{mark_errors([form.shuffle])}}" id="shuffle-data" style="display:none;">
-                        <label for={{form.shuffle.name}}>
-                            {{form.shuffle}}
-                            {{form.shuffle.label.text}}
-                        </label>
-                        {{ form.shuffle.tooltip }}
-                    </div>
-
-                    <div class="form-group{{mark_errors([form.train_epochs])}}">
-                        {{form.train_epochs.label}}
-                        {{form.train_epochs.tooltip}}
-                        {{form.train_epochs(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.snapshot_interval])}}" style="display:none">
-                        {{form.snapshot_interval.label}}
-                        {{form.snapshot_interval.tooltip}}
-                        {{form.snapshot_interval(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.val_interval])}}" style="display:none">
-                        {{form.val_interval.label}}
-                        {{form.val_interval.tooltip}}
-                        {{form.val_interval(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.val_interval])}}" id="timeline-traces" style="display:none;">
-                        {{form.traces_interval.label}}
-                        {{form.traces_interval.tooltip}}
-                        {{form.traces_interval(class='form-control')}}
-                    </div>
-                    {# TODO: neat progress bar #}
-                    <div class="form-group{{mark_errors([form.random_seed])}}" style="display:none">
-                        {{form.random_seed.label}}
-                        {{form.random_seed.tooltip}}
-                        {{form.random_seed(class='form-control', placeholder='[none]')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.small_chunk])}}" style="display:none">
-                        {{form.small_chunk.label}}
-                        {{form.small_chunk.tooltip}}
-                        {{form.small_chunk(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.batch_size])}}">
-                        {{form.batch_size.label}}
-                        {{form.batch_size.tooltip}}
-                        <small class="pull-right">
-                            {{form.batch_size.small_text}}
-                        </small>
-                        {{form.batch_size(class='form-control', placeholder='[network defaults]')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.batch_accumulation])}}"
-                         id="batch-accumulation-option" style="display:none;">
-                        {{form.batch_accumulation.label}}
-                        {{form.batch_accumulation.tooltip}}
-                        {{form.batch_accumulation(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.solver_type])}}">
-                        {{form.solver_type.label}}
-                        {{form.solver_type.tooltip}}
-                        {{form.solver_type(class='form-control')}}
-                    </div>
-                    <div class="solver-specific-RMSPROP form-group{{mark_errors([form.rms_decay])}}">
-                        {{form.rms_decay.label}}
-                        {{form.rms_decay.tooltip}}
-                        {{form.rms_decay(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.learning_rate])}}">
-                        {{form.learning_rate.label}}
-                        {{form.learning_rate.tooltip}}
-                        <small class="pull-right">
-                            {{form.learning_rate.small_text}}
-                        </small>
-                        {{form.learning_rate(class='form-control learning-rate-option')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.weight_decay])}}">
-                        {{form.weight_decay.label}}
-                        {{form.weight_decay.tooltip}}
-                        {{form.weight_decay(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.rampup_lr])}}">
-                        {{form.rampup_lr.label}}
-                        {{form.rampup_lr.tooltip}}
-                        {{form.rampup_lr(class='form-control')}}
-                    </div>
-                    <div class="form-group{{mark_errors([form.rampup_epoch])}}">
-                        {{form.rampup_epoch.label}}
-                        {{form.rampup_epoch.tooltip}}
-                        {{form.rampup_epoch(class='form-control')}}
-                    </div>
-                    <p>
-                        <label class="checkbox-inline">
-                            <input id="show-advanced-lr-options" type="checkbox" />
-                            Show advanced learning rate options
-                        </label>
-                    </p>
-
-                    <script>
 function get_hyperparameters(){
   var opt = document.getElementById("optimized");
-  var net = document.getElementById("standard_networks");
-  if (opt.checked && $(net).val()) {
-    $.ajax("{{url_for('digits.model.views.summary')}}" + "?network_id=" + $(net).val(),
-      {
-        type: "GET",
+  var net = document.getElementById("standard_networks").value;
+  if (opt.checked && net) {
+  jQuery(function($) {
+    jQuery.ajax({
+      url: "{{url_for('digits.model.views.summary')}}" + "?network_id=" + net,
+      type: "GET",
+      success: function(data) {
+        $("#train_epochs").val(data['train_epochs']);
+        $("#batch_size").val(data['batch_size']);
+        $("#solver_type").val(data['solver_type']);
+        $("#weight_decay").val(data['weight_decay']);
+        $("#learning_rate").val(data['learning_rate']);
+        if (data['rampup_lr']) {
+          $("#rampup_lr").val(data['rampup_lr']);
+        }else{
+          $("#rampup_lr").val("0");
+        }
+        if (data['rampup_epoch']) {
+          $("#rampup_epoch").val(data['rampup_epoch']);
+        }else{
+          $("#rampup_epoch").val("0");
+        }
+        if (data['small_chunk']) {
+          $("#small_chunk").val(data['small_chunk']);
+        }
       }
-    )
-    .done(function(data) {
-      $("#train_epochs").val(data['train_epochs']);
-      $("#batch_size").val(data['batch_size']);
-      $("#solver_type").val(data['solver_type']);
-      $("#weight_decay").val(data['weight_decay']);
-      $("#learning_rate").val(data['learning_rate']);
-      if (data['rampup_lr']) {
-        $("#rampup_lr").val(data['rampup_lr']);
-      }else{
-        $("#rampup_lr").val("");
-      }
-      if (data['rampup_epoch']) {
-        $("#rampup_epoch").val(data['rampup_epoch']);
-      }else{
-        $("#rampup_epoch").val("");
-      }
-      if (data['small_chunk']) {
-        $("#small_chunk").val(data['small_chunk']);
-      }
-    })
-    .fail(function(data) {
-      $("#train_epochs").html("");
-      errorAlert(data);
     });
+  })
   }
 }
 
@@ -255,382 +547,192 @@ $("select[name=solver_type] > option[value={{choice[0]}}]").addClass("{{fw.get_i
 {% endfor %}
 
 function showHideAdvancedLROptions() {
+  jQuery(function($) {
     if ($("#show-advanced-lr-options").prop("checked")) {
         $("#advanced-lr-options").show();
         $("#showLRGraphBtn").show();
         showSelectedAdvancedLROptions();
     } else
         $("#advanced-lr-options").hide();
+  })
 }
 
 function showHideSolverSpecificOptions() {
-    $('[class^="solver-specific-"]').hide();
-    var solver_type = $("#solver_type").val();
-    if (solver_type == 'RMSPROP') {
-        $(".solver-specific-" + solver_type).show();
-    }
+  $('[class^="solver-specific-"]').hide();
+  var solver_type = $("#solver_type").val();
+  if (solver_type == 'RMSPROP') {
+    $(".solver-specific-" + solver_type).show();
+  }
 }
-
 $("#solver_type").change(showHideSolverSpecificOptions);
 $("#show-advanced-lr-options").click(showHideAdvancedLROptions);
 showHideAdvancedLROptions();
 showHideSolverSpecificOptions();
-                </script>
 
-                    <div id="advanced-lr-options" style="display:none;">
+jQuery(document).ready(function($) {
 
-                        <div class="form-group{{mark_errors([form.lr_policy])}}">
-                            {{form.lr_policy.label}}
-                            {{form.lr_policy(class='form-control learning-rate-option')}}
-                        </div>
-
-                        <div class="form-group{{mark_errors([form.lr_step_size])}}">
-                            {{form.lr_step_size.label}}
-                            <div class="input-group">
-                                {{form.lr_step_size(class='form-control learning-rate-option')}}
-                                <span class="input-group-addon">%</span>
-                            </div>
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_step_gamma])}}">
-                            {{form.lr_step_gamma.label}}
-                            {{form.lr_step_gamma(class='form-control learning-rate-option')}}
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_multistep_values])}}">
-                            {{form.lr_multistep_values.label}}
-                            <div class="input-group">
-                                {{form.lr_multistep_values(class='form-control learning-rate-option')}}
-                                <span class="input-group-addon">%</span>
-                            </div>
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_multistep_gamma])}}">
-                            {{form.lr_multistep_gamma.label}}
-                            {{form.lr_multistep_gamma(class='form-control learning-rate-option')}}
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_exp_gamma])}}">
-                            {{form.lr_exp_gamma.label}}
-                            {{form.lr_exp_gamma(class='form-control learning-rate-option')}}
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_inv_gamma])}}">
-                            {{form.lr_inv_gamma.label}}
-                            {{form.lr_inv_gamma(class='form-control learning-rate-option')}}
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_inv_power])}}">
-                            {{form.lr_inv_power.label}}
-                            {{form.lr_inv_power(class='form-control learning-rate-option')}}
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_poly_power])}}">
-                            {{form.lr_poly_power.label}}
-                            {{form.lr_poly_power(class='form-control learning-rate-option')}}
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_sigmoid_step])}}">
-                            {{form.lr_sigmoid_step.label}}
-                            <div class="input-group">
-                                {{form.lr_sigmoid_step(class='form-control learning-rate-option')}}
-                                <span class="input-group-addon">%</span>
-                            </div>
-                        </div>
-                        <div class="form-group{{mark_errors([form.lr_sigmoid_gamma])}}">
-                            {{form.lr_sigmoid_gamma.label}}
-                            {{form.lr_sigmoid_gamma(class='form-control learning-rate-option')}}
-                        </div>
-                        <a id="showLRGraphBtn" class="btn btn-info btn-sm" href="#" onClick="return getLRGraph();">Visualize LR</a>
-                        <div id="visualize-lr" style="display:none;">
-                            <a class="close" onClick="$('#visualize-lr').hide();return false;">&times;</a>
-                            <br>
-                            <div id="visualize-lr-graph" style="background:white;"></div>
-                        </div>
-
-                        <script>
-                        function showHideAdvancedLROption(selector, show) {
-                            show = show || true;
-                            var element = $(selector);
-                            while (!element.hasClass('form-group')) {
-                                element = element.parent();
-                                if (element.attr('id') == 'advanced_lr_options')
-                                    // We've gone too far
-                                    return;
-                            }
-                            if (show)
-                                element.show();
-                            else
-                                element.hide();
-                        }
-                        function showSelectedAdvancedLROptions() {
-                            $("#advanced-lr-options div.form-group").hide();
-                            showHideAdvancedLROption('#lr_policy');
-
-                            // Turn some back on
-                            switch($("#lr_policy").val()) {
-                                case 'step':
-                                showHideAdvancedLROption('#lr_step_size');
-                                showHideAdvancedLROption('#lr_step_gamma');
-                                break;
-                                case 'multistep':
-                                showHideAdvancedLROption('#lr_multistep_values');
-                                showHideAdvancedLROption('#lr_multistep_gamma');
-                                break;
-                                case 'exp':
-                                showHideAdvancedLROption('#lr_exp_gamma');
-                                break;
-                                case 'inv':
-                                showHideAdvancedLROption('#lr_inv_gamma');
-                                showHideAdvancedLROption('#lr_inv_power');
-                                break;
-                                case 'poly':
-                                showHideAdvancedLROption('#lr_poly_power');
-                                break;
-                                case 'sigmoid':
-                                showHideAdvancedLROption('#lr_sigmoid_step');
-                                showHideAdvancedLROption('#lr_sigmoid_gamma');
-                                break;
-                                default:
-                                break;
-                            }
-                        }
-                        function drawLRGraph(data) {
-                            $("#visualize-lr").show();
-                            c3.generate($.extend(true, data, {
-                                bindto: '#visualize-lr-graph',
-                                size: {height: 200},
-                                axis: {
-                                    x: {
-                                        label: {
-                                            text: 'Training (%)',
-                                            position: 'outer-center',
-                                        },
-                                    },
-                                    y: {
-                                        min: 0,
-                                        padding: {bottom: 0},
-                                    }
-                                },
-                                legend: {show: false},
-                            }));
-                        }
-                        function getLRGraph() {
-                            $.ajax("{{url_for('digits.model.views.visualize_lr')}}",
-                            {
-                                type: "POST",
-                                data: $(".learning-rate-option").serialize()
-                            }
-                            )
-                            .done(function(data) {
-                                drawLRGraph($.parseJSON(data));
-                            })
-                            .fail(function(data) {
-                                $("#visualize-lr-graph").html("");
-                                errorAlert(data);
-                            });
-                            return false;
-                        }
-
-                        $("input.learning-rate-option").change(function() {
-                            getLRGraph();
-                        });
-                        $("select.learning-rate-option").change(function() {
-                            showSelectedAdvancedLROptions();
-                            getLRGraph();
-                        });
-                        showSelectedAdvancedLROptions();
-                    </script>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <hr>
-
-    <div class="row">
-        <div class="col-sm-12">
-            <script>
-function customizeNetwork(network, snapshot_list, framework) {
-    function fillCustomTab(network, snapshot_list, framework) {
-        data = null;
-        if (snapshot_list)
-            data = {'snapshot_epoch': $('#'+snapshot_list).val()};
-        $.ajax("{{url_for('digits.model.views.customize')}}?network=" + network + "&framework="+framework,
-                {
-                    type: "POST",
-                    data: data
-                    }
-              )
+  $("#dataset").change(function() {
+    if ($(this).val()) {
+      $.ajax("{{url_for('digits.dataset.views.summary')}}" + "?job_id=" + $(this).val(),
+          {
+            type: "GET",
+          }
+          )
         .done(function(data) {
-                data = $.parseJSON(data);
-                console.log(data);
-                editor.setValue(data['network']);
-                editor.selection.moveTo(0, 0);
-                if (data['snapshot'])
-                    $('input[name=custom_network_snapshot]').val(data['snapshot']);
-                else
-                    $('input[name=custom_network_snapshot]').val('');
-                if (data['python_layer'])
-                    $('#python_layer_server_file').val(data['python_layer']);
-                else
-                    $('#python_layer_server_file').val('');
-                })
-        .fail(function(data) {
-                editor.setValue('');
-                editor.selection.moveTo(0, 0);
-                $('input[name=custom_network_snapshot]').val('');
-                errorAlert(data);
-                });
-        $('#network-tabs a:last').tab('show');
-        $('#customFramework a[href="'+"#"+framework+"_custom"+'"]').tab('show');
+          $("#dataset-summary").html(data);
+        })
+      .fail(function(data) {
+        $("#dataset-summary").html("");
+        errorAlert(data);
+      });
     }
-    if (!framework)
-        var $tab = $('#stdnetRole'), $active = $tab.find('.active'), framework = $active.attr('id');
+  });
+  $("#dataset").change();
+});
+</script>
 
-    if (editor.getValue() != "") {
-        bootbox.confirm(
-                'This will overwrite data in the Custom Network tab. Continue?',
-                function(result) { if (result) fillCustomTab(network, snapshot_list, framework); }
-                );
-    } else {
-        fillCustomTab(network, snapshot_list, framework);
-    }
+
+<hr>
+
+<div class="row">
+  <div class="col-sm-12">
+    <script>
+function customizeNetwork(network, snapshot_list, framework) {
+  function fillCustomTab(network, snapshot_list, framework) {
+    data = null;
+    if (snapshot_list)
+      data = {'snapshot_epoch': $('#'+snapshot_list).val()};
+    $.ajax("{{url_for('digits.model.views.customize')}}?network=" + network + "&framework="+framework,
+        {
+          type: "POST",
+          data: data
+        }
+        )
+      .done(function(data) {
+        data = $.parseJSON(data);
+        editor.setValue(data['network']);
+        editor.selection.moveTo(0, 0);
+        if (data['snapshot'])
+          $('input[name=custom_network_snapshot]').val(data['snapshot']);
+        else
+          $('input[name=custom_network_snapshot]').val('');
+        if (data['python_layer'])
+          $('#python_layer_server_file').val(data['python_layer']);
+        else
+          $('#python_layer_server_file').val('');
+      })
+    .fail(function(data) {
+      editor.setValue('');
+      editor.selection.moveTo(0, 0);
+      $('input[name=custom_network_snapshot]').val('');
+      errorAlert(data);
+    });
+    $('#network-tabs a:last').tab('show');
+    $('#customFramework a[href="'+"#"+framework+"_custom"+'"]').tab('show');
+  }
+  if (!framework)
+    var $tab = $('#stdnetRole'), $active = $tab.find('.active'), framework = $active.attr('id');
+
+  if (editor.getValue() != "") {
+    bootbox.confirm(
+        'This will overwrite data in the Custom Network tab. Continue?',
+        function(result) { if (result) fillCustomTab(network, snapshot_list, framework); }
+        );
+  } else {
+    fillCustomTab(network, snapshot_list, framework);
+  }
 
 }
 
 var frameworks = {};
 {% for fw in frameworks %}
 framework = {
-    name : '{{ fw.get_name() }}',
-    can_shuffle : '{{ fw.can_shuffle_data() }}'=='True',
-    can_accumulate_gradients : '{{ fw.can_accumulate_gradients() }}'=='True',
-    supports_python_layers_file : '{{ fw.supports_python_layers_file() }}'=='True',
-    supports_timeline_traces : '{{ fw.supports_timeline_traces() }}'=='True',
-    data_aug_types : [{% for dttype in fw.SUPPORTED_DATA_AUGMENTATION_TYPES %} '{{dttype}}' {% if not loop.last %} , {% endif %} {% endfor %}],
-    data_trans_types : [{% for datype in fw.SUPPORTED_DATA_TRANSFORMATION_TYPES %} '{{datype}}' {% if not loop.last %} , {% endif %} {% endfor %}],
-    };
+  name : '{{ fw.get_name() }}',
+  can_shuffle : '{{ fw.can_shuffle_data() }}'=='True',
+  can_accumulate_gradients : '{{ fw.can_accumulate_gradients() }}'=='True',
+  supports_python_layers_file : '{{ fw.supports_python_layers_file() }}'=='True',
+  supports_timeline_traces : '{{ fw.supports_timeline_traces() }}'=='True',
+  data_aug_types : [{% for dttype in fw.SUPPORTED_DATA_AUGMENTATION_TYPES %} '{{dttype}}' {% if not loop.last %} , {% endif %} {% endfor %}],
+  data_trans_types : [{% for datype in fw.SUPPORTED_DATA_TRANSFORMATION_TYPES %} '{{datype}}' {% if not loop.last %} , {% endif %} {% endfor %}],
+};
 frameworks['{{ fw.get_id() }}'] = framework;
 {% endfor %}
 
 function setFramework(fwid)
 {
-    $('#framework').val(fwid);
-    if (frameworks[fwid].can_shuffle)
-        $("#shuffle-data").show();
-    else
-        $("#shuffle-data").hide();
+  $('#framework').val(fwid);
+  if (frameworks[fwid].can_shuffle)
+    $("#shuffle-data").show();
+  else
+    $("#shuffle-data").hide();
 
-    $("select[name=solver_type] > option." + fwid).prop('disabled', false);
-    $("select[name=solver_type] > option").not("." + fwid).prop('disabled', true);
-    if (! $("select[name=solver_type] > option:selected").hasClass(fwid)) {
-        $("select[name=solver_type] > option:selected").prop("selected", false);
-    }
+  $("select[name=solver_type] > option." + fwid).prop('disabled', false);
+  $("select[name=solver_type] > option").not("." + fwid).prop('disabled', true);
+  if (! $("select[name=solver_type] > option:selected").hasClass(fwid)) {
+    $("select[name=solver_type] > option:selected").prop("selected", false);
+  }
 
-    if (frameworks[fwid].supports_python_layers_file)
-        $("#python-layers").show();
-    else
-        $("#python-layers").hide();
+  if (frameworks[fwid].supports_python_layers_file)
+    $("#python-layers").show();
+  else
+    $("#python-layers").hide();
 
-    if (frameworks[fwid].supports_timeline_traces)
-        $("#timeline-traces").show();
-    else
-        $("#timeline-traces").hide();
+  if (frameworks[fwid].supports_timeline_traces)
+    $("#timeline-traces").show();
+  else
+    $("#timeline-traces").hide();
 
-    $(".data-transformation-input").hide();
-    $(".data-augmentation-input").hide();
-    $.each(frameworks[fwid].data_trans_types, function( index, value ) {
-        $("#"+value).show();
-    });
-    $.each(frameworks[fwid].data_aug_types, function( index, value ) {
-        $("#"+value).show();
-    });
+  $(".data-transformation-input").hide();
+  $(".data-augmentation-input").hide();
+  $.each(frameworks[fwid].data_trans_types, function( index, value ) {
+    $("#"+value).show();
+  });
+  $.each(frameworks[fwid].data_aug_types, function( index, value ) {
+    $("#"+value).show();
+  });
 
-    // Hide the entire box including title when none is available
-    if (frameworks[fwid].data_trans_types.length)
-        $("#data-transformation").show();
-    else
-        $("#data-transformation").hide();
-    
-    if (frameworks[fwid].data_aug_types.length)
-        $("#data-augmentation").show();
-    else
-        $("#data-augmentation").hide();
+  // Hide the entire box including title when none is available
+  if (frameworks[fwid].data_trans_types.length)
+    $("#data-transformation").show();
+  else
+    $("#data-transformation").hide();
 
-    if (fwid == 'torch'){
-        editor.session.setMode(new LuaMode()); // Change editor syntax environment
-    } else {
-        editor.session.setMode(new PythonMode()); // Change editor syntax environment
-    }
-    $('#stdnetRole a[href="'+"#"+fwid+"_standard"+'"]').tab('show');
-    $('#customFramework a[href="'+"#"+fwid+"_custom"+'"]').tab('show');
+  if (frameworks[fwid].data_aug_types.length)
+    $("#data-augmentation").show();
+  else
+    $("#data-augmentation").hide();
 
-    if (frameworks[fwid].can_accumulate_gradients) {
-        $('#batch_accumulation').prop('disabled', false);
-        $('#batch-accumulation-option').show();
-    } else {
-        $('#batch-accumulation-option').hide();
-        $('#batch_accumulation').prop('disabled', true);
-    }
+  if (fwid == 'torch'){
+    editor.session.setMode(new LuaMode()); // Change editor syntax environment
+  } else {
+    editor.session.setMode(new PythonMode()); // Change editor syntax environment
+  }
+  $('#stdnetRole a[href="'+"#"+fwid+"_standard"+'"]').tab('show');
+  $('#customFramework a[href="'+"#"+fwid+"_custom"+'"]').tab('show');
+
+  if (frameworks[fwid].can_accumulate_gradients) {
+    $('#batch_accumulation').prop('disabled', false);
+    $('#batch-accumulation-option').show();
+  } else {
+    $('#batch-accumulation-option').hide();
+    $('#batch_accumulation').prop('disabled', true);
+  }
 }
-            </script>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-sm-6 col-sm-offset-3 well">
-            {% if form.select_gpu.choices|length > 2 and not multi_gpu %}
-            <div class="form-group{{mark_errors([form.select_gpu])}}">
-                <b>{{form.select_gpu.label.text}}</b><br>
-                {% for choice in form.select_gpu %}
-                <div class="radio">
-                    <label>
-                        {{choice}}
-                        {{choice.label.text}}
-                    </label>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% if form.select_gpus.choices| length > 1 and multi_gpu %}
-            <div class="form-group{{mark_errors([form.select_gpu_count])}}">
-                {{form.select_gpu_count.label}}
-                {{form.select_gpu_count(class='form-control')}}
-            </div>
-            <p class="text-center"><i>or</i></p>
-            <div class="form-group{{mark_errors([form.select_gpus])}}">
-                {{form.select_gpus.label}}
-                {{form.select_gpus.tooltip}}
-                {{form.select_gpus(class='form-control', size=4)}}
-            </div>
-            <script type="text/javascript">
-                // Only allow one of these to be selected
-                $("#select_gpus").change(function(){ $("#select_gpu_count").val(null);});
-                $("#select_gpu_count").change(function(){ $("#select_gpus").val(null);});
-            </script>
-            {% endif %}
-            <!--
-            <div class="form-group{{mark_errors([form.group_name])}}">
-                {{form.group_name.label}}
-                {{form.group_name.tooltip}}
-                {{form.group_name(class='form-control')}}
-            </div>
-            -->
-            <div class="form-group{{mark_errors([form.model_name])}}">
-                {{form.model_name.label}}
-                {{form.model_name.tooltip}}
-                {{form.model_name(class='form-control')}}
-            </div>
-            <input type="submit" name="create-model" class="btn btn-primary" value="Create">
-        </div>
-    </div>
-
-</form>
+    </script>
+  </div>
+</div>
 
 <script>
 if($("input:radio[name=previous_networks]").is(":checked")) {
-    if (frameworks[$prevtab_prev_clicked_tr.find(".badge").text()].can_shuffle)
-        $("#shuffle-data").show();
-    else
-        $("#shuffle-data").hide();
+  if (frameworks[$prevtab_prev_clicked_tr.find(".badge").text()].can_shuffle)
+    $("#shuffle-data").show();
+  else
+    $("#shuffle-data").hide();
 }
 
 //Below two lines are required to show the same tab (that was selected before submitting the form) after the page validation fails i.e., preserving the status of window even after page validation fails.
-framework = $('#framework').val();
-// setFramework("{{form.framework.data}}");
+//framework = $('#framework').val();
+  // setFramework("{{form.framework.data}}");
 
 </script>
 

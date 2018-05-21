@@ -68,6 +68,7 @@ class ModelForm(FlaskForm):
 
     optimized = utils.forms.BooleanField(
         u'DNN Optimization',
+        validators=[],
         default=False,
     )
     # The options for this get set in the view (since they are dynamic)

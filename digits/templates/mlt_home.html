@@ -1,126 +1,93 @@
-{% from "helper.html" import print_flashes %}
+{% extends "base.html" %}
 
-{% extends "mlt_layout.html" %}
-
-{% block head %}
-<script type="text/javascript" src="{{ url_for('static', filename='js/time_filters.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/angular-1.5.3.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ui-bootstrap-tpls-1.3.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ngStorage-0.3.10.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/home_app.js', ver=dir_hash) }}"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/table_selection.css', ver=dir_hash) }}">
-
-{% with namespace = "/jobs" %}
-    {% set room = "job_management" %}
-    {% include 'socketio.html' %}
-{% endwith %}
-
-<script>
-
-socket.on('server update', function (msg) {
-    if (msg['update'] == 'gpu_utilization') {
-        $('.data_gpu').html(msg['data_gpu']);
-    }
-});
-</script>
-
+{% block header %}
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    {% if total_gpu_count %}
-    <div id="gpus-available" class="pull-right" style="margin-top:20px">
-        {{remaining_gpu_count}}/{{total_gpu_count}}
-        GPU{{'s' if total_gpu_count != 1 }} available
-    </div>
-    <div class="gpu-utilization-info">
-        {% for info in data_gpu %}
-        <h3>{{info.name}} (#{{info.index}})</h3>
-        <dl>
-            {% if 'memory' in info %}
-            <dt>Memory</dt>
-            <dd>
-                {{ info.memory.used|sizeof_fmt }} / {{ info.memory.total|sizeof_fmt }}
-                ({{(100.0 * info.memory.used / info.memory.total)|round(1)}}%)
-            </dd>
-            {% endif %}
-            {% if 'utilization' in info %}
-            <dt>GPU Utilization</dt>
-            <dd>{{ info.utilization.gpu }}%</dd>
-            {% endif %}
-            {% if 'temperature' in info %}
-            <dt>Temperature</dt>
-            <dd>{{ info.temperature }} &deg;C</dd>
-            {% endif %}
-        </dl>
-        {% endfor %}
-    </div>
-    {% endif %}
-</div>
-{{ print_flashes() }}
 
-<style>
- #ruler { visibility: hidden; white-space: nowrap; }
- .dropdown-menu {
-     width: 200px !important;
- }
- .input-group {
-     width: 300px;
- }
-</style>
-<div class="row">
-    <div class="col">
-
-<span id="ruler"></span>
-<div class="row"
-     id="all-jobs"
-     ng-app="home_app"
-     ng-controller="all_jobs_controller as jc"
-     ng-click="deselect_all()"
-     ng-cloak>
-    {[jc.running_jobs = (jobs | filter:is_running);'']}
-    {[jc.dataset_jobs = (jobs | filter:is_dataset);'']}
-    {[jc.model_jobs = (jobs | filter:is_model);'']}
-    {[jc.pretrained_model_jobs = (jobs | filter:is_pretrained_model);'']}
-    <div class="col-lg-4 col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <div class="stat-widget-four">
-                    <div class="stat-icon dib">
-                        <i class="ti-server text-muted"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="text-left dib">
-                            <div class="stat-heading">Datasets</div>
-                            <div class="stat-text">({[jc.dataset_jobs.length]})</div>
-                        </div>
-                    </div>
-                </div>
+<div class="row" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
+  {[ jc.dataset_jobs = (jobs | filter:is_dataset);'' ]}
+  {[ jc.model_jobs = (jobs | filter:is_model | filter:not_running);'' ]}
+  {[ jc.running_jobs = (jobs | filter:is_running);'' ]}
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="stat-widget-four">
+          <div class="stat-icon dib">
+            <i class="ti-layers-alt text-success border-success"></i>
+          </div>
+          <div class="stat-content">
+            <div class="text-left dib">
+              <div class="stat-heading">GPUs</div>
+              <div class="stat-text">
+                {% if total_gpu_count %}
+                {{remaining_gpu_count}}/{{total_gpu_count}} available
+                {% else %}
+                0/0 available
+                {% endif %}
+              </div>
             </div>
+          </div>
         </div>
+      </div>
     </div>
-
-     <div class="col-lg-4 col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <div class="stat-widget-four">
-                    <div class="stat-icon dib">
-                        <i class="ti-stats-up text-muted"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="text-left dib">
-                            <div class="stat-heading">Training</div>
-                            <div class="stat-text">({[jc.model_jobs.length]})</div>
-                        </div>
-                    </div>
-                </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="stat-widget-four">
+          <div class="stat-icon dib">
+            <i class="ti-server text-primary border-primary"></i>
+          </div>
+          <div class="stat-content">
+            <div class="text-left dib">
+              <div class="stat-heading">Datasets</div>
+              <div class="stat-digit">
+                {[ jc.dataset_jobs.length ]}
+              </div>
             </div>
+          </div>
         </div>
+      </div>
     </div>
-</div>
-{% include "partials/home/upload_pretrained_model.html" %}
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="stat-widget-four">
+          <div class="stat-icon dib">
+            <i class="ti-control-shuffle text-muted"></i>
+          </div>
+          <div class="stat-content">
+            <div class="text-left dib">
+              <div class="stat-heading">Models</div>
+              <div class="stat-text">
+                {[ jc.model_jobs.length ]}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="stat-widget-four">
+          <div class="stat-icon dib">
+            <i class="ti-stats-up text-warning border-warning"></i>
+          </div>
+          <div class="stat-content">
+            <div class="text-left dib">
+              <div class="stat-heading">Training</div>
+              <div class="stat-text">
+                {[ jc.running_jobs.length ]}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-
 {% endblock %}

@@ -1,191 +1,60 @@
-{% from "helper.html" import print_flashes %}
-
-{% extends "mlt_layout.html" %}
+{% extends "base.html" %}
 
 {% block head %}
-<script type="text/javascript" src="{{ url_for('static', filename='js/time_filters.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/angular-1.5.3.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ui-bootstrap-tpls-1.3.2.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/ngStorage-0.3.10.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js', ver=dir_hash) }}"></script>
-
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/datatables.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/dataTables.bootstrap.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/dataTables.buttons.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/datatables-init.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='mlt/js/lib/data-table/jquery.dataTables.min.js', ver=dir_hash) }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/home_app.js', ver=dir_hash) }}"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/dataTables.bootstrap.min.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/buttons.dataTables.min.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/datatable/buttons.bootstrap.min.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/style.css', ver=dir_hash) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/table_selection.css', ver=dir_hash) }}">
-
-{% with namespace = "/jobs" %}
-    {% set room = "job_management" %}
-    {% include 'socketio.html' %}
-{% endwith %}
 {% endblock %}
 
-{% block pagetitle %}
-Datasets
+{% block page_title %} Datasets {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li class="active"> Datasets </li>
 {% endblock %}
 
-{% block pagelist %}
-<li class="active">Datasets</li>
-{% endblock %}
-
+<!-- Content -->
 
 {% block content %}
-{{ print_flashes() }}
 
-<style>
- #ruler { visibility: hidden; white-space: nowrap; }
- .dropdown-menu {
-     width: 200px !important;
- }
- .input-group {
-     width: 300px;
- }
-</style>
-<span id="ruler"></span>
-<div class="row"
-     id="all-jobs"
-     ng-app="home_app"
-     ng-controller="all_jobs_controller as jc"
-     ng-click="deselect_all()"
-     ng-cloak>
-    <div class="col">
-        <section class="card">
-        {[jc.dataset_jobs = (jobs | filter:is_dataset);'']}
-        <div ng-if="jc.dataset_jobs.length">
-        <div ng-controller="datasets_controller as c">
-            {[jobs = (jc.dataset_jobs | filter:search_text | sort_with_empty_at_end:this:jc.storage.show_groups);'']}
-            <div class="card-header">
-            <h5 class="card-title">
-                Dataset Jobs
-                <small>
-                    ({[jobs.length]})
-                </small>
-            </h5>
-            </div>
-            <div class="card-body">
-                <!-- Filter -->
-                <form class="float-right">
-                <div class="form-group">
-                    <div class="input-group">
-                        <div class="input-group-addon"><i class="glyphicon glyphicon-search"></i></div>
-                        <input type="text" class="form-control" placeholder="Filter" ng-model="search_text">
+<div class="row" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
+  {[ jc.dataset_jobs = (jobs | filter:is_dataset);'' ]}
+  <div ng-controller="ds_controller">
+
+    <div class="animated fadeIn">
+      <div class="col">
+        <div class="card">
+          <div class="card-body">
+
+            <table class="table">
+              <col ng-repeat="field in fields"
+                   ng-style="$index == 0 ? '{}' : {'width':visualLength(field.name, field.min_width) + 'px'}">
+              <thead>
+                <tr>
+                  <th scope="col" ng-repeat="field in fields" ng-if="field.show">
+                    {[ field.name ]}
+                  </th>
+                </tr>
+              </thead>
+              <tbody ng-if="jc.dataset_jobs.length">
+                <tr ng-repeat-start="job in jc.dataset_jobs" ng-hide="true"></tr>
+                <tr ng-attr-id="{[ job.id ]}">
+                  <td>{[ job.name ]}</td>
+                  <td>{[ job.backend ]}</td>
+                  <td>{[ job.status ]}</td>
+                  <td start="{[ job.submitted ]}">
+                    <div ng-if="!is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
+                      {[ job.submitted * 1000 | date:'MMM d, yy' ]}
                     </div>
-                </div>
-                </form>
-                {[enabled = any_selected();'']}
-                {[group_enabled = jc.storage.show_groups && enabled;'']}
-                <div>
-                <a class="btn btn-xs btn-danger"
-                   ng-disabled="!enabled"
-                   ng-click="!enabled || delete_jobs();">
-                    Delete
-                </a>
-                <button type="button" class="btn btn-primary" onclick="window.location.href='#';">New Dataset</a></button>
-                </div>
-                <!-- Table -->
-                <table id="dataset-table" ng-mouseleave="mouseleave()"
-                       class="table table-bordered table-striped selectable" width="100%">
-                    <col ng-repeat="field in fields"
-                         ng-style="$index == 0 ? '{}' : {'width':visualLength(field.name, field.min_width) + 'px'}">
-                    <thead>
-                    <tr>
-                        <th ng-repeat="field in fields">
-                            <div ng-click="change_sorting(field.name, $event)">
-                                <small>
-                                    {[ field.name ]}
-                                </small>
-                                <i class="glyphicon"
-                                   ng-class="get_icon(field.name)" style="width:14px">
-                                </i>
-                            </div>
-                        </th>
-                    </tr>
-                    </thead>
-                    <tbody ng-if="jobs.length">
-                    <tr ng-repeat-start="job in jobs"
-                        ng-hide="true">
-                    </tr>
-
-                    <!-- job rows -->
-                    <tr ng-attr-id="{[ job.id ]}"
-                        ng-hide="c.hideRows[job.group]"
-                        ng-mousedown="mousedown($index, $event)"
-                        ng-mousemove="mousemove($index, $event)"
-                        ng-mouseup="mouseup($index, $event)"
-                        ng-click="click($index, $event)"
-                        ng-keydown="keydown($event)"
-                        ng-class="{selected:job.selected}">
-                        <td>
-                            <a href="{{config['URL_PREFIX']}}/jobs/{[ job.id ]}" title="{[job.name]}">
-                                {[ job.name | major_name ]}
-                            </a>
-                            <small>
-                                {[ job.name | minor_name ]}
-                            </small>
-                        </td>
-                        <td>
-                            {[ job.refs | positive ]}
-                        </td>
-                        <td>
-                            <small>{[ job.extension ]}</small>
-                        </td>
-                        <td>
-                            <span class="badge">{[ job.backend ]}</span>
-                        </td>
-                        <td class="text-{[job.status_css]}">
-                            {[ job.status ]}
-                        </td>
-                        <td start="{[job.elapsed]}">
-                            <small title="{[ print_time_diff(job.elapsed) ]}">
-                                {[ print_time_diff_terse(job.elapsed) ]}
-                            </small>
-                        </td>
-                        <td start="{[job.submitted]}">
-                            <small ng-if="!is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
-                                {[ job.submitted * 1000 | date:'MMM d, yy' ]}
-                            </small>
-                            <small ng-if="is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
-                                {[ job.submitted * 1000 | date:'h:mm a' ]}
-                            </small>
-                        </td>
-                    </tr>
-                    <tr ng-repeat-end
-                        ng-hide="true">
-                    </tr>
-                    </tbody>
-                    <tbody ng-if="jobs.length == 0">
-                    <tr>
-                        <td colspan="{[fields.length]}">
-                            <h5>
-                                No Datasets
-                            </h5>
-                            <div class="card-body">
-                                <button type="button" class="btn btn-primary" onclick="window.location.href='#';">New Dataset</a></button>
-                            </div>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
+                    <div ng-if="is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
+                      {[ job.submitted * 1000 | date:'h:mm a' ]}
+                    </div>
+                  </td>
+                </tr>
+                <tr ng-repeat-end ng-hide="true"></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        </div>
-
-        <div ng-if="jc.dataset_jobs.length == 0">
-        <div class="card-header">
-            <h5 class="card-title">
-                No Datasets
-            </h5>
-        </div>
-        </div>
-        </section>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
-
 {% endblock %}

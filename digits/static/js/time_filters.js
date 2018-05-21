@@ -1,5 +1,3 @@
-// Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
-
 function print_time_diff(diff) {
     if (diff < 0) {
         return 'Negative Time';

@@ -1,5 +1,3 @@
-// Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
-
 'use strict';
 
 try {
@@ -548,7 +546,7 @@ try {
             {name: 'name', show: true, min_width: 100},
             {name: 'id', show: false, min_width: 200},
             {name: 'extension', show: false, min_width: 150},
-            {name: 'framework', show: true, min_width: 50},
+            {name: 'framework', show: false, min_width: 50},
             {name: 'status', show: true, min_width: 50},
             {name: 'elapsed', show: true, min_width: 50},
             {name: 'submitted', show: true, min_width: 50}
@@ -758,67 +756,3 @@ try {
 catch (ex) {
     console.log(ex);
 }
-
-$(document).ready(function() {
-
-    // Ideally this should be handled with an angularjs directive, but
-    // for now is a global click event.
-    //  deselect when the mouse is clicked outside the table
-    $(document).on('click', 'body', function(e) {
-        var tag = e.target.tagName.toLowerCase();
-        if (tag == 'input' || tag == 'textarea' || tag == 'button' || tag == 'a') {
-            return;
-        }
-
-        var scope = angular.element(document.getElementById('all-jobs')).scope();
-        scope.deselect_all();
-        scope.$apply();
-    });
-
-    socket.on('task update', function(msg) {
-        if (msg['update'] == 'combined_graph') {
-            var scope = angular.element(document.getElementById('all-jobs')).scope();
-            if (scope.set_attribute(msg['job_id'], 'sparkline', msg['data'])) {
-                scope.set_attribute(msg['job_id'], 'loss', msg['data'][-1]);
-                scope.$apply();
-            }
-        }
-    });
-
-    socket.on('job update', function(msg) {
-        var scope = angular.element(document.getElementById('all-jobs')).scope();
-        if (false)
-            return;
-        if (msg.update == 'status') {
-            if (msg.status == 'Initialized' ||
-                msg.status == 'Waiting' ||
-                msg.status == 'Running') {
-                if (scope.set_attribute(msg.job_id, 'status', msg.status) &&
-                    scope.set_attribute(msg.job_id, 'status_css', msg.css))
-                    scope.$apply();
-            } else {
-                // These should be moving from the running table to
-                // the other tables, so gather all the information to
-                // be displayed.
-                scope.add_job(msg.job_id);
-                scope.$apply();
-            }
-        }
-        else if (msg.update == 'progress') {
-            if (scope.set_attribute(msg.job_id, 'progress', msg.percentage))
-                scope.$apply();
-        }
-        else if (msg.update == 'added') {
-            scope.add_job(msg.job_id);
-            scope.$apply();
-        }
-        else if (msg.update == 'deleted') {
-            scope.remove_job(msg.job_id);
-            scope.$apply();
-        }
-        else if (msg.update == 'attribute') {
-            scope.set_attribute(msg.job_id, msg.attribute, msg.value);
-            scope.$apply();
-        }
-    });
-});

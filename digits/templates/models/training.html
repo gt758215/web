@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block head %}
+{% endblock %}
+
+{% block page_title %} Training {% endblock %}
+
+{% block page_list %}
+<li><a href="{{url_for('digits.views.home')}}"> Dashboard </a></li>
+<li class="active"> Training </li>
+{% endblock %}
+
+{% block content %}
+<div class="row" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
+  {[ jc.model_jobs = (jobs | filter:is_model | filter:is_running);'' ]}
+  <div ng-controller="models_controller">
+    <div class="animated fadeIn">
+    <div class="col">
+    <div class="card">
+    <div class="card-body">
+      <div align="justify">
+      <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('digits.model.images.classification.views.new') }}';">New Training</a></button>
+      </div>
+
+      <table class="table">
+        <col ng-repeat="field in model_fields | filter:show(true)"
+             ng-style="$index == 0 ? '{}' : {'width':visualLength(field.name, field.min_width) + 'px'}">
+        <thead>
+          <tr>
+            <th scope="col" ng-repeat="field in model_fields" ng-if="field.show">
+               {[ field.name ]}
+            </th>
+          </tr>
+        </thead>
+        <tbody ng-if="jc.model_jobs.length">
+          <tr ng-repeat-start="job in jc.model_jobs" ng-hide="true"></tr>
+          <tr ng-attr-id="{[ job.id ]}">
+            <td>
+              <dg-name></dg-name>
+            </td>
+            <td>{[ job.status ]}</td>
+            <td ng-if="job.progress != 0">
+              {[ (job['accuracy (val) last'] * 100).toFixed(2) ]}
+            </td>
+            <td ng-if="job.progress == 0">
+               N/A
+            </td>
+            <td>
+              {[ job.progress ]}
+            </td>
+            <td>
+              {[ print_time_diff_terse(job.elapsed) ]}
+            </td>
+            <td start="{[ job.submitted ]}">
+              <div ng-if="!is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
+                {[ job.submitted * 1000 | date:'MMM d, yy' ]}
+              </div>
+              <div ng-if="is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
+                {[ job.submitted * 1000 | date:'h:mm a' ]}
+              </div>
+            </td>
+          </tr>
+          <tr ng-repeat-end ng-hide="true"></tr>
+        </tbody>
+      </table>
+  </div>
+</div>
+{% endblock %}

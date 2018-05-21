@@ -1,53 +1,66 @@
-{% extends "mlt_layout.html" %}
-{% block headertitle %}
-    <title>Networks</title>
+{% extends "base.html" %}
+
+{% block head %}
 {% endblock %}
 
-{% block pagetitle %}
-    <h1>Networks</h1>
-{% endblock %}
+{% block page_title %} Models {% endblock %}
 
-{% block pagelist %}
-    <li><a href="{{url_for('digits.views.home')}}">Dashboard</a></li>
-    <li class="active">Networks</li>
+{% block page_list %}
+<li><a href="{{url_for('digits.views.home')}}"> Dashboard </a></li>
+<li class="active"> Models </li>
 {% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-            <h5 class="card-title">
-                Networks
-            </h5>
-    </div>
-    <div class="card-body">
 
-        {% include 'networks/images/summary.html' %}
-        <!--
-        <div class="default-tab">
-            <nav>
-                <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                    <a class="nav-item nav-link active" id="nav-home-tab" data-toggle="tab" href="#nav-home" role="tab"
-                       aria-controls="nav-home" aria-selected="true">Image</a>
-                    <a class="nav-item nav-link" id="nav-profile-tab" data-toggle="tab" href="#nav-profile" role="tab"
-                       aria-controls="nav-profile" aria-selected="false">Video</a>
-                    <a class="nav-item nav-link" id="nav-contact-tab" data-toggle="tab" href="#nav-contact" role="tab"
-                       aria-controls="nav-contact" aria-selected="false">Text</a>
-                </div>
-            </nav>
-            <div class="tab-content pl-3 pt-2" id="nav-tabContent">
-                <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">
-                    {% include 'networks/images/summary.html' %}
-                </div>
-                <div class="tab-pane fade" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab">
-                    <p>Video</p>
-                </div>
-                <div class="tab-pane fade" id="nav-contact" role="tabpanel" aria-labelledby="nav-contact-tab">
-                    <p>Text</p>
-                </div>
-            </div>
-
+<div class="row" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
+  {[ jc.model_jobs = (jobs | filter:is_model | filter:not_running);'' ]}
+  <div ng-controller="models_controller">
+    <div class="animated fadeIn">
+      <div class="col">
+        <div class="card">
+          <div class="card-body">
+            <table class="table">
+              <col ng-repeat="field in model_fields | filter:show(true)"
+                   ng-style="$index == 0 ? '{}' : {'width':visualLength(field.name, field.min_width) + 'px'}">
+              <thead>
+                <tr>
+                  <th scope="col" ng-repeat="field in model_fields" ng-if="field.show">
+                    {[ field.name ]}
+                  </th>
+                </tr>
+              </thead>
+              <tbody ng-if="jc.model_jobs.length">
+                <tr ng-repeat-start="job in jc.model_jobs" ng-hide="true"></tr>
+                <tr ng-attr-id="{[ job.id ]}">
+                  <td>
+                    <dg-name></dg-name>
+                  </td>
+                  <td>{[ job.status ]}</td>
+                  <td ng-if="job.status == 'Done'">
+                    {[ (job['accuracy (val) last'] * 100).toFixed(2) ]}
+                  </td>
+                  <td ng-if="job.status != 'Done'">
+                    N/A
+                  </td>
+                  <td>
+                    {[ print_time_diff_terse(job.elapsed) ]}
+                  </td>
+                  <td start="{[ job.submitted ]}">
+                    <div ng-if="!is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
+                      {[ job.submitted * 1000 | date:'MMM d, yy' ]}
+                    </div>
+                    <div ng-if="is_today(job.submitted)" title="{[ job.submitted * 1000 | date:'medium' ]}">
+                      {[ job.submitted * 1000 | date:'h:mm a' ]}
+                    </div>
+                  </td>
+                </tr>
+                <tr ng-repeat-end ng-hide="true"></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        -->
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

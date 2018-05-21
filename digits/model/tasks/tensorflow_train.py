@@ -954,6 +954,16 @@ class TensorflowTrainTask(TrainTask):
         """
         return {"Network": self.model_file}
 
+    def get_parameters(self):
+        return {"Batch Size": self.batch_size,
+                "Total Epoch": self.train_epochs,
+                "Base LR": self.learning_rate,
+                "LR Policy": self.lr_policy['policy'],
+                "Optimizer": self.solver_type,
+                "WarmUp LR": self.rampup_lr,
+                "WarmUp Epoch": self.rampup_epoch,
+                }
+
     @override
     def get_network_desc(self):
         """
