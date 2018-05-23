@@ -36,12 +36,19 @@
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
     <script src="{{ url_for('static', filename='js/myelintek_app.js') }}"></script>
 
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.13.0/d3.min.js"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace-1.2.3.min.js', ver=dir_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.mode-python-1.2.3.min.js', ver=dir_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.mode-lua-1.2.3.min.js', ver=dir_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.theme-chrome-1.2.3.min.js', ver=dir_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.ext-searchbox-1.2.3.min.js', ver=dir_hash) }}"></script>
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.css">
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.13.0/d3.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.css">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.js"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/bootbox-4.3.0.min.js') }}"></script>
 
     {% block head %}
     {% endblock%}

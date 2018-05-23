@@ -26,15 +26,10 @@ import tensorflow as tf
 import caffe_tf_pb2
 import utils as digits
 
-import multiprocessing
-
 # Constants
 MIN_FRACTION_OF_EXAMPLES_IN_QUEUE = 0.4
-MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 8192  # The queue size cannot exceed this number
-#PREFETCH_BATCH = 32  # The queue size cannot exceed this number
-NUM_THREADS_DATA_LOADER = 18
-NUM_THREADS_DATA_READER = 18
-NUM_THREADS_DATA_BATCHER = 12
+MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 4096  # The queue size cannot exceed this number
+NUM_THREADS_DATA_LOADER = 6
 LOG_MEAN_FILE = False  # Logs the mean file as loaded in TF to TB
 
 # Supported extensions for Loaders
@@ -215,10 +210,6 @@ class LoaderFactory(object):
             self.batch_size = batch_size
             self.num_epochs = num_epochs
             self._seed = seed
-            self.gpus = 0
-            self.batch2gpu_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
-            self.reader_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
-            self.aug_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count()) if not self.is_inference else 1
 
             if self.labels_db_path:
                 self.labels_db = LoaderFactory.set_source(self.labels_db_path)
@@ -284,19 +275,6 @@ class LoaderFactory(object):
             # data = tf.image.convert_image_dtype(data, tf.float32) # normalize to [0:1) range
         return data
 
-    def load_to_gpu(self, k, d, l):
-            d_g = []
-            l_g = []
-            dev = range(self.gpus)
-
-            for i in dev:
-                with tf.device("/gpu:%d" % i):
-                    d_g.append(tf.identity(d[i]))
-                    l_g.append(tf.identity(l[i]))
-            d_2 = tf.stack(d_g, 0)
-            l_2 = tf.stack(l_g, 0)
-            return k, d_2, l_2
-
     def create_input_pipeline(self):
         """
         This function returns part of the graph that does data loading, and
@@ -313,143 +291,129 @@ class LoaderFactory(object):
             None.
         """
 
-        def reshape_and_aug(k, d, ds, l, ls):
-            ds = tf.reshape(ds, [3])
-            d = self.reshape_decode(d, ds)
+        # @TODO(tzaman) the container can be used if the reset function is implemented:
+        # see https://github.com/tensorflow/tensorflow/issues/4535#issuecomment-248990633
+        #
+        # with tf.container('queue-container'):
 
-            if self.labels_db_path:
-                ls = tf.reshape(ls, [3])
-                l = self.labels_db.reshape_decode(l, ls)
-            else:
-                if self.stage != digits.STAGE_INF:
-                    l = tf.reshape(l, [])
-
-            # Mean Subtraction
-            if self.mean_loader:
-                with tf.name_scope('mean_subtraction'):
-                    d = self.mean_loader.subtract_mean_op(d)
-                    if LOG_MEAN_FILE:
-                        expanded_data = tf.expand_dims(self.mean_loader.tf_mean_image, 0)
-                        self.summaries.append(tf.summary.image('mean_image', expanded_data, max_outputs=1))
-
-            # (Random) Cropping
-            if self.croplen:
-                with tf.name_scope('cropping'):
-                    if self.stage == digits.STAGE_TRAIN:
-                        d = tf.random_crop(
-                            d,
-                            [self.croplen, self.croplen, self.channels],
-                            seed=self._seed
-                        )
-                    else:  # Validation or Inference
-                        d = tf.image.resize_image_with_crop_or_pad(d, self.croplen, self.croplen)
-
-            # Data Augmentation
-            if self.aug_dict:
-                with tf.name_scope('augmentation'):
-                    flipflag = self.aug_dict['aug_flip']
-                    if flipflag == 'fliplr' or flipflag == 'fliplrud':
-                        d = tf.image.random_flip_left_right(d, seed=self._seed)
-                    if flipflag == 'flipud' or flipflag == 'fliplrud':
-                        d = tf.image.random_flip_up_down(d, seed=self._seed)
-
-                    noise_std = self.aug_dict['aug_noise']
-                    if noise_std > 0.:
-                        # Note the tf.random_normal requires a static shape
-                        d = tf.add(
-                                d,
-                                tf.random_normal(
-                                    self.get_shape(),
-                                    mean=0.0,
-                                    stddev=noise_std,
-                                    dtype=tf.float32,
-                                    seed=self._seed,
-                                    name='AWGN'
-                                )
-                            )
-
-                    contrast_fact = self.aug_dict['aug_contrast']
-                    if contrast_fact > 0:
-                        d = tf.image.random_contrast(
-                                d,
-                                lower=1.-contrast_fact,
-                                upper=1.+contrast_fact,
-                                seed=self._seed
-                            )
-
-                    # @TODO(tzaman): rewrite the below HSV stuff entirely in a TF PR to be done in one single operation
-                    aug_hsv = self.aug_dict['aug_HSV']
-                    if aug_hsv['h'] > 0.:
-                        d = tf.image.random_hue(d, aug_hsv['h'], seed=self._seed)
-                    if aug_hsv['s'] > 0.:
-                        d = tf.image.random_saturation(
-                                d,
-                                1 - aug_hsv['s'],
-                                1 + aug_hsv['s'],
-                                seed=self._seed
-                            )
-                    if aug_hsv['v'] > 0.:
-                        # closely resembles V - temporary until rewritten
-                        d = tf.image.random_brightness(d, aug_hsv['v'], seed=self._seed)
-
-                    # @TODO(tzaman) whitening is so invasive that we need a way to add it to the val/inf too in a
-                    # portable manner, like the mean file : how? If we don't find a way, don't use whitening.
-                    aug_whitening = self.aug_dict['aug_whitening']
-                    if aug_whitening:
-                        # Subtract off its own mean and divide by the standard deviation of its own the pixels.
-                        with tf.name_scope('whitening'):
-                            d = tf.image.per_image_standardization(d)  # N.B. also converts to float
-
-            if self.stage != digits.STAGE_INF:
-                return k, d, l
-            else:
-                return k, d
-
-        # how mang element of (key, data, label) to be prefetched
-        max_queue_capacity = min(math.ceil(self.total * MIN_FRACTION_OF_EXAMPLES_IN_QUEUE), MAX_ABSOLUTE_EXAMPLES_IN_QUEUE)
-        # represent by batch number
-        prefetch_batches = max_queue_capacity//self.batch_size
-
-        # get a key dataset which produces keys element
         key_queue = self.get_queue()
-        # a dataset which produces a (key, data, label) element onece
-        dataset = self.get_single_data(key_queue)
-        # do something on data
-        dataset = dataset.map(reshape_and_aug, num_parallel_calls=self.aug_cpu)
-        # @NOTE(gt758215): a crucial step for gpu performance, using three layers for buffering
-        # 1st buffer layer for reader of disk io
-        dataset = dataset.prefetch(max_queue_capacity)
 
-        # shuffled data range in 5 batch size
-        if self.shuffle:
-            dataset = dataset.shuffle(buffer_size=5*self.batch_size, seed=self._seed, reshuffle_each_iteration=True)
-        # repeat
-        dataset = dataset.repeat(self.num_epochs)
-        # batch data for one gpu, size = batch_size // gpus
-        dataset = dataset.batch(self.batch_size//(self.gpus if self.gpus else 1))
-        # 2nd buffer layer for cpu consuming work
-        dataset = dataset.prefetch(prefetch_batches*self.gpus)
+        single_label = None
+        single_label_shape = None
+        if self.stage == digits.STAGE_INF:
+            single_key, single_data, single_data_shape, _, _ = self.get_single_data(key_queue)
+        else:
+            single_key, single_data, single_data_shape, single_label, single_label_shape = \
+                self.get_single_data(key_queue)
 
-        # batch all to one, it will be [batch_dev_1, batch_dev_2,...]
-        dataset = dataset.batch(self.gpus if self.gpus > 0 else 1)
-        # @NOTE(gt758215): a crucial step for gpu performance
-        # if we using gpus, preload data from cpu to gpu
-        if(self.gpus > 0):
-            # unpack batches, mapping each batch to a specified gpu, and pack them back again
-            dataset = dataset.map(self.load_to_gpu, num_parallel_calls=self.batch2gpu_cpu)
-            # 3rd buffer layer for communication consuming work for cpu to gpus
-            dataset = dataset.prefetch(prefetch_batches)
+        single_data_shape = tf.reshape(single_data_shape, [3])  # Shape the shape to have three dimensions
+        single_data = self.reshape_decode(single_data, single_data_shape)
 
-        #iterator = dataset.make_one_shot_iterator()
-        self.iterator = dataset.make_initializable_iterator()
-        self.init_op = self.iterator.initializer
-        next_batch = self.iterator.get_next()
+        if self.labels_db_path:  # Using a seperate label db; label can be anything
+            single_label_shape = tf.reshape(single_label_shape, [3])  # Shape the shape
+            single_label = self.labels_db.reshape_decode(single_label, single_label_shape)
+        elif single_label is not None:  # Not using a seperate label db; label is a scalar
+            single_label = tf.reshape(single_label, [])
 
-        self.batch_k = next_batch[0]  # Key
-        self.batch_x = next_batch[1]  # Input
-        if len(next_batch) == 3:
+        # Mean Subtraction
+        if self.mean_loader:
+            with tf.name_scope('mean_subtraction'):
+                single_data = self.mean_loader.subtract_mean_op(single_data)
+                if LOG_MEAN_FILE:
+                    expanded_data = tf.expand_dims(self.mean_loader.tf_mean_image, 0)
+                    self.summaries.append(tf.summary.image('mean_image', expanded_data, max_outputs=1))
+
+        # (Random) Cropping
+        if self.croplen:
+            with tf.name_scope('cropping'):
+                if self.stage == digits.STAGE_TRAIN:
+                    single_data = tf.random_crop(single_data,
+                                                 [self.croplen, self.croplen, self.channels],
+                                                 seed=self._seed)
+                else:  # Validation or Inference
+                    single_data = tf.image.resize_image_with_crop_or_pad(single_data, self.croplen, self.croplen)
+
+        # Data Augmentation
+        if self.aug_dict:
+            with tf.name_scope('augmentation'):
+                flipflag = self.aug_dict['aug_flip']
+                if flipflag == 'fliplr' or flipflag == 'fliplrud':
+                    single_data = tf.image.random_flip_left_right(single_data, seed=self._seed)
+                if flipflag == 'flipud' or flipflag == 'fliplrud':
+                    single_data = tf.image.random_flip_up_down(single_data, seed=self._seed)
+
+                noise_std = self.aug_dict['aug_noise']
+                if noise_std > 0.:
+                    # Note the tf.random_normal requires a static shape
+                    single_data = tf.add(single_data, tf.random_normal(self.get_shape(),
+                                                                       mean=0.0,
+                                                                       stddev=noise_std,
+                                                                       dtype=tf.float32,
+                                                                       seed=self._seed,
+                                                                       name='AWGN'))
+
+                contrast_fact = self.aug_dict['aug_contrast']
+                if contrast_fact > 0:
+                    single_data = tf.image.random_contrast(single_data,
+                                                           lower=1.-contrast_fact,
+                                                           upper=1.+contrast_fact,
+                                                           seed=self._seed)
+
+                # @TODO(tzaman): rewrite the below HSV stuff entirely in a TF PR to be done in one single operation
+                aug_hsv = self.aug_dict['aug_HSV']
+                if aug_hsv['h'] > 0.:
+                    single_data = tf.image.random_hue(single_data, aug_hsv['h'], seed=self._seed)
+                if aug_hsv['s'] > 0.:
+                    single_data = tf.image.random_saturation(single_data,
+                                                             1 - aug_hsv['s'],
+                                                             1 + aug_hsv['s'],
+                                                             seed=self._seed)
+                if aug_hsv['v'] > 0.:
+                    # closely resembles V - temporary until rewritten
+                    single_data = tf.image.random_brightness(single_data, aug_hsv['v'], seed=self._seed)
+
+                # @TODO(tzaman) whitening is so invasive that we need a way to add it to the val/inf too in a
+                # portable manner, like the mean file : how? If we don't find a way, don't use whitening.
+                aug_whitening = self.aug_dict['aug_whitening']
+                if aug_whitening:
+                    # Subtract off its own mean and divide by the standard deviation of its own the pixels.
+                    with tf.name_scope('whitening'):
+                        single_data = tf.image.per_image_standardization(single_data)  # N.B. also converts to float
+
+        max_queue_capacity = min(math.ceil(self.total * MIN_FRACTION_OF_EXAMPLES_IN_QUEUE),
+                                 MAX_ABSOLUTE_EXAMPLES_IN_QUEUE)
+
+        single_batch = [single_key, single_data]
+        if single_label is not None:
+            single_batch.append(single_label)
+
+        if self.backend == 'tfrecords' and self.shuffle:
+            batch = tf.train.shuffle_batch(
+                single_batch,
+                batch_size=self.batch_size,
+                num_threads=NUM_THREADS_DATA_LOADER,
+                capacity=10*self.batch_size,  # Max amount that will be loaded and queued
+                shapes=[[0], self.get_shape(), []],  # Only makes sense is dynamic_pad=False #@TODO(tzaman) - FIXME
+                min_after_dequeue=5*self.batch_size,
+                allow_smaller_final_batch=True,  # Happens if total%batch_size!=0
+                name='batcher')
+        else:
+            batch = tf.train.batch(
+                single_batch,
+                batch_size=self.batch_size,
+                dynamic_pad=True,  # Allows us to not supply fixed shape a priori
+                enqueue_many=False,  # Each tensor is a single example
+                # set number of threads to 1 for tfrecords (used for inference)
+                num_threads=NUM_THREADS_DATA_LOADER if not self.is_inference else 1,
+                capacity=max_queue_capacity,  # Max amount that will be loaded and queued
+                allow_smaller_final_batch=True,  # Happens if total%batch_size!=0
+                name='batcher')
+
+        self.batch_k = batch[0]  # Key
+        self.batch_x = batch[1]  # Input
+        if len(batch) == 3:
             # There's a label (unlike during inferencing)
-            self.batch_y = next_batch[2]  # Output (label)
+            self.batch_y = batch[2]  # Output (label)
 
 
 class LmdbLoader(LoaderFactory):
@@ -472,16 +436,7 @@ class LmdbLoader(LoaderFactory):
         self.lmdb_env = lmdb.open(self.db_path, readonly=True, lock=False)
         self.lmdb_txn = self.lmdb_env.begin(buffers=False)
         self.total = self.lmdb_txn.stat()['entries']
-
-        # Keys Saver
-        import cPickle as pickle
-
-        key_path = self.db_path + '/keys.mdb'
-        if os.path.isfile(key_path):
-            self.keys = pickle.load(open(key_path, "rb"))
-        else:
-            self.keys = [key for key, _ in self.lmdb_txn.cursor()]
-            pickle.dump(self.keys, open(key_path, "wb"), protocol=True)
+        self.keys = [key for key, _ in self.lmdb_txn.cursor()]
 
         # Read the first entry to get some info
         lmdb_val = self.lmdb_txn.get(self.keys[0])
@@ -508,7 +463,14 @@ class LmdbLoader(LoaderFactory):
                 self.image_dtype = tf.uint16
 
     def get_queue(self):
-        return tf.data.Dataset.from_tensor_slices(self.keys)
+        return tf.train.string_input_producer(
+            self.keys,
+            num_epochs=self.num_epochs,
+            capacity=self.total,
+            shuffle=self.shuffle,
+            seed=self._seed,
+            name='input_producer'
+        )
 
     def get_tf_data_type(self):
         """Returns the type of the data, in tf format.
@@ -572,7 +534,7 @@ class LmdbLoader(LoaderFactory):
             single_label_shape = np.array([], dtype=np.int32)
             if self.labels_db_path:
                 single_label, single_label_shape, _ = get_data_and_shape(self.labels_db.lmdb_txn, key)
-            return key, single_data, [single_data_shape], single_label, [single_label_shape]
+            return single_data, [single_data_shape], single_label, [single_label_shape]
         return get_data_op
 
     def get_single_data(self, key_queue):
@@ -580,11 +542,10 @@ class LmdbLoader(LoaderFactory):
         Returns:
             key, single_data, single_data_shape, single_label, single_label_shape
         """
-        py_func_return_type = [tf.string, self.get_tf_data_type(), tf.int32, self.get_tf_label_type(), tf.int32]
-        return key_queue.map(
-            lambda key: tf.py_func(self.generate_data_op(), [key], py_func_return_type),
-            num_parallel_calls=self.reader_cpu
-        )
+        key = key_queue.dequeue()  # Operation that dequeues one key and returns a string with the key
+        py_func_return_type = [self.get_tf_data_type(), tf.int32, self.get_tf_label_type(), tf.int32]
+        d, ds, l, ls = tf.py_func(self.generate_data_op(), [key], py_func_return_type, name='data_reader')
+        return key, d, ds, l, ls
 
     def __del__(self):
         self.lmdb_env.close()
@@ -641,23 +602,27 @@ class FileListLoader(LoaderFactory):
                 exit(-1)
             self.image_dtype = tf.uint16
 
-        #self.reader = tf.WholeFileReader()
-        self.reader = None
+        self.reader = tf.WholeFileReader()
 
     def get_queue(self):
-        return tf.data.Dataset.from_tensor_slices(self.keys)
+        return tf.train.string_input_producer(
+            self.keys,
+            num_epochs=self.num_epochs,
+            capacity=self.total,
+            shuffle=self.shuffle,
+            seed=self._seed,
+            name='input_producer'
+        )
 
     def get_single_data(self, key_queue):
         """
         Returns:
             key, single_data, single_data_shape, single_label, single_label_shape
         """
-        def func(key):
-            value = tf.read_file(key)
-            shape = np.array([self.width, self.height, self.channels], dtype=np.int32)  # @TODO: this is not dynamic
-            shape = tf.convert_to_tensor(shape, tf.int32)
-            return key, value, shape  # @TODO(tzaman) - Note: will only work for inferencing stage!
-        return key_queue.map(func, num_parallel_calls=self.reader_cpu)
+        key, value = self.reader.read(key_queue)
+        shape = np.array([self.width, self.height, self.channels], dtype=np.int32)  # @TODO: this is not dynamic
+        return key, value, shape  # @TODO(tzaman) - Note: will only work for inferencing stage!
+
 
 class TFRecordsLoader(LoaderFactory):
     """ The TFRecordsLoader connects directly into the tensorflow graph.
@@ -681,7 +646,6 @@ class TFRecordsLoader(LoaderFactory):
         # self.db_path += '/test.tfrecords' # @TODO(tzaman) this is a hack
 
         self.shard_paths = []
-        self.keys = []
         list_db_files = os.path.join(self.db_path, 'list.txt')
         self.total = 0
         if os.path.exists(list_db_files):
@@ -691,18 +655,13 @@ class TFRecordsLoader(LoaderFactory):
         for shard_path in files:
             # Account for the relative path format in list.txt
             record_iter = tf.python_io.tf_record_iterator(shard_path)
-            pos = 0
             for r in record_iter:
                 self.total += 1
-                pos = pos + 16 + len(r)
-                self.keys.append(shard_path + ':' + pos)
+            if not self.total:
+                raise ValueError('Database or shard contains no records (%s)' % (self.db_path))
+            self.shard_paths.append(shard_path)
+        self.keys = ['%s:0' % p for p in self.shard_paths]
 
-            # no record if pos==0
-            if pos != 0:
-                self.shard_paths.append(shard_path)
-        #self.keys = ['%s:0' % p for p in self.shard_paths]
-        if not self.total:
-            raise ValueError('Database or shard contains no records (%s)' % (self.db_path))
         # Use last record read to extract some preliminary data that is sometimes needed or useful
         example_proto = tf.train.Example()
         example_proto.ParseFromString(r)
@@ -718,33 +677,40 @@ class TFRecordsLoader(LoaderFactory):
         else:
             self.data_encoded = False
 
+        # Set up the reader
+        # @TODO(tzaman) there's a filename queue because it can have multiple (sharded) tfrecord files (!)
+        #  .. account for that!
+        self.reader = tf.TFRecordReader(name='tfrecord_reader')
+
     def get_queue(self):
-        return tf.data.TFRecordDataset(self.shard_paths)
+        return tf.train.string_input_producer(self.shard_paths,
+                                              num_epochs=self.num_epochs,
+                                              shuffle=self.shuffle,
+                                              seed=self._seed,
+                                              name='input_producer'
+                                              )
 
     def get_single_data(self, key_queue):
         """
         Returns:
             key, single_data, single_data_shape, single_label, single_label_shape
         """
-        def parser(record):
-            features = tf.parse_single_example(
-                record,
-                features={
-                    'image_raw': tf.FixedLenFeature([self.height, self.width, self.channels], tf.float32),
-                    'label': tf.FixedLenFeature([], tf.int64),
-                    }
-            )
-            d = features['image_raw']
-            ds = np.array([self.height, self.width, self.channels], dtype=np.int32)  # @TODO: this is not dynamic
-            ds = tf.convert_to_tensor(ds, tf.int32)
-            l = features['label']  # l = tf.cast(features['label'], tf.int32)
-            ls = np.array([], dtype=np.int32)  # @TODO: this is not dynamic
-            ls = tf.convert_to_tensor(ls, tf.int32)
-            return d, ds, l, ls
 
-        tf_db = key_queue.map(parser, num_parallel_calls=self.reader_cpu)
-        key_db = tf.data.Dataset.from_tensor_slices(self.keys)
-        return tf.data.Dataset.zip((key_db, tf_db))
+        key, serialized_example = self.reader.read(key_queue)
+        features = tf.parse_single_example(
+            serialized_example,
+            # Defaults are not specified since both keys are required.
+            features={
+                'image_raw': tf.FixedLenFeature([self.height, self.width, self.channels], tf.float32),
+                'label': tf.FixedLenFeature([], tf.int64),
+            })
+
+        d = features['image_raw']
+        ds = np.array([self.height, self.width, self.channels], dtype=np.int32)  # @TODO: this is not dynamic
+        l = features['label']  # l = tf.cast(features['label'], tf.int32)
+        ls = np.array([], dtype=np.int32)  # @TODO: this is not dynamic
+        return key, d, ds, l, ls
+
 
 class Hdf5Loader(LoaderFactory):
 
@@ -794,7 +760,14 @@ class Hdf5Loader(LoaderFactory):
             exit(-1)
 
     def get_queue(self):
-        return tf.data.Dataset.range(self.total)
+        return tf.train.range_input_producer(
+            self.total,
+            num_epochs=self.num_epochs,
+            capacity=self.total,
+            shuffle=self.shuffle,
+            seed=self._seed,
+            name='input_producer'
+        )
 
     def get_tf_data_type(self):
         """Returns the type of the data, in tf format.
@@ -856,7 +829,7 @@ class Hdf5Loader(LoaderFactory):
             single_label_shape = np.array([], dtype=np.int32)
             if self.labels_db_path:
                 single_label, single_label_shape, _ = self.labels_db.get_data_and_shape(key)
-            return key, single_data, [single_data_shape], single_label, [single_label_shape]
+            return single_data, [single_data_shape], single_label, [single_label_shape]
         return get_data_op
 
     def get_single_data(self, key_queue):
@@ -864,12 +837,10 @@ class Hdf5Loader(LoaderFactory):
         Returns:
             key, single_data, single_data_shape, single_label, single_label_shape
         """
-        py_func_return_type = [tf.int64, self.get_tf_data_type(), tf.int32, self.get_tf_label_type(), tf.int32]
-        return key_queue.map(
-            lambda key: tf.py_func(self.generate_data_op(), [key], py_func_return_type),
-            num_parallel_calls=self.reader_cpu
-        )
-
+        key = key_queue.dequeue()  # Operation that dequeues one key and returns a string with the key
+        py_func_return_type = [self.get_tf_data_type(), tf.int32, self.get_tf_label_type(), tf.int32]
+        d, ds, l, ls = tf.py_func(self.generate_data_op(), [key], py_func_return_type, name='data_reader')
+        return key, d, ds, l, ls
 
     def __del__(self):
         for db in self.h5dbs:
@@ -899,18 +870,24 @@ class GanGridLoader(LoaderFactory):
         self.total = 100000
 
     def get_queue(self):
-        return tf.data.Dataset.range(self.total)
-
+        return tf.train.range_input_producer(
+            self.total,
+            num_epochs=self.num_epochs,
+            capacity=self.total,
+            shuffle=self.shuffle,
+            seed=self._seed,
+            name='input_producer'
+        )
 
     def get_single_data(self, key_queue):
         """
         Returns:
             key, single_data, single_data_shape, single_label, single_label_shape
         """
-        def func(key):
-            key = tf.to_int32(key)
-            d = keys
-            ds = np.array([1, 1, 1], dtype=np.int32)
-            ds = tf.convert_to_tensor(ds, dtype=tf.int32)
-            return key, d, ds, None, None
-        return key_queue.map(func, num_parallel_calls=self.reader_cpu)
+
+        key = tf.to_int32(key_queue.dequeue())  # Operation that dequeues an index
+
+        d = key
+        ds = np.array([1, 1, 1], dtype=np.int32)
+
+        return key, d, ds, None, None

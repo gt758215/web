@@ -23,8 +23,12 @@
 
 {% block content %}
 <script>
-jQuery(document).ready(function($) {
-  socket.on('job update', function (msg) {
+  jQuery(document).ready(function($) {
+    function setPanelClass(selector, css) {
+      $(selector).removeClass("panel-default panel-primary panel-success panel-info panel-warning panel-danger");
+      $(selector).addClass('panel-'+css);
+    }
+    socket.on('job update', function (msg) {
     if (msg['update'] == 'status') {
       $("#job-statuses .panel-title small").html(msg['status']);
       setPanelClass('#job-statuses', msg['css']);

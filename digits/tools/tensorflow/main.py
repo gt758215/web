@@ -143,23 +143,6 @@ tf.app.flags.DEFINE_float(
 tf.app.flags.DEFINE_float(
     'augHSVv', 0., """The stddev of HSV's Value shift as pre-processing augmentation""")
 
-tf.app.flags.DEFINE_integer(
-    'small_chunk', 4, """ TBC""")
-tf.app.flags.DEFINE_bool(
-    'allow_growth', True, """gpu memory saving.""")
-tf.app.flags.DEFINE_float(
-    'gpu_mem_ratio', 1.0, """if allow_growth is false, occupy a ratio of gpu memory in the beginning""")
-tf.app.flags.DEFINE_bool(
-    'nccl', True, """nccl allreduce.""")
-tf.app.flags.DEFINE_bool(
-    'replica', True, """replica variables on gpus.""")
-tf.app.flags.DEFINE_float(
-    'warm_lr', 0, """ TBC""")
-tf.app.flags.DEFINE_float(
-    'warm_epoch', 0, """ TBC""")
-tf.app.flags.DEFINE_boolean(
-    'nesterov', False, """use nesterov if Momentum on.""")
-
 
 def save_timeline_trace(run_metadata, save_dir, step):
     tl = timeline.Timeline(run_metadata.step_stats)
@@ -341,7 +324,7 @@ def Inference(sess, model):
     """
     Runs one inference (evaluation) epoch (all the files in the loader)
     """
-    sess.run(model.dataloader.init_op)
+
     inference_op = model.towers[0].inference
     if FLAGS.labels_list:  # Classification -> assume softmax usage
         # Append a softmax op
@@ -362,7 +345,7 @@ def Inference(sess, model):
                     continue
 
     try:
-        while True:
+        while not model.queue_coord.should_stop():
             keys, preds, [w], [a] = sess.run([model.dataloader.batch_k,
                                               inference_op,
                                               [weight_vars],
@@ -386,7 +369,9 @@ def Validation(sess, model, current_epoch):
     Runs one validation epoch.
     """
 
-    sess.run(model.dataloader.init_op)
+    # @TODO(tzaman): utilize the coordinator by resetting the queue after 1 epoch.
+    # see https://github.com/tensorflow/tensorflow/issues/4535#issuecomment-248990633
+
     print_vals_sum = 0
     steps = 0
     while (steps * model.dataloader.batch_size) < model.dataloader.get_total():
@@ -427,11 +412,8 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
-        assert FLAGS.batch_size % FLAGS.small_chunk == 0, (FLAGS.batch_size, FLAGS.small_chunk)
-        batch_size_train = FLAGS.batch_size//FLAGS.small_chunk
-        batch_size_val = FLAGS.batch_size//FLAGS.small_chunk
-        batch_size_inf = FLAGS.batch_size//FLAGS.small_chunk
-
+        batch_size_train = FLAGS.batch_size
+        batch_size_val = FLAGS.batch_size
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
 
         # This variable keeps track of next epoch, when to perform validation.
@@ -498,62 +480,29 @@ def main(_):
             exit(-1)
         # @TODO(tzaman) - add mode checks to UserModel
 
-        # A bug ref. to https://github.com/tensorflow/tensorflow/issues/9374
-        #               https://github.com/tensorflow/tensorflow/issues/16753
-        # The config must pass into session ahead of the device_lib.list_local_devices() function call
-        # in train_model.create_model
-
-        # Start running operations on the Graph. allow_soft_placement must be set to
-        # True to build towers on GPU, as some of the ops do not have GPU
-        # implementations.
-        sess_config=tf.ConfigProto(
-                        allow_soft_placement=True,  # will automatically do non-gpu supported ops on cpu
-                        inter_op_parallelism_threads=TF_INTER_OP_THREADS,
-                        intra_op_parallelism_threads=TF_INTRA_OP_THREADS,
-                        #gpu_options=tf.GPUOptions(
-                        #    allow_growth=FLAGS.allow_growth
-                        #    #,per_process_gpu_memory_fraction = 0.4
-                        #  ),
-                        log_device_placement=FLAGS.log_device_placement)
-
-        if FLAGS.allow_growth:
-            sess_config.gpu_options.allow_growth = True
-        else:
-            if FLAGS.gpu_mem_ratio < 1:
-                sess_config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_mem_ratio
-
-        sess = tf.Session(config=sess_config)
-
         if FLAGS.train_db:
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
-                train_model._nesterov = FLAGS.nesterov
-                train_model.small_chunk = FLAGS.small_chunk
-                train_model.nccl = FLAGS.nccl
-                train_model.replica = FLAGS.replica
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
                                              FLAGS.bitdepth,
                                              batch_size_train,
-                                             FLAGS.epoch*FLAGS.small_chunk,
+                                             FLAGS.epoch,
                                              FLAGS.seed)
-                train_model.dataloader.gpus = train_model.gpus
                 train_model.dataloader.set_augmentation(mean_loader, aug_dict)
                 train_model.create_model(UserModel, stage_scope)  # noqa
 
         if FLAGS.validation_db:
             with tf.name_scope(digits.STAGE_VAL) as stage_scope:
                 val_model = Model(digits.STAGE_VAL, FLAGS.croplen, nclasses, reuse_variable=True)
-                val_model.replica = FLAGS.replica
                 val_model.create_dataloader(FLAGS.validation_db)
                 val_model.dataloader.setup(FLAGS.validation_labels,
                                            False,
                                            FLAGS.bitdepth,
                                            batch_size_val,
-                                           int(1e9),
+                                           1e9,
                                            FLAGS.seed)  # @TODO(tzaman): set numepochs to 1
-                val_model.dataloader.gpus = val_model.gpus
                 val_model.dataloader.set_augmentation(mean_loader)
                 val_model.create_model(UserModel, stage_scope)  # noqa
 
@@ -561,10 +510,18 @@ def main(_):
             with tf.name_scope(digits.STAGE_INF) as stage_scope:
                 inf_model = Model(digits.STAGE_INF, FLAGS.croplen, nclasses)
                 inf_model.create_dataloader(FLAGS.inference_db)
-                inf_model.dataloader.setup(None, False, FLAGS.bitdepth, batch_size_inf, 1, FLAGS.seed)
-                inf_model.dataloader.gpus = inf_model.gpus
+                inf_model.dataloader.setup(None, False, FLAGS.bitdepth, FLAGS.batch_size, 1, FLAGS.seed)
                 inf_model.dataloader.set_augmentation(mean_loader)
                 inf_model.create_model(UserModel, stage_scope)  # noqa
+
+        # Start running operations on the Graph. allow_soft_placement must be set to
+        # True to build towers on GPU, as some of the ops do not have GPU
+        # implementations.
+        sess = tf.Session(config=tf.ConfigProto(
+                          allow_soft_placement=True,  # will automatically do non-gpu supported ops on cpu
+                          inter_op_parallelism_threads=TF_INTER_OP_THREADS,
+                          intra_op_parallelism_threads=TF_INTRA_OP_THREADS,
+                          log_device_placement=FLAGS.log_device_placement))
 
         if FLAGS.visualizeModelPath:
             visualize_graph(sess.graph_def, FLAGS.visualizeModelPath)
@@ -593,6 +550,7 @@ def main(_):
 
         # If we are inferencing, only do that.
         if FLAGS.inference_db:
+            inf_model.start_queue_runners(sess)
             Inference(sess, inf_model)
 
         queue_size_op = []
@@ -604,52 +562,48 @@ def main(_):
 
         # Initial Forward Validation Pass
         if FLAGS.validation_db:
+            val_model.start_queue_runners(sess)
             Validation(sess, val_model, 0)
 
         if FLAGS.train_db:
             # During training, a log output should occur at least X times per epoch or every X images, whichever lower
-            virtual_batch_size = batch_size_train * FLAGS.small_chunk
-            train_data_total = train_model.dataloader.get_total()
-            train_steps_per_epoch = train_data_total / virtual_batch_size
-            if math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH) < math.ceil(5000/virtual_batch_size):
+            train_steps_per_epoch = train_model.dataloader.get_total() / batch_size_train
+            if math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH) < math.ceil(5000/batch_size_train):
                 logging_interval_step = int(math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH))
             else:
-                logging_interval_step = int(math.ceil(5000/virtual_batch_size))
+                logging_interval_step = int(math.ceil(5000/batch_size_train))
             logging.info("During training. details will be logged after every %s steps (batches)",
                          logging_interval_step)
 
             # epoch value will be calculated for every batch size. To maintain unique epoch value between batches,
             # it needs to be rounded to the required number of significant digits.
             epoch_round = 0  # holds the required number of significant digits for round function.
-            tmp_batchsize = virtual_batch_size*logging_interval_step
-            while tmp_batchsize <= train_data_total:
+            tmp_batchsize = batch_size_train*logging_interval_step
+            while tmp_batchsize <= train_model.dataloader.get_total():
                 tmp_batchsize = tmp_batchsize * 10
                 epoch_round += 1
             logging.info("While logging, epoch value will be rounded to %s significant digits", epoch_round)
 
             # Create the learning rate policy
-            total_training_steps = train_steps_per_epoch * FLAGS.epoch
+            total_training_steps = train_model.dataloader.num_epochs * train_model.dataloader.get_total() / \
+                train_model.dataloader.batch_size
             lrpolicy = lr_policy.LRPolicy(FLAGS.lr_policy,
                                           FLAGS.lr_base_rate,
                                           FLAGS.lr_gamma,
                                           FLAGS.lr_power,
                                           total_training_steps,
-                                          FLAGS.lr_stepvalues,
-                                          FLAGS.warm_lr,
-                                          (FLAGS.warm_epoch * train_steps_per_epoch))
-            sess.run(train_model.dataloader.init_op)
+                                          FLAGS.lr_stepvalues)
+            train_model.start_queue_runners(sess)
 
             # Training
             logging.info('Started training the model')
-
-            sess.run([train_model.init])
 
             current_epoch = 0
             try:
                 step = 0
                 step_last_log = 0
                 print_vals_sum = 0
-                while True:
+                while not train_model.queue_coord.should_stop():
                     log_runtime = FLAGS.log_runtime_stats_per_step and (step % FLAGS.log_runtime_stats_per_step == 0)
 
                     run_options = None
@@ -669,24 +623,6 @@ def main(_):
                                                             options=run_options,
                                                             run_metadata=run_metadata)
                     else:
-                        # to do accumulations
-                        if(FLAGS.small_chunk > 1):
-                            for i in xrange(FLAGS.small_chunk-1):
-                                _, summary_str, step = sess.run([train_model.accum,
-                                                                 train_model.summary,
-                                                                 train_model.global_step],
-                                                                feed_dict=feed_dict,
-                                                                options=run_options,
-                                                                run_metadata=run_metadata)
-                                if log_runtime:
-                                    writer.add_run_metadata(run_metadata, str(step))
-                                    save_timeline_trace(run_metadata, FLAGS.save, int(step))
-
-                                writer.add_summary(summary_str, step)
-                                # Parse the summary
-                                tags, print_vals = summary_to_lists(summary_str)
-                                print_vals_sum = print_vals + print_vals_sum
-
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
                                                          train_model.global_step],
@@ -711,10 +647,10 @@ def main(_):
                     print_vals_sum = print_vals + print_vals_sum
 
                     # @TODO(tzaman): account for variable batch_size value on very last epoch
-                    current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
+                    current_epoch = round((step * batch_size_train) / train_model.dataloader.get_total(), epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
-                        steps_since_log = (step - step_last_log)*FLAGS.small_chunk # real step = accum+train
+                        steps_since_log = step - step_last_log
                         print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
                         logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
                         print_vals_sum = 0
@@ -742,10 +678,6 @@ def main(_):
                             FLAGS.snapshotInterval
                         last_snapshot_save_epoch = current_epoch
                     writer.flush()
-
-
-                    if current_epoch >= FLAGS.epoch:
-                        break
 
             except tf.errors.OutOfRangeError:
                 logging.info('Done training for epochs: tf.errors.OutOfRangeError')
