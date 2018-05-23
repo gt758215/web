@@ -1,7 +1,4 @@
-from model import Tower
-from utils import model_property
 import tensorflow as tf
-import utils as digits
 
 def BatchNorm(inputs, training=True, axis=3, momentum=0.9, epsilon=1e-5,
               beta_initializer=tf.zeros_initializer(),
@@ -53,6 +50,7 @@ def bottleneck(l, ch_out, stride, is_training=True):
 
 
 def resnet_v1(inputs,
+              blocks,
               num_classes=None,
               is_training=True):
     with tf.variable_scope('resnet_v1'):
@@ -93,20 +91,3 @@ def resnet_v1(inputs,
         net = tf.squeeze(net, [1,2], name='SpatialSqueeze')
 
     return net
-
-class UserModel(Tower):
-    @model_property
-    def inference(self):
-        x = tf.reshape(self.x, shape=[-1, self.input_shape[0], self.input_shape[1], self.input_shape[2]])
-        net = resnet_v1(x, num_classes=self.nclasses, is_training=self.is_training)
-        return net
-
-    @model_property
-    def loss(self):
-        model = self.inference
-        loss = digits.classification_loss(model, self.y)
-        acc_top1 = digits.classification_accuracy_top_n(model, self.y, 1)
-        acc_top5 = digits.classification_accuracy_top_n(model, self.y, 5)
-        self.summaries.append(tf.summary.scalar(acc_top1.op.name, acc_top1))
-        self.summaries.append(tf.summary.scalar(acc_top5.op.name, acc_top5))
-        return loss
