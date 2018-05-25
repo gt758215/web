@@ -101,92 +101,6 @@
 });
 </script>
 
-<div class="row">
-  <div class="col-sm-12">
-    <div id="job-statuses class="job-statuses">
-      {% if job.status.is_running() %}
-      {% for task in job.tasks %}
-      <div class="alert alert-primary alert-dismissible fade show" role="alert">
-        <div id="{{task.html_id()}}-status" class="panel panel-{{task.status.css}}">
-          <div id="task-progress" class="task-progress" {% autoescape false %}{{' style="display:none;"' if not task.status == 'R' else ''}}{% endautoescape %}>
-            <div class="progress">
-              {% set percentage = (100*task.progress)|round|int %}
-              <div class="progress-bar" style="width:{{percentage}}%">
-              {{percentage}}%
-              </div>
-            </div>
-            Estimated time remaining: <span class="task-eta">{{ task.est_done()|print_time_diff }}</span>
-            <br />
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-      {% elif job.status.is_done() %}
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-        Job Status
-        <small>{{job.status.name}}</small>
-      </div>
-      {% else %}
-      <div class="alert alert-warning alert-dismissible fade show" role="alert">
-        Job Status
-        <small>{{job.status.name}}</small>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-sm">
-    <div class="card text-white bg-flat-color-2">
-      <div class="card-body pb-0">
-        <div class="text-light font-large" align="center">
-          <span class="time_elapsed">{{ job.runtime_of_tasks()|print_time_diff }}</span>
-          <p class="text-light font-large">Elapsed Time</p>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm">
-    <div class="card text-white bg-flat-color-3">
-      <div class="card-body pb-0">
-        <div class="text-light font-large" align="center">
-          <span class="accuracy">{{ job.train_task().get_accuracy() }}</span>%
-          <p class="text-light font-large">Accuracy</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-<div class="row">
-  <div class="col-sm">
-    <div class="card text-white bg-flat-color-1">
-      <div class="card-body pb-0">
-        <div id="images_processed" class="images_processed">
-          <div class="text-light font-large" align="center">
-            {% set images = job.train_task().images_processed() %}
-            {% set total = job.train_task().total_images() %}
-            <span class="images_count">{{ images }}</span> /
-            <span class="images_total">{{ total }}</span>
-            <p class="text-light font-large">Images processed</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm">
-    <div class="card text-white bg-flat-color-5">
-      <div class="card-body pb-0">
-        <div class="text-light font-large" align="center">
-          {% set images_per_sec = job.train_task().images_processed_per_sec() %}
-          <span class="images_per_sec">{{ images_per_sec }}</span>
-          <p class="text-light font-large">Images/sec</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-<div class="gpu-utilization-info" style="display:none;"></div>
 
 <div class="row">
   <!-- Job content -->
@@ -196,7 +110,6 @@
   </div>
 </div>
 
-<a id="abort-job" class="btn btn-warning" {{ 'style=display:none;' if not job.status.is_running() }}>Abort Job</a>
 
 <br>
 

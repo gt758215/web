@@ -1,4 +1,3 @@
-{% from "helper.html" import print_flashes %}
 {% from "helper.html" import serve_file %}
 
 {% extends "mlt_job.html" %}
@@ -92,16 +91,70 @@
     <div class="col-sm-12">
         <div class="card">
             <div class="card-body">
-             <div id="lr-graph" class="lr-graph"
+                <div id="lr-graph" class="lr-graph"
                 style="height:300px;width:100%;background:white;display:none;"></div>
-            {% set lr_graph_data = job.train_task().lr_graph_data() %}
-            {% if lr_graph_data %}
-            <script>
-                drawLRGraph({% autoescape false %}{{lr_graph_data}}{% endautoescape %});
-            </script>
-            {% endif %}
+                {% set lr_graph_data = job.train_task().lr_graph_data() %}
+                {% if lr_graph_data %}
+                <script>
+                    drawLRGraph({% autoescape false %}{{lr_graph_data}}{% endautoescape %});
+                </script>
+                {% endif %}
 
-            {% set task = job.train_task() %}
+                {% set task = job.train_task() %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card" {{'style=display:none;' if not task.status == 'D' else ''}}>
+            <div class="card-body card-block">
+                <form action="" method="post" enctype="multipart/form-data" class="form-horizontal">
+                <div class="form-group">
+                    <label for="image_path" class="control-label">Image Path</label>
+                    <span name="image_path_explanation"
+                          class="explanation-tooltip glyphicon glyphicon-question-sign"
+                          data-container="body"
+                          title="Can be a path on the server's filesystem, or a URL.">
+                    </span>
+                    <input type="text" id="image_path" name="image_path" class="form-control autocomplete_path">
+                </div>
+                <div>
+                    <label for="image_file" class="control-label">Upload image</label>
+                    <div class="form-group cl-upload-files">
+                                    <input class="form-control" type="file" id="image_file" name="image_file" >
+
+                    </div>
+                </div>
+<script type="text/javascript">
+  jQuery(document).ready(function($) {
+    // When you fill in one field, the other gets blanked out
+    $("#image_path").change(function() { $("#image_file").val(""); });
+    $("#image_file").change(function() { $("#image_path").val(""); });
+  })
+</script>
+                <div class="form-group">
+                    <label for="show_visualizations">
+                        <input id="show_visualizations" name="show_visualizations" type="checkbox" value="y">
+                        Show visualizations and statistics
+                    </label>
+                    <span name="show_visualizations_explanation"
+                          class="explanation-tooltip glyphicon glyphicon-question-sign"
+                          data-container="body"
+                          title="For each layer in the network, show statistics for the weights/activations and attempt to represent the data visually. Can delay classification considerably."
+                    ></span>
+                </div>
+                <button name="classify-one-btn"
+                        type="submit"
+                        formaction="{{url_for('digits.model.images.classification.views.classify_one', job_id=job.id())}}"
+                        formmethod="post"
+                        formenctype="multipart/form-data"
+                        formtarget="_blank"
+                        class="btn btn-primary">
+                    Classify One
+                </button>
+                </form>
             </div>
         </div>
     </div>
