@@ -31,8 +31,8 @@ import digits.config  # noqa
 from digits import utils, log  # noqa
 
 # Import digits.config first to set the path to Caffe
-#import caffe.io  # noqa
-import caffe_pb2  # noqa
+import caffe.io  # noqa
+import digits.tools.tensorflow.caffe_tf_pb2 as caffe_pb2  # noqa
 
 if digits.config.config_value('tensorflow')['enabled']:
     import tensorflow as tf
@@ -304,6 +304,11 @@ def create_db(input_file, output_dir,
                      image_width, image_height, image_channels,
                      summary_queue, num_threads,
                      mean_files, **kwargs)
+    elif backend == 'tfrecords':
+        _create_tfrecords(image_count, write_queue, batch_size, output_dir,
+                      summary_queue, num_threads,
+                      **kwargs)
+
     else:
         raise ValueError('invalid backend')
 
@@ -704,11 +709,11 @@ def _load_thread(load_queue, write_queue, summary_queue,
         if compute_mean:
             image_sum += image
 
-        #if backend == 'lmdb':
-        #    datum = _array_to_datum(image, label, encoding)
-        #    write_queue.put(datum)
-        #elif backend == 'tfrecords':
-        if backend == 'tfrecords':
+        if backend == 'lmdb':
+            datum = _array_to_datum(image, label, encoding)
+            write_queue.put(datum)
+        elif backend == 'tfrecords':
+        #if backend == 'tfrecords':
             tf_example = _array_to_tf_feature(image, label, encoding)
             write_queue.put(tf_example)
         else:
@@ -773,45 +778,45 @@ def _array_to_tf_feature(image, label, encoding):
     return example.SerializeToString()
 
 
-# def _array_to_datum(image, label, encoding):
-#     """
-#     Create a caffe Datum from a numpy.ndarray
-#     """
-#     if not encoding:
-#         # Transform to caffe's format requirements
-#         if image.ndim == 3:
-#             # Transpose to (channels, height, width)
-#             image = image.transpose((2, 0, 1))
-#             if image.shape[0] == 3:
-#                 # channel swap
-#                 # XXX see issue #59
-#                 image = image[[2, 1, 0], ...]
-#         elif image.ndim == 2:
-#             # Add a channels axis
-#             image = image[np.newaxis, :, :]
-#         else:
-#             raise Exception('Image has unrecognized shape: "%s"' % image.shape)
-#         datum = caffe.io.array_to_datum(image, label)
-#     else:
-#         datum = caffe_pb2.Datum()
-#         if image.ndim == 3:
-#             datum.channels = image.shape[2]
-#         else:
-#             datum.channels = 1
-#         datum.height = image.shape[0]
-#         datum.width = image.shape[1]
-#         datum.label = label
-#
-#         s = StringIO()
-#         if encoding == 'png':
-#             PIL.Image.fromarray(image).save(s, format='PNG')
-#         elif encoding == 'jpg':
-#             PIL.Image.fromarray(image).save(s, format='JPEG', quality=90)
-#         else:
-#             raise ValueError('Invalid encoding type')
-#         datum.data = s.getvalue()
-#         datum.encoded = True
-#     return datum
+def _array_to_datum(image, label, encoding):
+    """
+    Create a caffe Datum from a numpy.ndarray
+    """
+    if not encoding:
+        # Transform to caffe's format requirements
+        if image.ndim == 3:
+            # Transpose to (channels, height, width)
+            image = image.transpose((2, 0, 1))
+            if image.shape[0] == 3:
+                # channel swap
+                # XXX see issue #59
+                image = image[[2, 1, 0], ...]
+        elif image.ndim == 2:
+            # Add a channels axis
+            image = image[np.newaxis, :, :]
+        else:
+            raise Exception('Image has unrecognized shape: "%s"' % image.shape)
+        datum = caffe.io.array_to_datum(image, label)
+    else:
+        datum = caffe_pb2.Datum()
+        if image.ndim == 3:
+            datum.channels = image.shape[2]
+        else:
+            datum.channels = 1
+        datum.height = image.shape[0]
+        datum.width = image.shape[1]
+        datum.label = label
+
+        s = StringIO()
+        if encoding == 'png':
+            PIL.Image.fromarray(image).save(s, format='PNG')
+        elif encoding == 'jpg':
+            PIL.Image.fromarray(image).save(s, format='JPEG', quality=90)
+        else:
+            raise ValueError('Invalid encoding type')
+        datum.data = s.getvalue()
+        datum.encoded = True
+    return datum
 
 
 def _write_batch_lmdb(db, batch, keys, image_count):

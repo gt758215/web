@@ -370,7 +370,7 @@ def new():
     # Is there a request to clone a job with ?clone=<job_id>
     fill_form_if_cloned(form)
 
-    return flask.render_template('datasets/images/classification/new.html', form=form)
+    return flask.render_template('datasets/images/classification/mlt_new.html', form=form)
 
 
 @blueprint.route('.json', methods=['POST'])
@@ -391,7 +391,7 @@ def create():
         if request_wants_json():
             return flask.jsonify({'errors': form.errors}), 400
         else:
-            return flask.render_template('datasets/images/classification/new.html', form=form), 400
+            return flask.render_template('datasets/images/classification/mlt_new.html', form=form), 400
 
     job = None
     try:

@@ -1,0 +1,537 @@
+{% from "helper.html" import print_flashes %}
+{% from "helper.html" import print_errors %}
+{% from "helper.html" import mark_errors %}
+
+{% extends "base.html" %}
+
+
+{% block head %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.css">
+
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.js"></script>
+
+{% endblock %}
+<!--    head    -->
+
+{% block page_title %} New Dataset {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li><a href="#"> Training </a></li>
+<li class="active"> New </li>
+{% endblock %}
+
+{% block content %}
+<style>
+* {
+  box-sizing: border-box;
+}
+#newForm {
+  margin: 30px auto;
+  padding: 10px;
+  width: 80%;
+  min-width: 200px;
+}
+h1 {
+  text-align: center;
+}
+select {
+  padding: 10px;
+  width: 100%;
+  font-size: 17px;
+  font-family: Raleway;
+  border: 1px solid #aaaaaa;
+}
+select.invalid {
+  background-color: #ffdddd;
+}
+input {
+  padding: 10px;
+  width: 100%;
+  font-size: 17px;
+  font-family: Raleway;
+  border: 1px solid #aaaaaa;
+}
+/* Mark input boxes that gets an error on validation: */
+input.invalid {
+  background-color: #ffdddd;
+}
+/* Hide all steps by default: */
+.tab {
+  display: none;
+}
+#prevBtn {
+  background-color: #bbbbbb;
+}
+/* Make circles that indicate the steps of the form: */
+.step {
+  height: 15px;
+  width: 15px;
+  margin: 0 2px;
+  background-color: #bbbbbb;
+  border: none;
+  border-radius: 50%;
+  display: inline-block;
+  opacity: 0.5;
+}
+.step.active {
+  opacity: 1;
+}
+/* Mark the steps that are finished and valid: */
+.step.finish {
+  background-color: #4CAF50;
+}
+#ace-editor {
+  position: relative;
+  height: 600px;
+  border-radius: 5px;
+  margin-top:10px;
+  margin-bottom:100px;
+}
+</style>
+
+
+<div class="animated fadeIn">
+  <div class="col">
+    <div class="card">
+      <div class="card-body">
+        <form action="{{url_for('digits.dataset.images.classification.views.create')}}" id="newForm" class="newForm" enctype="multipart/form-data" method="post">
+          <div class="row">
+          {{ print_errors(form) }}
+          </div>
+
+          <h1> New Classification Dataset: </h1>
+          <div style="overflow:auto;">
+            <div style="float:right;">
+              <button type="button" id="prevBtn" class="btn btn-secondary" onclick="nextPrev(-1)">Previous</button>
+              <button type="button" id="nextBtn" class="btn btn-primary" onclick="nextPrev(1)"><i class="fa fa-dot-circle-o"></i>&nbsp; Next</button>
+            </div>
+
+            <div class="col-sm-12">
+              <div class="tab">
+
+            <!-- Nav tabs -->
+
+            <ul class="nav nav-tabs" id="db-tabs" role="tablist">
+                <li><a href="#db-folder" role="tab" data-toggle="tab">Use Image Folder</a></li>
+            </ul>
+
+            <!-- Tab panes -->
+            <div class="tab-content well">
+                <!-- Folder -->
+                <div class="tab-pane" id="db-folder">
+                    <div class="form-group{{mark_errors([form.folder_train])}}">
+                        {{ form.folder_train.label }}
+                        {{ form.folder_train.tooltip }}
+                        {{ form.folder_train(class='form-control autocomplete_path', placeholder='folder or URL')}}
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-10 col-sm-offset-1">
+                            <small>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_train_min_per_class])}}">
+                            {{ form.folder_train_min_per_class.label }}
+                            {{ form.folder_train_min_per_class.tooltip }}
+                            {{ form.folder_train_min_per_class(class='form-control') }}
+                        </div>
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_train_max_per_class])}}">
+                            {{ form.folder_train_max_per_class.label }}
+                            {{ form.folder_train_max_per_class.tooltip }}
+                            {{ form.folder_train_max_per_class(class='form-control') }}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_pct_val])}}">
+                            {{ form.folder_pct_val.label }}
+                            {{ form.folder_pct_val.tooltip }}
+                            {{ form.folder_pct_val(class='form-control') }}
+                        </div>
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_pct_test])}}">
+                            {{ form.folder_pct_test.label }}
+                            {{ form.folder_pct_test.tooltip }}
+                            {{ form.folder_pct_test(class='form-control') }}
+                        </div>
+                    </div>
+                    <br>
+                    {{form.has_val_folder}}
+                    {{form.has_val_folder.label}}
+                    <div style="display:none;" class="form-group{{mark_errors([form.folder_val])}} cl-separate-val-folder">
+                        {{ form.folder_val.label }}
+                        {{ form.folder_val(class='form-control autocomplete_path') }}
+                    </div>
+                    <div class="row cl-separate-val-folder">
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_val_min_per_class])}}">
+                            {{ form.folder_val_min_per_class.label }}
+                            {{ form.folder_val_min_per_class.tooltip }}
+                            {{ form.folder_val_min_per_class(class='form-control') }}
+                        </div>
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_val_max_per_class])}}">
+                            {{ form.folder_val_max_per_class.label }}
+                            {{ form.folder_val_max_per_class.tooltip }}
+                            {{ form.folder_val_max_per_class(class='form-control') }}
+                        </div>
+                    </div>
+                    <script>
+$=jQuery.noConflict();
+function hasValFolderChanged() {
+    if ($("#has_val_folder").prop("checked"))
+    {
+        $("#folder_val").prop("disabled", false);
+        $(".cl-separate-val-folder").show();
+        $("#folder_pct_val").prop("disabled", true);
+    }
+    else
+    {
+        $(".cl-separate-val-folder").hide();
+        $("#folder_val").prop("disabled", true);
+        $("#folder_pct_val").prop("disabled", false);
+    }
+}
+$("#has_val_folder").click(hasValFolderChanged);
+hasValFolderChanged();
+                    </script>
+                    <br>
+                    {{form.has_test_folder}}
+                    {{form.has_test_folder.label}}
+                    <div style="display:none;" class="form-group{{mark_errors([form.folder_test])}} cl-separate-test-folder">
+                        {{ form.folder_test.label }}
+                        {{ form.folder_test(class='form-control autocomplete_path') }}
+                    </div>
+                    <div style="display:none;" class="row cl-separate-test-folder">
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_test_min_per_class])}}">
+                            {{ form.folder_test_min_per_class.label }}
+                            {{ form.folder_test_min_per_class.tooltip }}
+                            {{ form.folder_test_min_per_class(class='form-control') }}
+                        </div>
+                        <div class="form-group col-sm-6{{mark_errors([form.folder_test_max_per_class])}}">
+                            {{ form.folder_test_max_per_class.label }}
+                            {{ form.folder_test_max_per_class.tooltip }}
+                            {{ form.folder_test_max_per_class(class='form-control') }}
+                        </div>
+                    </div>
+                    <script>
+$=jQuery.noConflict();
+function hasTestFolderChanged() {
+    if ($("#has_test_folder").prop("checked"))
+    {
+        $("#folder_test").prop("disabled", false);
+        $(".cl-separate-test-folder").show();
+        $("#folder_pct_test").prop("disabled", true);
+    }
+    else
+    {
+        $(".cl-separate-test-folder").hide();
+        $("#folder_test").prop("disabled", true);
+        $("#folder_pct_test").prop("disabled", false);
+    }
+}
+$("#has_test_folder").click(hasTestFolderChanged);
+hasTestFolderChanged();
+                    </script>
+                </div>
+
+            </div>
+        </div>
+
+    {{ form.method(style="display:none;") }}
+    <script>
+$=jQuery.noConflict();
+// Disable form fields according to the checkboxes
+function textfile_image_sets_disabled() {
+    var value = $("#textfile_use_val").prop("checked");
+    var useLocalFiles = $("#textfile_use_local_files").prop("checked");
+    if (useLocalFiles) {
+        $(".cl-upload-files").hide();
+        $(".cl-local-files").show();
+    }
+    else{
+        $(".cl-upload-files").show();
+        $(".cl-local-files").hide();
+    }
+
+     if (value) {
+         $("#textfile_val_images_btn").removeClass("disabled");
+     } else {
+         $("#textfile_val_images_btn").addClass("disabled");
+     }
+
+    $("#textfile_val_images_text").prop("disabled", !value);
+    $("#textfile_local_val_images").prop("disabled", !value);
+    $("#textfile_val_folder").prop("disabled", !value);
+    value = $("#textfile_use_test").prop("checked");
+
+     if (value) {
+         $("#textfile_test_images_btn").removeClass("disabled");
+     } else {
+         $("#textfile_test_images_btn").addClass("disabled");
+     }
+
+    $("#textfile_test_images_text").prop("disabled", !value);
+    $("#textfile_local_test_images").prop("disabled", !value);
+    $("#textfile_test_folder").prop("disabled", !value);
+}
+
+$("#textfile_use_val").click(function() {
+        textfile_image_sets_disabled();
+        });
+$("#textfile_use_test").click(function() {
+        textfile_image_sets_disabled();
+        });
+$("#textfile_use_local_files").click(function() {
+        textfile_image_sets_disabled();
+        });
+textfile_image_sets_disabled();
+
+function update_db_tab(tabName) {
+    $('select[name=method]').val( tabName );
+}
+
+$('#db-tabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+        parts = e.target.href.split('-');
+        update_db_tab( parts[parts.length-1] );
+        });
+$('#db-tabs a[href="#db-{{ form.method.data }}"]').tab('show');
+
+    </script>
+
+
+
+        <div class="tab">
+
+            <div class="row">
+                <div class="form-group{{mark_errors([form.resize_channels])}}">
+                    {{ form.resize_channels.label }}
+                    {{ form.resize_channels.tooltip }}
+                    {{ form.resize_channels(class='form-control') }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group{{mark_errors([form.resize_width, form.resize_height])}}">
+                    <label>Image size (Width x Height)</label>
+                    <span name="resize_dims_explanation"
+                          class="explanation-tooltip glyphicon glyphicon-question-sign"
+                          data-container="body"
+                          title="Input images will be resized to fit."
+                          ></span>
+                    <div class="input-group">
+                        {{ form.resize_width(size=4, placeholder='width', class='form-control') }}
+                        <span class="input-group-addon">x</span>
+                        {{ form.resize_height(size=4, placeholder='height', class='form-control') }}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="form-group{{mark_errors([form.resize_mode])}}">
+                    {{ form.resize_mode.label }}
+                    {{ form.resize_mode.tooltip }}
+                    {{ form.resize_mode(class='form-control') }}
+                </div>
+            </div>
+            <a href="#" class="btn btn-info" onClick="return showResizeExample();"> See example </a>
+            <div class="row">
+
+
+                <br>
+                <br>
+                <div id="resize-example" style="display:none;">
+                    <button class="close" onClick="$('#resize-example').hide();return false;">&times;</button>
+                    <div id="resize-example-image"></div>
+                </div>
+
+            </div>
+
+                <script>
+$=jQuery.noConflict();
+function showResizeExample()
+{
+    $.post(
+            "{{url_for('digits.dataset.images.views.resize_example')}}",
+            {
+                "channels": $("#resize_channels").val(),
+                "width":    $("#resize_width").val(),
+                "height":   $("#resize_height").val(),
+                "resize_mode":   $("#resize_mode").val(),
+                "backend": $("#backend").val(),
+                "encoding": $("#encoding").val(),
+            },
+            function(response) {
+                $('#resize-example-image').html(response);
+                $('#resize-example').show();
+            }
+        );
+    return false;
+}
+                </script>
+
+        </div>
+
+        <div class="tab">
+
+            <div class="form-group{{mark_errors([form.backend])}}">
+                {{ form.backend.label }}
+                {{ form.backend.tooltip }}
+                {{ form.backend(class='form-control') }}
+            </div>
+            <div id="backend-hdf5-warning" class="alert alert-warning" style="display:none;">
+                <b>NOTE:</b> HDF5 is currently only supported for classification.
+                <ul>
+                    <li>For the Caffe data layers, (change <i>Data</i> layers to <i>HDF5Data</i> layers)</li>
+                    <li>The Caffe <i>HDF5Data</i> layer does not support mean subtraction</li>
+                    <li>Database exploration in the DIGITS UI is not supported.</li>
+                </ul>
+            </div>
+            <div id="backend-tfrecords-warning" class="alert alert-warning" style="display:none;">
+                <b>NOTE:</b> TFRecords currently only works with Tensorflow, not with Caffe or Torch.
+            </div>
+            <div class="form-group{{mark_errors([form.compression])}}">
+                <div class="form-group{{mark_errors([form.compression])}}">
+                    {{form.compression.label}}
+                    {{form.compression.tooltip}}
+                    {{form.compression(class='form-control')}}
+                </div>
+            </div>
+            <div class="form-group{{mark_errors([form.encoding])}}">
+                <div class="form-group{{mark_errors([form.encoding])}}">
+                    {{form.encoding.label}}
+                    {{form.encoding.tooltip}}
+                    {{form.encoding(class='form-control')}}
+                </div>
+            </div>
+            <script>
+$=jQuery.noConflict();
+function backendChanged()
+{
+    val = $("#backend").val();
+    if (val == 'lmdb') {
+        $("#compression").parent().hide();
+        $("#encoding").parent().show();
+        $("#backend-hdf5-warning").hide();
+        $("#backend-tfrecords-warning").hide();
+    } else if (val == 'hdf5') {
+        $("#encoding").parent().hide();
+        $("#compression").parent().show();
+        $("#backend-hdf5-warning").show();
+        $("#backend-tfrecords-warning").hide();
+    } else if (val == 'tfrecords') {
+        $("#compression").parent().hide();
+        $("#encoding").parent().show();
+        $("#backend-hdf5-warning").hide();
+        $("#backend-tfrecords-warning").show();
+    }
+}
+$("#backend").change(backendChanged);
+backendChanged();
+            </script>
+            <div class="form-group{{mark_errors([form.group_name])}}">
+                {{ form.group_name.label }}
+                {{ form.group_name(class='form-control') }}
+            </div>
+            <div class="form-group{{mark_errors([form.dataset_name])}}">
+                {{ form.dataset_name.label }}
+                {{ form.dataset_name(class='form-control') }}
+            </div>
+
+
+        </div>
+
+                                      <!-- Circles which indicates the steps of the form: -->
+            <div style="text-align:center;margin-top:40px;">
+                <span class="step"></span>
+                <span class="step"></span>
+                <span class="step"></span>
+            </div>
+
+
+
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+var currentTab = 0; // Current tab is set to be the first tab (0)
+showTab(currentTab); // Display the crurrent tab
+
+function showTab(n) {
+  // This function will display the specified tab of the form...
+  var x = document.getElementsByClassName("tab");
+  x[n].style.display = "block";
+  //... and fix the Previous/Next buttons:
+  if (n == 0) {
+    document.getElementById("prevBtn").style.display = "none";
+  } else {
+    document.getElementById("prevBtn").style.display = "inline";
+  }
+  if (n == (x.length - 1)) {
+    document.getElementById("nextBtn").innerHTML = "Create";
+  } else {
+    document.getElementById("nextBtn").innerHTML = "Next";
+  }
+  //... and run a function that will display the correct step indicator:
+  fixStepIndicator(n)
+}
+
+function nextPrev(n) {
+  // This function will figure out which tab to display
+  var x = document.getElementsByClassName("tab");
+  // Exit the function if any field in the current tab is invalid:
+  // if (n == 1 && !validateForm()) return false;
+  // Hide the current tab:
+  x[currentTab].style.display = "none";
+  // Increase or decrease the current tab by 1:
+  currentTab = currentTab + n;
+  // if you have reached the end of the form...
+  if (currentTab >= x.length) {
+    // ... the form gets submitted:
+    document.getElementById("newForm").submit();
+    return false;
+  }
+  // Otherwise, display the correct tab:
+  showTab(currentTab);
+}
+
+function validateForm() {
+  // This function deals with validation of the form fields
+  var x, y, i, valid = true;
+  x = document.getElementsByClassName("tab");
+  y = x[currentTab].getElementsByTagName("select");
+  // A loop that checks every input field in the current tab:
+  for (i = 0; i < y.length; i++) {
+    // If a field is empty...
+    if (y[i].value == "") {
+      // add an "invalid" class to the field:
+      y[i].className += " invalid";
+      // and set the current valid status to false
+      valid = false;
+    }
+  }
+  // If the valid status is true, mark the step as finished and valid:
+  if (valid) {
+    document.getElementsByClassName("step")[currentTab].className += " finish";
+  }
+  return valid; // return the valid status
+}
+
+function fixStepIndicator(n) {
+  // This function removes the "active" class of all steps...
+  var i, x = document.getElementsByClassName("step");
+  for (i = 0; i < x.length; i++) {
+    x[i].className = x[i].className.replace(" active", "");
+  }
+  //... and adds the "active" class on the current step:
+  x[n].className += " active";
+}
+</script>
+
+
+
+{% endblock %}
