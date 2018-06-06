@@ -184,11 +184,23 @@ class TensorflowTrainTask(TrainTask):
                 '--snapshotInterval=%s' % self.snapshot_interval,
                 '--lr_base_rate=%s' % self.learning_rate,
                 '--lr_policy=%s' % str(self.lr_policy['policy']),
-                '--small_chunk=%d' % int(self.small_chunk),
-                '--warm_lr=%f' % float(self.rampup_lr),
-                '--warm_epoch=%d' % self.rampup_epoch,
                 '--allow_growth=True'
                 ]
+
+        if self.small_chunk is not None:
+            args.append('--small_chunk=%d' % int(self.small_chunk))
+        else:
+            args.append('--small_chunk=0')
+
+        if self.rampup_lr is not None:
+            args.append('--warm_lr=%f' % float(self.rampup_lr))
+        else:
+            args.append('--warm_lr=0')
+
+        if self.rampup_epoch  is not None:
+            args.append('--warm_epoch=%d' % self.rampup_epoch)
+        else:
+            args.append('--warm_epoch=0')
 
         if self.batch_size is not None:
             args.append('--batch_size=%d' % self.batch_size)
