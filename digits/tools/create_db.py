@@ -31,8 +31,8 @@ import digits.config  # noqa
 from digits import utils, log  # noqa
 
 # Import digits.config first to set the path to Caffe
-import caffe.io  # noqa
-import caffe.proto.caffe_pb2 as caffe_pb2  # noqa
+import digits.tools.tensorflow.caffe_tf_io as caffe_io  # noqa
+import digits.tools.tensorflow.caffe_tf_pb2 as caffe_pb2  # noqa
 
 if digits.config.config_value('tensorflow')['enabled']:
     import tensorflow as tf
@@ -796,7 +796,7 @@ def _array_to_datum(image, label, encoding):
             image = image[np.newaxis, :, :]
         else:
             raise Exception('Image has unrecognized shape: "%s"' % image.shape)
-        datum = caffe.io.array_to_datum(image, label)
+        datum = caffe_io.array_to_datum(image, label)
     else:
         datum = caffe_pb2.Datum()
         if image.ndim == 3:
