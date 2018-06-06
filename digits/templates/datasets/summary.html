@@ -41,7 +41,7 @@
               <tbody ng-if="jc.dataset_jobs.length">
                 <tr ng-repeat-start="job in jc.dataset_jobs" ng-hide="true"></tr>
                 <tr ng-attr-id="{[ job.id ]}">
-                  <td>{[ job.name ]}</td>
+                  <td><dg-name></dg-name></td>
                   <td>{[ job.backend ]}</td>
                   <td>{[ job.status ]}</td>
                   <td start="{[ job.submitted ]}">
