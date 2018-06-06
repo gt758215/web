@@ -456,7 +456,7 @@ def classify_one():
     if request_wants_json():
         return flask.jsonify({'predictions': predictions}), status_code
     else:
-        return flask.render_template('models/images/classification/classify_one.html',
+        return flask.render_template('models/images/classification/mlt_classify_one.html',
                                      model_job=model_job,
                                      job=inference_job,
                                      image_src=image,

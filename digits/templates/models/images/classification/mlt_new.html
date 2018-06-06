@@ -278,10 +278,10 @@ input.invalid {
             </div>
           </div>
           <div class="tab">
-            <div>
-              Select GPUs
-            </div>
             <div class="col-sm-6 col-sm-offset-3 well">
+              {% if form.select_gpus.choices| length > 1 and multi_gpu %}
+                Select GPUs
+              {% endif %}
               {% if form.select_gpu.choices|length > 2 and not multi_gpu %}
               <div class="form-group">
                 <b>{{form.select_gpu.label.text}}</b><br>

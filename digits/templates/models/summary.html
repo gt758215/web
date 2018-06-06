@@ -19,7 +19,6 @@
       <div class="col">
         <div class="card">
           <div class="card-body">
-
             <table class="table">
               <col ng-repeat="field in model_fields | filter:show(true)"
                    ng-style="$index == 0 ? '{}' : {'width':visualLength(field.name, field.min_width) + 'px'}">
@@ -63,4 +62,6 @@
             </table>
           </div>
         </div>
+
+
         {% endblock %}

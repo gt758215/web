@@ -22,9 +22,6 @@ from digits.inference.errors import InferenceError  # noqa
 from digits.job import Job  # noqa
 from digits.utils.lmdbreader import DbReader  # noqa
 
-# Import digits.config before caffe to set the path
-import caffe_pb2  # noqa
-
 logger = logging.getLogger('digits.tools.inference')
 
 
@@ -91,32 +88,7 @@ def infer(input_list,
 
     if input_is_db:
         # load images from database
-        reader = DbReader(input_list)
-        for key, value in reader.entries():
-            datum = caffe_pb2.Datum()
-            datum.ParseFromString(value)
-            if datum.encoded:
-                s = StringIO()
-                s.write(datum.data)
-                s.seek(0)
-                img = PIL.Image.open(s)
-                img = np.array(img)
-            else:
-                import caffe.io
-                arr = caffe.io.datum_to_array(datum)
-                # CHW -> HWC
-                arr = arr.transpose((1, 2, 0))
-                if arr.shape[2] == 1:
-                    # HWC -> HW
-                    arr = arr[:, :, 0]
-                elif arr.shape[2] == 3:
-                    # BGR -> RGB
-                    # XXX see issue #59
-                    arr = arr[:, :, [2, 1, 0]]
-                img = arr
-            input_ids.append(key)
-            input_data.append(img)
-            n_input_samples = n_input_samples + 1
+        return
     else:
         # load paths from file
         paths = None

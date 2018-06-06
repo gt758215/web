@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block head %}
+
+{% with namespace = "/jobs" %}
+{% set room = job.id() %}
+{% include 'socketio.html' %}
+{% endwith %}
+
+<script type="text/javascript" src="{{ url_for('static', filename='js/model-graphs.js', ver=dir_hash) }}"></script>
+{% endblock %}
+
+{% block page_title %} {{job.name()}} {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li><a href="#"> Training </a></li>
+<li class="active"> {{ job.name() }} </li>
+{% endblock %}
+
+
+<!-- Content -->
+
+{% block content %}
+<script>
+  jQuery(document).ready(function($) {
+    function setPanelClass(selector, css) {
+      $(selector).removeClass("panel-default panel-primary panel-success panel-info panel-warning panel-danger");
+      $(selector).addClass('panel-'+css);
+    }
+    socket.on('job update', function (msg) {
+    if (msg['update'] == 'status') {
+      $("#job-statuses .panel-title small").html(msg['status']);
+      setPanelClass('#job-statuses', msg['css']);
+      $("#job-statuses .job-statuses").html(msg['html']);
+      if (!msg['running']) {
+        $("#abort-job").hide();
+        $('.gpu-utilization-info').hide();
+      }
+    }
+  });
+  socket.on('task update', function (msg) {
+    var status_selector = "#"+msg['task']+"-status";
+    if (msg['update'] == 'status') {
+      if (msg['show']) {
+        $(status_selector+"-collapse").collapse('show');
+      } else {
+        $(status_selector+"-collapse").collapse('hide');
+      }
+      if (msg['running']) {
+        $(status_selector+" .task-progress").show();
+      } else {
+        $(status_selector+" .task-progress").hide();
+      }
+      $(status_selector+" .panel-title small").html(msg['status']);
+      setPanelClass(status_selector, msg['css']);
+      $(status_selector+" .task-statuses").html(msg['html']);
+    }
+    else if (msg['update'] == 'progress') {
+      $(status_selector+" .task-progress .progress-bar").width(msg['percentage'] + '%');
+      $(status_selector+" .task-progress .progress-bar").html(msg['percentage'] + '%');
+      $(status_selector+" .task-progress .task-eta").html(msg['eta']);
+      $('.task-eta').html(msg['eta']);
+    }
+    else if (msg['update'] == 'images_processed_per_sec') {
+      $('.images_per_sec').html(msg['data']);
+    }
+    else if (msg['update'] == 'time_elapsed') {
+      $('.time_elapsed').html(msg['data']);
+    }
+    else if (msg['update'] == 'train_accuracy') {
+      $('.accuracy').html(msg['data']);
+    }
+    else if (msg['update'] == 'images_processed') {
+      $('.images_count').html(msg['data']);
+      $('.images_total').html(msg['total']);
+    }
+    else if (msg['update'] == 'mean-image') {
+      displayMeanImage(msg['task'], msg['data']);
+    }
+    else if (msg['update'] == 'exploration-ready') {
+      showExplorationLink(msg['task']);
+    }
+    else if (msg['update'] == 'distribution') {
+      drawDistributionGraph(msg['task'], msg['data']);
+    }
+    else if (msg['update'] == 'combined_graph') {
+      drawCombinedGraph(msg['data']);
+    }
+    else if (msg['update'] == 'lr_graph') {
+      drawLRGraph(msg['data']);
+    }
+    else if (msg['update'] == 'snapshots') {
+      updateSnapshotList(msg['data']);
+    }
+    else if (msg['update'] == 'gpu_utilization') {
+      $('.gpu-utilization-info').show();
+      $('.gpu-utilization-info').html(msg['html']);
+    }
+  });
+});
+</script>
+
+
+<div class="row">
+  <!-- Job content -->
+  <div class="col-sm-12">
+    {% block job_content %}
+    {% endblock %}
+  </div>
+</div>
+
+
+<br>
+
+
+{% endblock %}
+

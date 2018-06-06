@@ -1,6 +1,8 @@
 // Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
 function drawCombinedGraph(data) {
+  jQuery(function($) {
     $('.combined-graph').show();
+    // document.getElementById("combined-graph").style.display = "";
     // drawCombinedGraph.chart is a static variable that holds the graph state;
     // it is initialized on first call to drawCombinedGraph()
     if (typeof drawCombinedGraph.chart == 'undefined') {
@@ -63,8 +65,10 @@ function drawCombinedGraph(data) {
         drawCombinedGraph.chart.load(data);
         drawCombinedGraph.chart.data.names(data.names);
     }
+  })
 }
 function drawLRGraph(data) {
+  jQuery(function($) {
     $('.lr-graph').show();
     c3.generate($.extend({
         bindto: '#lr-graph',
@@ -97,4 +101,5 @@ function drawLRGraph(data) {
     },
     {data: data}
     ));
+  })
 }

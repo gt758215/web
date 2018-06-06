@@ -53,6 +53,7 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.6.0/c3.min.js"></script>
     <script src="{{ url_for('static', filename='js/3rdparty/bootbox-4.3.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/jquery.autocomplete-1.2.21.min.js') }}"></script>
 
 
 
@@ -61,7 +62,6 @@
 
 </head>
 <body>
-
 
         <!-- Left Panel -->
 
@@ -269,7 +269,25 @@
             {% endblock %}
 
         </div> <!-- .content -->
-
+<script>
+window.onload = function () {
+  jQuery(function($) {
+    $('.autocomplete_path').autocomplete({
+       serviceUrl: '/autocomplete/path',
+       formatResult: function (suggestion, currentValue)
+       {
+            function baseName(str)
+            {
+               var base = new String(str).substring(str.lastIndexOf('/') + 1);
+               return base;
+            }
+            return baseName(suggestion.value);
+        },
+        minChars: 0
+    });
+    $(".autocomplete_path").removeAttr("autocomplete");
+  })
+};
 </script>
 
 
