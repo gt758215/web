@@ -439,7 +439,7 @@ def show(job, related_jobs=None):
     """
     Called from digits.dataset.views.datasets_show()
     """
-    return flask.render_template('datasets/images/classification/show.html', job=job, related_jobs=related_jobs)
+    return flask.render_template('datasets/images/classification/mlt_show.html', job=job, related_jobs=related_jobs)
 
 
 def summary(job):
