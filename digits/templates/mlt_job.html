@@ -90,9 +90,6 @@
     else if (msg['update'] == 'lr_graph') {
       drawLRGraph(msg['data']);
     }
-    else if (msg['update'] == 'snapshots') {
-      updateSnapshotList(msg['data']);
-    }
     else if (msg['update'] == 'gpu_utilization') {
       $('.gpu-utilization-info').show();
       $('.gpu-utilization-info').html(msg['html']);

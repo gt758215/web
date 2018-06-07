@@ -31,8 +31,8 @@ import digits.config  # noqa
 from digits import utils, log  # noqa
 
 # Import digits.config first to set the path to Caffe
-import digits.tools.tensorflow.caffe_tf_io as caffe_io  # noqa
-import digits.tools.tensorflow.caffe_tf_pb2 as caffe_pb2  # noqa
+import digits.tools.tf.caffe_tf_io as caffe_io  # noqa
+import digits.tools.tf.caffe_tf_pb2 as caffe_pb2  # noqa
 
 if digits.config.config_value('tensorflow')['enabled']:
     import tensorflow as tf

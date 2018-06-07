@@ -6,7 +6,7 @@ from skimage.transform import resize
 try:
     # Python3 will most likely not be able to load protobuf
     #from caffe_tf.proto import caffe_pb2
-    import digits.tools.tensorflow.caffe_tf_pb2 as caffe_pb2
+    import digits.tools.tf.caffe_tf_pb2 as caffe_pb2
 except:
     import sys
     if sys.version_info >= (3, 0):

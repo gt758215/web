@@ -5,6 +5,7 @@ try {
     var app = angular.module('mlt_app', [])
 
     app.controller('models_controller', function($scope, $controller) {
+        $controller('job_controller', {$scope: $scope});
         $scope.title = 'Models';
         $scope.model_fields = [
             {name: 'Name', show: true, min_width: 100},
@@ -69,6 +70,19 @@ try {
 
         $scope.is_model = function(job) {
             return (job.type == 'model');
+        };
+    });
+
+    app.controller('job_controller', function($scope, $controller) {
+        $scope.column = 'id';
+        $scope.reverse = false;
+        $scope.change_sorting = function(parameter, event) {
+            $scope.column = parameter;
+            if ($scope.reverse) {
+                $scope.reverse = false;
+            } else {
+                $scope.reverse = true;
+            }
         };
     });
 

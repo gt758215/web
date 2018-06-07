@@ -16,6 +16,7 @@ pydot
 psutil
 matplotlib
 scikit-fmm
+scikit-image
 python-magic
 boto
 #tensorflow-gpu # install tensorflow on MacOSX

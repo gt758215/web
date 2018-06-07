@@ -25,12 +25,14 @@
               <thead>
                 <tr>
                   <th scope="col" ng-repeat="field in model_fields" ng-if="field.show">
-                    {[ field.name ]}
+                    <div ng-click="change_sorting(field.name, $event)">
+                      {[ field.name ]}
+                    </div>
                   </th>
                 </tr>
               </thead>
               <tbody ng-if="jc.model_jobs.length">
-                <tr ng-repeat-start="job in jc.model_jobs" ng-hide="true"></tr>
+                <tr ng-repeat-start="job in jc.model_jobs|orderBy:column:reverse" ng-hide="true"></tr>
                 <tr ng-attr-id="{[ job.id ]}">
                   <td>
                     <dg-name></dg-name>
