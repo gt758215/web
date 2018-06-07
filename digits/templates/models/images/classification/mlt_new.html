@@ -664,14 +664,12 @@ jQuery(document).ready(function($) {
   <div class="col-sm-12">
     <script>
 function process_tf_vis(data){
-  jQuery(function($) {
     // Processes a tensorflow graph_def string such that it is loaded in a tensorboard-style graph
-    var height = String($(window).height() - 200) + 'px' // Bootbox dynamic height hack
+    var height = String(jQuery(window).height() - 200) + 'px' // Bootbox dynamic height hack
     var the_data = '<script>function load() {document.getElementById("test1").pbtxt = ' + data + ' ;}</scr'+'ipt>';
     the_data += '<link rel="import" href="{{ url_for('static', filename='tb/tf-graph-basic.build.html', ver=dir_hash) }}" onload=load()>';
     the_data += '<div style="height:' + height + '"><tf-graph-basic id="test1"></tf-graph-basic></div>';
     return the_data;
-  })
 }
 function visualizeNetwork() {
   jQuery(function($) {
@@ -704,9 +702,8 @@ function visualizeNetwork() {
       }
     })
     .done(function(data) {
-      data = process_tf_vis(data);
-      console.log(data)
-      bbox_content.html(data);
+      var graph = process_tf_vis(data);
+      bbox_content.html(graph);
       $("."+bootboxClass).animate({scrollTop: 0}, "");
     })
     .fail(function(data) {
