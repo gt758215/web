@@ -562,18 +562,16 @@ function get_hyperparameters(){
         $("#solver_type").val(data['solver_type']);
         $("#weight_decay").val(data['weight_decay']);
         $("#learning_rate").val(data['learning_rate']);
-        if (data['rampup_lr']) {
-          $("#rampup_lr").val(data['rampup_lr']);
-        }else{
-          $("#rampup_lr").val("0");
-        }
-        if (data['rampup_epoch']) {
-          $("#rampup_epoch").val(data['rampup_epoch']);
-        }else{
-          $("#rampup_epoch").val("0");
-        }
+        $("#rampup_lr").val(data['rampup_lr']);
+        $("#rampup_epoch").val(data['rampup_epoch']);
         if (data['small_chunk']) {
           $("#small_chunk").val(data['small_chunk']);
+        }
+        if (data['select_gpu_count']) {
+          $("#select_gpu_count").val(data['select_gpu_count']);
+        }
+        if (data['model_name']) {
+          $("#model_name").val(data['model_name']);
         }
       }
     });

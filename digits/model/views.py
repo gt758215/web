@@ -482,44 +482,55 @@ def networks_from_request():
     Raises werkzeug.exceptions
     """
     from digits.webapp import scheduler
+    from digits.config import config_value
+    nr_tower = len(config_value('gpu_list').split(','))
 
     network_id = get_request_arg('network_id')
     if network_id is None:
         raise werkzeug.exceptions.BadRequest('network_id is a required field')
 
+    import uuid
+    UID = str(uuid.uuid4())[:8]
+
     data = {}
     if network_id == 'resnet50':
         data = {
-            'train_epochs': 105,
+            'train_epochs': 30,
             'batch_size': 8192,
             'solver_type': 'SGD',
             'rampup_lr': 0.1,
-            'rampup_epoch': 5,
+            'rampup_epoch': 3,
             'weight_decay': 0.0001,
             'learning_rate': 3.2,
-            'small_chunk': 32,
+            'small_chunk': 8192/(nr_tower*32),
+            'select_gpu_count': nr_tower,
+            'model_name': network_id + "-" + UID
         }
     elif network_id == 'vgg16':
         data = {
-            'train_epochs': 100,
-            'batch_size': 256,
+            'train_epochs': 8,
+            'batch_size': nr_tower*32,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
             'weight_decay': 0.0005,
             'learning_rate': 0.01,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
+            'model_name': network_id + "-" + UID
         }
     elif network_id == 'googlenet':
         data = {
-            'train_epochs': 80,
-            'batch_size': 256,
-            'solver_type': 'MOMENTUM',
+            'train_epochs': 30,
+            'batch_size': nr_tower*128,
+            'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 0.045,
-            'weight_decay': 0.0002,
+            'learning_rate': 0.03,
+            'weight_decay': 0.00004,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
+            'model_name': network_id + "-" + UID
         }
     elif network_id == 'lenet':
         data = {
@@ -531,6 +542,8 @@ def networks_from_request():
             'learning_rate': 0.01,
             'weight_decay': 0.0001,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
+            'model_name': network_id + "-" + UID
         }
     else:
         data = {
@@ -539,9 +552,11 @@ def networks_from_request():
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
-            'learning_rate': 3.2,
+            'learning_rate': 0.1,
             'weight_decay': 0.0001,
             'small_chunk': 1,
+            'select_gpu_count': nr_tower,
+            'model_name': network_id + "-" + UID
         }
     logger.debug('network_id: %s, data: %s' % (network_id, data))
     return data
