@@ -13,6 +13,7 @@ import shutil
 import sys
 import threading
 import time
+from datetime import datetime
 
 # Find the best implementation available
 try:
@@ -208,6 +209,229 @@ class Hdf5Writer(DbWriter):
     def _new_filename(self):
         return '%s.h5' % self.count()
 
+def _find_image_files(data_dir, labels_file):
+    """
+    data_dir: list of file path and label. Assumes that the file contains
+      entries as sunch:
+        data_dir/n01440764/n01440764_10026.JPEG 0
+        data_dir/n01440764/n01440764_10027.JPEG 0
+        data_dir/n01440764/n01440764_10029.JPEG 0
+
+      where 'n01440764' is the unique synset label associated with these images.
+
+    labels_file: list of labels. Assumes that the file contains
+      entries as sunch:
+        n12768682 buckeye, horse chestnut, conker
+        n12985857 coral fungus
+        n12998815 agaric
+        n13037406 gyromitra
+
+    """
+    labels = []
+    filenames = []
+    synsets = []
+
+    unique_labels = [l.strip().split()[0] for l in
+                     tf.gfile.FastGFile(labels_file, 'r').readlines()]
+
+    # leave label index 0 empty as a background class.
+    label_index = 1
+
+    for synset in unique_labels:
+        file_path = '%s/%s/*' % (data_dir, synset)
+        matching_files = tf.gfile.Glob(file_path)
+
+        labels.extend([label_index] * len(matching_files))
+        synsets.extend([synset] * len(matching_files))
+        filenames.extend(matching_files)
+
+        if not label_index % 100:
+          logger.info('Finished finding files in %d of %d classes.' % (
+                label_index, len(unique_labels)))
+        label_index += 1
+
+    # Shuffle the ordering of all image files
+    shuffled_index = list(range(len(filenames)))
+    random.seed(12345)
+    random.shuffle(shuffled_index)
+
+    filenames = [filenames[i] for i in shuffled_index]
+    synsets = [synsets[i] for i in shuffled_index]
+    labels = [labels[i] for i in shuffled_index]
+
+    logger.info('Found %d files across %d labels inside %s.' %
+                (len(filenames), len(unique_labels), data_dir))
+    return filenames, synsets, labels
+
+
+class ImageCoder(object):
+    """Helper class that provides TensorFlow image coding utilities."""
+
+    def __init__(self):
+        # Create a single Session to run all image coding calls.
+        self._sess = tf.Session()
+
+        # Initializes function that converts PNG to JPEG data.
+        self._png_data = tf.placeholder(dtype=tf.string)
+        image = tf.image.decode_png(self._png_data, channels=3)
+        self._png_to_jpeg = tf.image.encode_jpeg(image, format='rgb', quality=100)
+
+        # Initializes function that decodes RGB JPEG data.
+        self._decode_jpeg_data = tf.placeholder(dtype=tf.string)
+        self._decode_jpeg = tf.image.decode_jpeg(self._decode_jpeg_data, channels=3)
+
+    def png_to_jpeg(self, image_data):
+        return self._sess.run(self._png_to_jpeg,
+                              feed_dict={self._png_data: image_data})
+
+    def decode_jpeg(self, image_data):
+        image = self._sess.run(self._decode_jpeg,
+                               feed_dict={self._decode_jpeg_data: image_data})
+        assert len(image.shape) == 3
+        assert image.shape[2] == 3
+        return image
+
+
+def _is_png(filename):
+    """Determine if a file contains a PNG format image.
+    Args:
+      filename: string, path of the image file.
+    Returns:
+      boolean indicating if the image is a PNG.
+    """
+    # File list from:
+    # https://groups.google.com/forum/embed/?place=forum/torch7#!topic/torch7/fOSTXHIESSU
+    return 'n02105855_2933.JPEG' in filename
+
+
+def _is_cmyk(filename):
+    """Determine if file contains a CMYK JPEG format image.
+    Args:
+      filename: string, path of the image file.
+    Returns:
+      boolean indicating if the image is a JPEG encoded with CMYK color space.
+    """
+    # File list from:
+    # https://github.com/cytsai/ilsvrc-cmyk-image-list
+    blacklist = ['n01739381_1309.JPEG', 'n02077923_14822.JPEG',
+                 'n02447366_23489.JPEG', 'n02492035_15739.JPEG',
+                 'n02747177_10752.JPEG', 'n03018349_4028.JPEG',
+                 'n03062245_4620.JPEG', 'n03347037_9675.JPEG',
+                 'n03467068_12171.JPEG', 'n03529860_11437.JPEG',
+                 'n03544143_17228.JPEG', 'n03633091_5218.JPEG',
+                 'n03710637_5125.JPEG', 'n03961711_5286.JPEG',
+                 'n04033995_2932.JPEG', 'n04258138_17003.JPEG',
+                 'n04264628_27969.JPEG', 'n04336792_7448.JPEG',
+                 'n04371774_5854.JPEG', 'n04596742_4225.JPEG',
+                 'n07583066_647.JPEG', 'n13037406_4650.JPEG']
+    return filename.split('/')[-1] in blacklist
+
+
+def _process_image(filename, coder):
+    """Process a single image file.
+    Args:
+      filename: string, path to an image file e.g., '/path/to/example.JPG'.
+      coder: instance of ImageCoder to provide TensorFlow image coding utils.
+    Returns:
+      image_buffer: string, JPEG encoding of RGB image.
+      height: integer, image height in pixels.
+      width: integer, image width in pixels.
+    """
+    # Read the image file.
+    with tf.gfile.FastGFile(filename, 'rb') as f:
+        image_data = f.read()
+
+    # Clean the dirty data.
+    if _is_png(filename):
+        # 1 image is a PNG.
+        print('Converting PNG to JPEG for %s' % filename)
+        image_data = coder.png_to_jpeg(image_data)
+    elif _is_cmyk(filename):
+        # 22 JPEG images are in CMYK colorspace.
+        print('Converting CMYK to RGB for %s' % filename)
+        image_data = coder.cmyk_to_rgb(image_data)
+
+    # Decode the RGB JPEG.
+    image = coder.decode_jpeg(image_data)
+
+    # Check that image converted to RGB
+    assert len(image.shape) == 3
+    height = image.shape[0]
+    width = image.shape[1]
+    assert image.shape[2] == 3
+
+    return image_data, height, width
+
+
+def _convert_to_example(filename, image_buffer, label, synset,
+                        height, width):
+    colorspace = 'RGB'
+    channels = 3
+    image_format = 'JPEG'
+    example = tf.train.Example(features=tf.train.Features(feature={
+        'image/height': _int64_feature(height),
+        'image/width': _int64_feature(width),
+        'image/colorspace': _bytes_feature(colorspace),
+        'image/channels': _int64_feature(channels),
+        'image/class/label': _int64_feature(label),
+        'image/class/synset': _bytes_feature(synset),
+        'image/format': _bytes_feature(image_format),
+        'image/filename': _bytes_feature(os.path.basename(filename)),
+        'image/encoded': _bytes_feature(image_buffer)}))
+    return example
+
+
+def _process_image_files_batch(coder, thread_index, ranges, images_count,
+                               filenames, synsets, labels, num_shards, output_dir):
+    """Processes and saves list of images as TFRecord in 1 thread.
+    Args:
+    coder: instance of ImageCoder to provide TensorFlow image coding utils.
+    thread_index: integer, unique batch to run index is within [0, len(ranges)).
+    ranges: list of pairs of integers specifying ranges of each batches to
+      analyze in parallel.
+    filenames: list of strings; each string is a path to an image file
+    synsets: list of strings; each string is a unique WordNet ID
+    labels: list of integer; each integer identifies the ground truth
+    num_shards: integer number of shards for this data set.
+    """
+    # Each thread produces N shards where N = int(num_shards / num_threads).
+    # For instance, if num_shards = 128, and the num_threads = 2, then the first
+    # thread would produce shards [0, 64).
+    num_threads = len(ranges)
+    assert not num_shards % num_threads
+    num_shards_per_batch = int(num_shards / num_threads)
+
+    shard_ranges = np.linspace(ranges[thread_index][0],
+                               ranges[thread_index][1],
+                               num_shards_per_batch + 1).astype(int)
+    num_files_in_thread = ranges[thread_index][1] - ranges[thread_index][0]
+
+    images_count[thread_index] = 0
+    for s in range(num_shards_per_batch):
+        # Generate a sharded version of the file name, e.g. 'shard-00002-of-00010'
+        shard = thread_index * num_shards_per_batch + s
+        output_filename = 'shard-%.5d-of-%.5d' % (shard, num_shards)
+        output_file = os.path.join(output_dir, output_filename)
+        writer = tf.python_io.TFRecordWriter(output_file)
+
+        shard_counter = 0
+        files_in_shard = np.arange(shard_ranges[s], shard_ranges[s + 1], dtype=int)
+        for i in files_in_shard:
+            filename = filenames[i]
+            label = labels[i]
+            synset = synsets[i]
+
+            image_buffer, height, width = _process_image(filename, coder)
+
+            example = _convert_to_example(filename, image_buffer, label,
+                                          synset, height, width)
+            writer.write(example.SerializeToString())
+            images_count[thread_index] += 1
+
+        writer.close()
+        logger.info('%s [thread %d]: Wrote %d images to %s' %
+                    (datetime.now(), thread_index, shard_counter, output_file))
+
 
 def create_db(input_file, output_dir,
               image_width, image_height, image_channels,
@@ -304,11 +528,6 @@ def create_db(input_file, output_dir,
                      image_width, image_height, image_channels,
                      summary_queue, num_threads,
                      mean_files, **kwargs)
-    elif backend == 'tfrecords':
-        _create_tfrecords(image_count, write_queue, batch_size, output_dir,
-                      summary_queue, num_threads,
-                      **kwargs)
-
     else:
         raise ValueError('invalid backend')
 
@@ -328,90 +547,76 @@ def create_db(input_file, output_dir,
                 logger.info("Deleted " + str(deleted_files) + " files")
         logger.info('Database created after %d seconds.' % (time.time() - start))
 
+def create_tfrecords(image_folder, output_dir, labels_file):
+    # Validate arguments
+    if image_folder is not None and not os.path.exists(image_folder):
+        raise ValueError('image_folder does not exist')
+    if os.path.exists(output_dir):
+        logger.warning('removing existing database')
+        if os.path.isdir(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        else:
+            os.remove(output_dir)
+    if not os.path.exists(labels_file):
+        raise ValueError('labels_file does not exist')
 
-def _create_tfrecords(image_count, write_queue, batch_size, output_dir,
-                      summary_queue, num_threads,
-                      mean_files=None,
-                      encoding=None,
-                      lmdb_map_size=None,
-                      **kwargs):
+    _create_tfrecords(image_folder, labels_file, output_dir)
+
+
+def _create_tfrecords(image_folder, labels_file, output_dir):
     """
     Creates the TFRecords database(s)
     """
-    LIST_FILENAME = 'list.txt'
-
-    if not tf:
-        raise ValueError("Can't create TFRecords as support for Tensorflow "
-                         "is not enabled.")
-
-    wait_time = time.time()
-    threads_done = 0
-    images_loaded = 0
-    images_written = 0
-    image_sum = None
-    compute_mean = bool(mean_files)
 
     os.makedirs(output_dir)
 
-    # We need shards to achieve good mixing properties because TFRecords
-    # is a sequential/streaming reader, and has no random access.
+    filenames, synsets, labels = _find_image_files(image_folder, labels_file)
 
-    num_shards = 16  # @TODO(tzaman) put some logic behind this
+    # define shards & threads for imagenet and others datasets
+    num_shards = 2 if len(filenames) < 100000 else 128
+    num_threads = 2 if num_shards == 2 else 8
 
-    writers = []
-    with open(os.path.join(output_dir, LIST_FILENAME), 'w') as outfile:
-        for shard_id in xrange(num_shards):
-            shard_name = 'SHARD_%03d.tfrecords' % (shard_id)
-            filename = os.path.join(output_dir, shard_name)
-            writers.append(tf.python_io.TFRecordWriter(filename))
-            outfile.write('%s\n' % (filename))
+    # Break all images into batches with a [ranges[i][0], ranges[i][1]].
+    spacing = np.linspace(0, len(filenames), num_threads + 1).astype(np.int)
+    ranges = []
+    threads = []
+    for i in range(len(spacing) - 1):
+        ranges.append([spacing[i], spacing[i+1]])
 
-    shard_id = 0
-    while (threads_done < num_threads) or not write_queue.empty():
+    logger.info("Launching %d threads for spacings: %s" % (num_threads, ranges))
 
-        # Send update every 2 seconds
+    # Create a mechanism for monitoring when all threads are finished.
+    coord = tf.train.Coordinator()
+
+    # Create a generic TensorFlow-based utility for converting all image codings.
+    coder = ImageCoder()
+
+    threads = []
+    images_count = [0] * len(ranges)
+    for thread_index in range(len(ranges)):
+        args = (coder, thread_index, ranges, images_count,
+                filenames, synsets, labels, num_shards, output_dir)
+        t = threading.Thread(target=_process_image_files_batch, args=args)
+        t.start()
+        threads.append(t)
+
+    wait_time = time.time()
+    images_wrote = 0
+    total_images = len(filenames)
+    while images_wrote < total_images:
+        time.sleep(0.2)
         if time.time() - wait_time > 2:
-            logger.debug('Processed %d/%d' % (images_written, image_count))
+            images_wrote = 0
+            for count in images_count:
+                images_wrote += count
+            logger.debug("Processed %d/%d" % (images_wrote, total_images))
             wait_time = time.time()
 
-        processed_something = False
-
-        if not summary_queue.empty():
-            result_count, result_sum = summary_queue.get()
-            images_loaded += result_count
-            # Update total_image_sum
-            if compute_mean and result_count > 0 and result_sum is not None:
-                if image_sum is None:
-                    image_sum = result_sum
-                else:
-                    image_sum += result_sum
-            threads_done += 1
-            processed_something = True
-
-        if not write_queue.empty():
-            writers[shard_id].write(write_queue.get())
-            shard_id += 1
-            if shard_id >= num_shards:
-                shard_id = 0
-            images_written += 1
-            processed_something = True
-
-        if not processed_something:
-            time.sleep(0.2)
-
-    if images_loaded == 0:
-        raise LoadError('no images loaded from input file')
-    logger.debug('%s images loaded' % images_loaded)
-
-    if images_written == 0:
-        raise WriteError('no images written to database')
-    logger.info('%s images written to database' % images_written)
-
-    if compute_mean:
-        _save_means(image_sum, images_written, mean_files)
-
-    for writer in writers:
-        writer.close()
+    # Wait for all the threads to terminate.
+    coord.join(threads)
+    logger.info('%s: Finished writing all %d images in data set.' %
+                (datetime.now(), total_images))
+    return
 
 
 def _create_lmdb(image_count, write_queue, batch_size, output_dir,
@@ -940,6 +1145,8 @@ if __name__ == '__main__':
     parser.add_argument('--delete_files',
                         action='store_true',
                         help='Specifies whether to keep files after creation of dataset')
+    parser.add_argument('--labels_file',
+                        help='File contains list of labels')
 
     args = vars(parser.parse_args())
 
@@ -948,19 +1155,25 @@ if __name__ == '__main__':
         args['lmdb_map_size'] <<= 20
 
     try:
-        create_db(args['input_file'], args['output_dir'],
-                  args['width'], args['height'], args['channels'],
-                  args['backend'],
-                  resize_mode=args['resize_mode'],
-                  image_folder=args['image_folder'],
-                  shuffle=args['shuffle'],
-                  mean_files=args['mean_file'],
-                  encoding=args['encoding'],
-                  compression=args['compression'],
-                  lmdb_map_size=args['lmdb_map_size'],
-                  hdf5_dset_limit=args['hdf5_dset_limit'],
-                  delete_files=args['delete_files']
-                  )
+        if args['backend'] == 'tfrecords':
+            create_tfrecords(image_folder=args['image_folder'],
+                             output_dir=args['output_dir'],
+                             labels_file=args['labels_file']
+                             )
+        else:
+            create_db(args['input_file'], args['output_dir'],
+                      args['width'], args['height'], args['channels'],
+                      args['backend'],
+                      resize_mode=args['resize_mode'],
+                      image_folder=args['image_folder'],
+                      shuffle=args['shuffle'],
+                      mean_files=args['mean_file'],
+                      encoding=args['encoding'],
+                      compression=args['compression'],
+                      lmdb_map_size=args['lmdb_map_size'],
+                      hdf5_dset_limit=args['hdf5_dset_limit'],
+                      delete_files=args['delete_files']
+                      )
     except Exception as e:
         logger.error('%s: %s' % (type(e).__name__, e.message))
         raise
