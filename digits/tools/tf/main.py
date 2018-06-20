@@ -142,6 +142,14 @@ tf.app.flags.DEFINE_float(
     'augHSVs', 0., """The stddev of HSV's Saturation shift as pre-processing  augmentation""")
 tf.app.flags.DEFINE_float(
     'augHSVv', 0., """The stddev of HSV's Value shift as pre-processing augmentation""")
+tf.app.flags.DEFINE_integer(
+    'small_chunk', 1, """ TBC""")
+tf.app.flags.DEFINE_bool(
+    'nccl', True, """nccl allreduce.""")
+tf.app.flags.DEFINE_float(
+    'warm_lr', 0, """ TBC""")
+tf.app.flags.DEFINE_float(
+    'warm_epoch', 0, """ TBC""")
 
 
 def save_timeline_trace(run_metadata, save_dir, step):
@@ -412,6 +420,7 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
+        assert FLAGS.batch_size % FLAGS.small_chunk == 0, (FLAGS.batch_size, FLAGS.small_chunk)
         batch_size_train = FLAGS.batch_size
         batch_size_val = FLAGS.batch_size
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
@@ -483,12 +492,14 @@ def main(_):
         if FLAGS.train_db:
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
+                train_model.small_chunk = FLAGS.small_chunk
+                train_model.nccl = FLAGS.nccl
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
                                              FLAGS.bitdepth,
-                                             batch_size_train,
-                                             FLAGS.epoch,
+                                             batch_size_train//FLAGS.small_chunk,
+                                             FLAGS.epoch*FLAGS.small_chunk,
                                              FLAGS.seed)
                 train_model.dataloader.set_augmentation(mean_loader, aug_dict)
                 train_model.create_model(UserModel, stage_scope)  # noqa
@@ -500,7 +511,7 @@ def main(_):
                 val_model.dataloader.setup(FLAGS.validation_labels,
                                            False,
                                            FLAGS.bitdepth,
-                                           batch_size_val,
+                                           batch_size_val//FLAGS.small_chunk,
                                            1e9,
                                            FLAGS.seed)  # @TODO(tzaman): set numepochs to 1
                 val_model.dataloader.set_augmentation(mean_loader)
@@ -592,7 +603,9 @@ def main(_):
                                           FLAGS.lr_gamma,
                                           FLAGS.lr_power,
                                           total_training_steps,
-                                          FLAGS.lr_stepvalues)
+                                          FLAGS.lr_stepvalues,
+                                          FLAGS.warm_lr,
+                                          (FLAGS.warm_epoch * train_steps_per_epoch))
             train_model.start_queue_runners(sess)
 
             # Training
