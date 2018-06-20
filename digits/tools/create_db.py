@@ -355,7 +355,7 @@ def _create_tfrecords(image_count, write_queue, batch_size, output_dir,
     # We need shards to achieve good mixing properties because TFRecords
     # is a sequential/streaming reader, and has no random access.
 
-    num_shards = 16  # @TODO(tzaman) put some logic behind this
+    num_shards = 2 if image_count < 100000 else 128
 
     writers = []
     with open(os.path.join(output_dir, LIST_FILENAME), 'w') as outfile:
@@ -739,11 +739,13 @@ def _int64_feature(value):
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
+def _float_array_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+
 
 def _array_to_tf_feature(image, label, encoding):
     """
     Creates a tensorflow Example from a numpy.ndarray
-    """
     if not encoding:
         image_raw = image.tostring()
         encoding_id = 0
@@ -758,7 +760,8 @@ def _array_to_tf_feature(image, label, encoding):
         else:
             raise ValueError('Invalid encoding type')
         image_raw = s.getvalue()
-
+    """
+    encoding_id = 0
     depth = image.shape[2] if len(image.shape) > 2 else 1
 
     example = tf.train.Example(
@@ -768,7 +771,8 @@ def _array_to_tf_feature(image, label, encoding):
                 'width': _int64_feature(image.shape[1]),
                 'depth': _int64_feature(depth),
                 'label': _int64_feature(label),
-                'image_raw': _bytes_feature(image_raw),
+                #'image_raw': _bytes_feature(image_raw),
+                'image_raw': _float_array_feature(image.flatten()),
                 'encoding':  _int64_feature(encoding_id),
                 # @TODO(tzaman) - add bitdepth flag?
             }

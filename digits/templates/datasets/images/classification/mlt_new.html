@@ -341,7 +341,7 @@ function backendChanged()
         $("#compression").parent().hide();
         $("#encoding").parent().show();
         $("#backend-hdf5-warning").hide();
-        $("#backend-tfrecords-warning").show();
+        $("#backend-tfrecords-warning").hide();
     }
 }
 $("#backend").change(backendChanged);

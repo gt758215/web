@@ -248,7 +248,8 @@ class LoaderFactory(object):
         else:
             # Decode image of any time option might come: https://github.com/tensorflow/tensorflow/issues/4009
             # Distinguish between mime types
-            if self.data_encoded:
+            #if self.data_encoded:
+            if False:
                 if self.data_mime == 'image/png':
                     data = tf.image.decode_png(data, dtype=self.image_dtype, name='image_decoder')
                 elif self.data_mime == 'image/jpeg':

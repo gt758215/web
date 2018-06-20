@@ -17,7 +17,7 @@ class ImageDatasetForm(DatasetForm):
 
     encoding = utils.forms.SelectField(
         'Image Encoding',
-        default='png',
+        default='none',
         choices=[
             ('none', 'None'),
             ('png', 'PNG (lossless)'),

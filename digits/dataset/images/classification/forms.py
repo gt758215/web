@@ -23,7 +23,7 @@ class ImageClassificationDatasetForm(ImageDatasetForm):
                                       ('hdf5', 'HDF5'),
                                       ('tfrecords', 'TFRecords')
                                   ],
-                                  default='lmdb',
+                                  default='tfrecords',
                                   )
 
     def validate_backend(form, field):
