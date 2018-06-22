@@ -26,6 +26,10 @@ import tensorflow as tf
 import caffe_tf_pb2
 import utils as digits
 
+from tensorflow.contrib.data.python.ops import interleave_ops
+from tensorflow.contrib.data.python.ops import batching
+from tensorflow.contrib.data.python.ops import threadpool
+
 # Constants
 MIN_FRACTION_OF_EXAMPLES_IN_QUEUE = 0.4
 MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 4096  # The queue size cannot exceed this number
@@ -172,6 +176,7 @@ class LoaderFactory(object):
         self.unencoded_channel_scheme = 'rgb'
         self.summaries = None
         self.aug_dict = {}
+        self.num_splits = 1
 
         # @TODO(tzaman) rewrite this factory again
         pass
@@ -210,6 +215,11 @@ class LoaderFactory(object):
             self.batch_size = batch_size
             self.num_epochs = num_epochs
             self._seed = seed
+
+            available_devices = digits.get_available_gpus()
+            if not available_devices:
+                available_devices.append('/cpu:0')
+            self.num_splits = len(available_devices)
 
             if self.labels_db_path:
                 self.labels_db = LoaderFactory.set_source(self.labels_db_path)
@@ -291,6 +301,45 @@ class LoaderFactory(object):
         Returns:
             None.
         """
+
+        ds = tf.data.TFRecordDataset.list_files(self.shard_paths)
+        ds = ds.apply(
+            interleave_ops.parallel_interleave(
+                tf.data.TFRecordDataset, cycle_length=10))
+        counter = tf.data.Dataset.range(self.batch_size)
+        counter = counter.repeat()
+        ds = tf.data.Dataset.zip((ds, counter))
+        ds = ds.prefetch(buffer_size=self.batch_size)
+        ds = ds.repeat()
+        ds = ds.apply(
+            batching.map_and_batch(
+                map_func=self.parse_and_preprocess,
+                batch_size=self.batch_size // self.num_splits,
+                num_parallel_batches=self.num_splits))
+        ds = ds.prefetch(buffer_size=num_splits)
+        # default use 2 threads per device
+        ds = threadpool.override_threadpool(
+            ds,
+            threadpool.PrivateThreadPool(
+                2, display_name='input_pipeline_thread_pool'))
+        ds_iterator = ds.make_initializable_iterator()
+        tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS,
+                             ds_iterator.initializer)
+
+        for d in xrange(self.num_splits):
+            labels[d], images[d] = ds_iterator.get_next()
+
+        for split_index in xrange(self.num_splits):
+            images[split_index] = tf.reshape(
+                images[split_index],
+                shape=[self.batch_size // self.num_splits, self.height, self.width, self.channels])
+            labels[split_index] = tf.reshape(
+                labels[split_index],
+                [self.batch_size // self.num_splits])
+
+        self.images = images
+        self.labels = labels
+        return
 
         # @TODO(tzaman) the container can be used if the reset function is implemented:
         # see https://github.com/tensorflow/tensorflow/issues/4535#issuecomment-248990633
@@ -647,10 +696,13 @@ class TFRecordsLoader(LoaderFactory):
         # self.db_path += '/test.tfrecords' # @TODO(tzaman) this is a hack
 
         self.shard_paths = []
-        list_db_files = os.path.join(self.db_path, 'list.txt')
+        #list_db_files = os.path.join(self.db_path, 'list.txt')
         self.total = 0
-        if os.path.exists(list_db_files):
-            files = [os.path.join(self.db_path, f) for f in open(list_db_files, 'r').read().splitlines()]
+        if os.path.isdir(self.db_path):
+            tf_file_pat = '%s/shard-*'
+            files = tf.gfile.Glob(tf_file_pat)
+        #if os.path.exists(list_db_files):
+        #    files = [os.path.join(self.db_path, f) for f in open(list_db_files, 'r').read().splitlines()]
         else:
             files = [self.db_path]
         for shard_path in files:
@@ -668,10 +720,15 @@ class TFRecordsLoader(LoaderFactory):
         example_proto.ParseFromString(r)
 
         # @TODO(tzaman) - bitdepth flag?
-        self.channels = example_proto.features.feature['depth'].int64_list.value[0]
-        self.height = example_proto.features.feature['height'].int64_list.value[0]
-        self.width = example_proto.features.feature['width'].int64_list.value[0]
-        data_encoding_id = example_proto.features.feature['encoding'].int64_list.value[0]
+        #self.channels = example_proto.features.feature['depth'].int64_list.value[0]
+        #self.height = example_proto.features.feature['height'].int64_list.value[0]
+        #self.width = example_proto.features.feature['width'].int64_list.value[0]
+        #data_encoding_id = example_proto.features.feature['encoding'].int64_list.value[0]
+        self.channels = example_proto.features.feature['image/channels'].int64_list.value[0]
+        self.height = example_proto.features.feature['image/height'].int64_list.value[0]
+        self.width = example_proto.features.feature['image/width'].int64_list.value[0]
+        data_encoding_id = 0 # 0 for decoded
+ 
         if data_encoding_id:
             self.data_encoded = True
             self.data_mime = 'image/png' if data_encoding_id == 1 else 'image/jpeg'
@@ -702,13 +759,17 @@ class TFRecordsLoader(LoaderFactory):
             serialized_example,
             # Defaults are not specified since both keys are required.
             features={
-                'image_raw': tf.FixedLenFeature([self.height, self.width, self.channels], tf.float32),
-                'label': tf.FixedLenFeature([], tf.int64),
+                #'image_raw': tf.FixedLenFeature([self.height, self.width, self.channels], tf.float32),
+                #'label': tf.FixedLenFeature([], tf.int64),
+                'image/encoded': tf.FixedLenFeature([self.height, self.width, self.channels], tf.float32),
+                'image/class/label': tf.FixedLenFeature([], tf.int64),
             })
 
-        d = features['image_raw']
+        #d = features['image_raw']
+        d = features['image/encoded']
         ds = np.array([self.height, self.width, self.channels], dtype=np.int32)  # @TODO: this is not dynamic
-        l = features['label']  # l = tf.cast(features['label'], tf.int32)
+        #l = features['label']  # l = tf.cast(features['label'], tf.int32)
+        l = features['image/class/label']  # l = tf.cast(features['label'], tf.int32)
         ls = np.array([], dtype=np.int32)  # @TODO: this is not dynamic
         return key, d, ds, l, ls
 

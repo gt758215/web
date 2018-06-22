@@ -1206,18 +1206,18 @@ if __name__ == '__main__':
         args['lmdb_map_size'] <<= 20
 
     try:
-        #if args['backend'] == 'tfrecords':
-        #    create_tfrecords_db(args['input_file'], args['output_dir'],
-        #          args['width'], args['height'], args['channels'],
-        #          args['backend'],
-        #          resize_mode=args['resize_mode'],
-        #          image_folder=args['image_folder'],
-        #          shuffle=args['shuffle'],
-        #          mean_files=args['mean_file'],
-        #          encoding=args['encoding'],
-        #          compression=args['compression'],
-        #          delete_files=args['delete_files'])
-        #    exit(0)
+        if args['backend'] == 'tfrecords':
+            create_tfrecords_db(args['input_file'], args['output_dir'],
+                  args['width'], args['height'], args['channels'],
+                  args['backend'],
+                  resize_mode=args['resize_mode'],
+                  image_folder=args['image_folder'],
+                  shuffle=args['shuffle'],
+                  mean_files=args['mean_file'],
+                  encoding=args['encoding'],
+                  compression=args['compression'],
+                  delete_files=args['delete_files'])
+            exit(0)
 
         create_db(args['input_file'], args['output_dir'],
                   args['width'], args['height'], args['channels'],
