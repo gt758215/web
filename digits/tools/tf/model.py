@@ -110,14 +110,15 @@ class Model(object):
 
     def create_model(self, obj_UserModel, stage_scope, batch_x=None):
 
-        if batch_x is None:
-            self.init_dataloader()
-            batch_x = self.dataloader.batch_x
-            if self.stage != digits.STAGE_INF:
-                batch_y = self.dataloader.batch_y
-        else:
-            assert self.stage == digits.STAGE_INF
-            batch_x = batch_x
+        self.init_dataloader()
+        #if batch_x is None:
+        #    self.init_dataloader()
+        #    batch_x = self.dataloader.batch_x
+        #    if self.stage != digits.STAGE_INF:
+        #        batch_y = self.dataloader.batch_y
+        #else:
+        #    assert self.stage == digits.STAGE_INF
+        #    batch_x = batch_x
 
         available_devices = digits.get_available_gpus()
         if not available_devices:
@@ -126,32 +127,43 @@ class Model(object):
         # available_devices = ['/gpu:0', '/gpu:1'] # DEVELOPMENT : virtual multi-gpu
 
         # Split the batch over the batch dimension over the number of available gpu's
-        if len(available_devices) == 1:
-            batch_x_split = [batch_x]
-            if self.stage != digits.STAGE_INF:  # Has no labels
-                batch_y_split = [batch_y]
-        else:
-            with tf.name_scope('parallelize'):
-                # Split them up
-                batch_x_split = tf.split(batch_x, len(available_devices), 0, name='split_batch')
-                if self.stage != digits.STAGE_INF:  # Has no labels
-                    batch_y_split = tf.split(batch_y, len(available_devices), 0, name='split_batch')
+        #if len(available_devices) == 1:
+        #    batch_x_split = [batch_x]
+        #    if self.stage != digits.STAGE_INF:  # Has no labels
+        #        batch_y_split = [batch_y]
+        #else:
+        #    with tf.name_scope('parallelize'):
+        #        # Split them up
+        #        batch_x_split = tf.split(batch_x, len(available_devices), 0, name='split_batch')
+        #        if self.stage != digits.STAGE_INF:  # Has no labels
+        #            batch_y_split = tf.split(batch_y, len(available_devices), 0, name='split_batch')
 
         # Run the user model through the build_model function that should be filled in
+        buffer_resources = self.dataloader.buffer_resources
         grad_towers = []
         for dev_i, dev_name in enumerate(available_devices):
             with tf.device(dev_name):
+                buffer_resource = buffer_resources[dev_i]
+                images, labels = prefetching_ops.function_buffering_resource_get_next(
+                    function_buffer_resource=buffer_resource,
+                    output_types=[tf.float32, tf.int32])
+                images = tf.reshape(images,
+                    shape=[
+                      self.dataloader.batch_size // self.dataloader.num_splits, self.croplen, self.croplen,
+                      self.dataset.channels
+                    ])
+
                 current_scope = stage_scope if len(available_devices) == 1 else ('tower_%d' % dev_i)
                 with tf.name_scope(current_scope) as scope_tower:
 
                     if self.stage != digits.STAGE_INF:
                         tower_model = self.add_tower(obj_tower=obj_UserModel,
-                                                     x=batch_x_split[dev_i],
-                                                     y=batch_y_split[dev_i])
+                                                     images,
+                                                     labels)
                     else:
                         tower_model = self.add_tower(obj_tower=obj_UserModel,
-                                                     x=batch_x_split[dev_i],
-                                                     y=None)
+                                                     images,
+                                                     None)
 
                     with tf.variable_scope(digits.GraphKeys.MODEL, reuse=dev_i > 0 or self._reuse):
                         tower_model.inference  # touch to initialize
@@ -219,12 +231,21 @@ class Model(object):
             self.queue_coord.request_stop()
             self.queue_coord.join(self.queue_threads)
 
-    def add_tower(self, obj_tower, x, y):
-        is_training = self.stage == digits.STAGE_TRAIN
-        is_inference = self.stage == digits.STAGE_INF
-        input_shape = self.dataloader.get_shape()
-        tower = obj_tower(x, y, input_shape, self.nclasses, is_training, is_inference)
+    def add_tower(self, obj_tower, images, labels):
+        var_type = tf.float32
+        data_format = 'NHWC'
+        data_type = tf.float32
+        network = convnet_builder.ConvNetBuilder(
+            images, image_depth, phase_train=True, use_tf_layers=True,
+            data_format, data_type, var_type)
+        tower = obj_tower(network, labels)
         self.towers.append(tower)
+
+        #is_training = self.stage == digits.STAGE_TRAIN
+        #is_inference = self.stage == digits.STAGE_INF
+        #input_shape = self.dataloader.get_shape()
+        #tower = obj_tower(x, y, input_shape, self.nclasses, is_training, is_inference)
+        #self.towers.append(tower)
         return tower
 
     @model_property
@@ -302,15 +323,35 @@ class Model(object):
 
 class Tower(object):
 
-    def __init__(self, x, y, input_shape, nclasses, is_training, is_inference):
-        self.input_shape = input_shape
-        self.nclasses = nclasses
-        self.is_training = is_training
-        self.is_inference = is_inference
-        self.summaries = []
-        self.x = x
-        self.y = y
-        self.train = None
+    def __init__(self,
+               model,
+               image_size,
+               batch_size,
+               learning_rate,
+               layer_counts=None,
+               fp16_loss_scale=128):
+    self.model = model
+    self.image_size = image_size
+    self.batch_size = batch_size
+    self.default_batch_size = batch_size
+    self.learning_rate = learning_rate
+    self.layer_counts = layer_counts
+
+    #def __init__(self, x, y, input_shape, nclasses, is_training, is_inference):
+    #    self.input_shape = input_shape
+    #    self.nclasses = nclasses
+    #    self.is_training = is_training
+    #    self.is_inference = is_inference
+    #    self.summaries = []
+    #    self.x = x
+    #    self.y = y
+    #    self.train = None
+
+    @model_property
+    def loss(self):
+        model = self.inference
+        loss = 
+        return loss
 
     def gradientUpdate(self, grad):
         return grad

@@ -29,6 +29,7 @@ import utils as digits
 from tensorflow.contrib.data.python.ops import interleave_ops
 from tensorflow.contrib.data.python.ops import batching
 from tensorflow.contrib.data.python.ops import threadpool
+from tensorflow.python.framework import function
 
 # Constants
 MIN_FRACTION_OF_EXAMPLES_IN_QUEUE = 0.4
@@ -177,6 +178,7 @@ class LoaderFactory(object):
         self.summaries = None
         self.aug_dict = {}
         self.num_splits = 1
+        self.devices = None
 
         # @TODO(tzaman) rewrite this factory again
         pass
@@ -220,6 +222,7 @@ class LoaderFactory(object):
             if not available_devices:
                 available_devices.append('/cpu:0')
             self.num_splits = len(available_devices)
+            self.devices = available_devices
 
             if self.labels_db_path:
                 self.labels_db = LoaderFactory.set_source(self.labels_db_path)
@@ -286,6 +289,33 @@ class LoaderFactory(object):
             # data = tf.image.convert_image_dtype(data, tf.float32) # normalize to [0:1) range
         return data
 
+    def parse_example_proto(example_serialized):
+        feature_map = {
+            'image/encoded': tf.FixedLenFeature([], dtype=tf.string, default_value=''),
+            'image/class/label': tf.FixedLenFeature([1], dtype=tf.int64, default_value=-1),
+            'image/class/text': tf.FixedLenFeature([], dtype=tf.string, default_value=''),
+        }
+        features = tf.parse_single_example(example_serialized, feature_map)
+        label = tf.cast(features['image/class/label'], dtype=tf.int32)
+        return features['image/encoded'], label
+
+    def parse_and_preprocess(self, value, batch_position):
+        image_buffer, label_index = parse_example_proto(value)
+        image = tf.image.decode_jpeg(image_buffer, channels=3,
+                                     dct_method='INTEGER_FAST')
+        # resize
+        image_size = self.croplen
+        image = tf.image.resize_images(
+            image, [image_size, image_size],
+            tf.image.ResizeMethod.BILINEAR,
+            align_corners=False)
+
+        # set_shape
+        image.set_shape([image_size, image_size, 3])
+
+        # normalize
+        return (label_index, image)
+
     def create_input_pipeline(self):
         """
         This function returns part of the graph that does data loading, and
@@ -326,19 +356,28 @@ class LoaderFactory(object):
         tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS,
                              ds_iterator.initializer)
 
-        for d in xrange(self.num_splits):
-            labels[d], images[d] = ds_iterator.get_next()
+        @function.Defun(tf.string)
+        def _fn(h):
+            remote_iterator = tf.data.Iterator.from_string_handle(
+                h, ds_iterator.output_types, ds_iterator.output_shapes)
+            labels, images = remote_iterator.get_next()
+            image_size = self.croplen
+            images = tf.reshape(
+                images, shape=[batch_size_per_split, image_size, image_size, self.channels])
+            labels = tf.reshape(labels, [batch_size_per_split])
+            return images labels
 
-        for split_index in xrange(self.num_splits):
-            images[split_index] = tf.reshape(
-                images[split_index],
-                shape=[self.batch_size // self.num_splits, self.height, self.width, self.channels])
-            labels[split_index] = tf.reshape(
-                labels[split_index],
-                [self.batch_size // self.num_splits])
-
-        self.images = images
-        self.labels = labels
+        buffer_resources = []
+        for device_num in xrange(self.num_splits):
+            with tf.device(self.devices[device_num]):
+                buffer_resource = prefetching_ops.function_buffering_resource(
+                    f=_fn,
+                    target_device='/cpu:0',
+                    string_arg=ds_iterator.string_handle(),
+                    buffer_size=1,
+                    shared_name=None)
+                buffer_resources.append(buffer_resource)
+        self.buffer_resources = buffer_resources
         return
 
         # @TODO(tzaman) the container can be used if the reset function is implemented:

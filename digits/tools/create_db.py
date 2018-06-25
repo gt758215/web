@@ -362,7 +362,8 @@ def _convert_to_example(filename, image_buffer, label, text, height, width):
 
 
 def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
-                               texts, labels, num_shards, output_dir, image_count):
+                               texts, labels, num_shards, output_dir,
+                               image_count, image_width, image_height):
     num_threads = len(ranges)
     assert not num_shards % num_threads
     num_shards_per_batch = int(num_shards / num_threads)
@@ -394,6 +395,12 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
                 logger.warning('SKIPPED: Unexpected error while decoding %s.' % filename)
                 continue
 
+            if (height != image_height or width != image_width):
+                image_buffer = tf.image.resize_images(
+                    image_buffer,
+                    [image_height, image_width],
+                    tf.image.ResizeMethod.BILINEAR,
+                    align_corners=False)
             example = _convert_to_example(filename, image_buffer, label,
                                           text, height, width)
             writer.write(example.SerializeToString())
@@ -448,7 +455,8 @@ def create_tfrecords_db(input_file, output_dir,
     image_count = [0] * num_threads
     for thread_index in range(len(ranges)):
         args = (coder, thread_index, ranges, "shard", filenames,
-                texts, labels, num_shards, output_dir, image_count)
+                texts, labels, num_shards, output_dir, image_count,
+                image_width, image_height)
         t = threading.Thread(target=_process_image_files_batch, args=args)
         t.start()
         threads.append(t)
