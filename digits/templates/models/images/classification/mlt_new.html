@@ -146,6 +146,9 @@ input.invalid {
               editor.session.setFoldStyle('manual');
               editor.setShowPrintMargin(false);
               editor.session.setMode("ace/mode/python");
+              editor.session.on('change', function(delta) {
+                  syncAceEditor();
+              });
             </script>
           </div>
 
@@ -522,13 +525,6 @@ function fixStepIndicator(n) {
 </script>
 
 <script>
-function syncAceEditor(){
-  jQuery(function($) {
-    // Syncs (copies) the ace editor's contents to the custom_network flask container
-    var cnet = document.getElementById("custom_network");
-    cnet.innerHTML = editor.getValue();
-  });
-}
 
 // Show/home python_layer_file form fields according to the checkbox
 function python_layer_file_state() {
@@ -653,6 +649,11 @@ jQuery(document).ready(function($) {
   });
   $("#standard_networks").change();
 });
+function syncAceEditor(){
+  jQuery(function($) {
+    $("#custom_network").val(editor.getValue());
+  });
+}
 </script>
 
 
@@ -691,7 +692,7 @@ function visualizeNetwork() {
     {
       type: "POST",
       data: {
-        custom_network: $('textarea#custom_network').val(),
+        custom_network: $('#custom_network').val(),
         dataset_id: $('#dataset').val(),
         solver_type: $('#solver_type').val(),
         use_mean: document.getElementById('use_mean').value,

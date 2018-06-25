@@ -167,15 +167,18 @@ def create():
             if form.method.data == 'standard':
                 found = False
 
-                # can we find it in standard networks?
-                network_desc = fw.get_standard_network_desc(form.standard_networks.data)
-                if network_desc:
-                    found = True
-                    network = fw.get_network_from_desc(network_desc)
+                network = fw.get_network_from_desc(form.custom_network.data)
 
-                if not found:
-                    raise werkzeug.exceptions.BadRequest(
-                        'Unknown standard model "%s"' % form.standard_networks.data)
+                logger.debug('Network: {}'.format(network))
+                # can we find it in standard networks?
+                #network_desc = fw.get_standard_network_desc(form.standard_networks.data)
+                #if network_desc:
+                #    found = True
+                #    network = fw.get_network_from_desc(network_desc)
+
+                #if not found:
+                #    raise werkzeug.exceptions.BadRequest(
+                #        'Unknown standard model "%s"' % form.standard_networks.data)
             elif form.method.data == 'previous':
                 old_job = scheduler.get_job(form.previous_networks.data)
                 if not old_job:

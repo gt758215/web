@@ -252,12 +252,12 @@ class TensorflowTrainTask(TrainTask):
         if self.crop_size:
             args.append('--croplen=%d' % self.crop_size)
 
-        if self.use_mean == 'pixel':
-            args.append('--subtractMean=pixel')
-        elif self.use_mean == 'image':
-            args.append('--subtractMean=image')
-        else:
-            args.append('--subtractMean=none')
+        #if self.use_mean == 'pixel':
+        #    args.append('--subtractMean=pixel')
+        #elif self.use_mean == 'image':
+        #    args.append('--subtractMean=image')
+        #else:
+        #    args.append('--subtractMean=none')
 
         if self.random_seed is not None:
             args.append('--seed=%s' % self.random_seed)
@@ -878,12 +878,12 @@ class TensorflowTrainTask(TrainTask):
                 assert mean_file is not None, 'Failed to retrieve mean file.'
                 args.append('--mean=%s' % self.dataset.path(mean_file))
 
-            if self.use_mean == 'pixel':
-                args.append('--subtractMean=pixel')
-            elif self.use_mean == 'image':
-                args.append('--subtractMean=image')
-            else:
-                args.append('--subtractMean=none')
+            #if self.use_mean == 'pixel':
+            #    args.append('--subtractMean=pixel')
+            #elif self.use_mean == 'image':
+            #    args.append('--subtractMean=image')
+            #else:
+            #    args.append('--subtractMean=none')
             if self.crop_size:
                 args.append('--croplen=%d' % self.crop_size)
 

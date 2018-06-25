@@ -29,6 +29,7 @@ import utils as digits
 from tensorflow.contrib.data.python.ops import interleave_ops
 from tensorflow.contrib.data.python.ops import batching
 from tensorflow.contrib.data.python.ops import threadpool
+from tensorflow.contrib.data.python.ops import prefetching_ops
 from tensorflow.python.framework import function
 
 # Constants
@@ -76,6 +77,8 @@ def get_backend_of_source(db_path):
         for ext in ext_list:
             if any(ext in os.path.splitext(fn)[1].upper() for fn in files_in_path):
                 return db_fmt
+
+    return "tfrecords"
 
     logging.error("Cannot infer backend from db_path (%s)." % (db_path))
     exit(-1)
@@ -289,7 +292,7 @@ class LoaderFactory(object):
             # data = tf.image.convert_image_dtype(data, tf.float32) # normalize to [0:1) range
         return data
 
-    def parse_example_proto(example_serialized):
+    def parse_example_proto(self, example_serialized):
         feature_map = {
             'image/encoded': tf.FixedLenFeature([], dtype=tf.string, default_value=''),
             'image/class/label': tf.FixedLenFeature([1], dtype=tf.int64, default_value=-1),
@@ -300,7 +303,7 @@ class LoaderFactory(object):
         return features['image/encoded'], label
 
     def parse_and_preprocess(self, value, batch_position):
-        image_buffer, label_index = parse_example_proto(value)
+        image_buffer, label_index = self.parse_example_proto(value)
         image = tf.image.decode_jpeg(image_buffer, channels=3,
                                      dct_method='INTEGER_FAST')
         # resize
@@ -331,6 +334,7 @@ class LoaderFactory(object):
         Returns:
             None.
         """
+        batch_size_per_split = self.batch_size // self.num_splits
 
         ds = tf.data.TFRecordDataset.list_files(self.shard_paths)
         ds = ds.apply(
@@ -346,7 +350,7 @@ class LoaderFactory(object):
                 map_func=self.parse_and_preprocess,
                 batch_size=self.batch_size // self.num_splits,
                 num_parallel_batches=self.num_splits))
-        ds = ds.prefetch(buffer_size=num_splits)
+        ds = ds.prefetch(buffer_size=self.num_splits)
         # default use 2 threads per device
         ds = threadpool.override_threadpool(
             ds,
@@ -365,7 +369,7 @@ class LoaderFactory(object):
             images = tf.reshape(
                 images, shape=[batch_size_per_split, image_size, image_size, self.channels])
             labels = tf.reshape(labels, [batch_size_per_split])
-            return images labels
+            return images, labels
 
         buffer_resources = []
         for device_num in xrange(self.num_splits):
@@ -738,7 +742,7 @@ class TFRecordsLoader(LoaderFactory):
         #list_db_files = os.path.join(self.db_path, 'list.txt')
         self.total = 0
         if os.path.isdir(self.db_path):
-            tf_file_pat = '%s/shard-*'
+            tf_file_pat = '%s/shard-*' % self.db_path
             files = tf.gfile.Glob(tf_file_pat)
         #if os.path.exists(list_db_files):
         #    files = [os.path.join(self.db_path, f) for f in open(list_db_files, 'r').read().splitlines()]

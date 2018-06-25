@@ -105,7 +105,7 @@ class TensorflowFramework(Framework):
         desc = kwargs['desc']
         dataset = kwargs['dataset']
         solver_type = kwargs['solver_type'].lower() if kwargs['solver_type'] else None
-        use_mean = kwargs['use_mean']
+        #use_mean = kwargs['use_mean']
         crop_size = kwargs['crop_size']
         num_gpus = kwargs['num_gpus']
         if dataset is None:
@@ -134,11 +134,11 @@ class TensorflowFramework(Framework):
             if crop_size:
                 args.append('--croplen=%s' % crop_size)
 
-            if use_mean and use_mean != 'none':
-                mean_file = dataset.get_mean_file()
-                assert mean_file is not None, 'Failed to retrieve mean file.'
-                args.append('--subtractMean=%s' % use_mean)
-                args.append('--mean=%s' % dataset.path(mean_file))
+            #if use_mean and use_mean != 'none':
+            #    mean_file = dataset.get_mean_file()
+            #    assert mean_file is not None, 'Failed to retrieve mean file.'
+            #    args.append('--subtractMean=%s' % use_mean)
+            #    args.append('--mean=%s' % dataset.path(mean_file))
 
             if hasattr(dataset, 'labels_file'):
                 args.append('--labels_list=%s' % dataset.path(dataset.labels_file))

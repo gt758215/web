@@ -58,6 +58,7 @@ class TrainTask(Task):
         self.pretrained_model = kwargs.pop('pretrained_model', None)
         self.crop_size = kwargs.pop('crop_size', None)
         self.use_mean = kwargs.pop('use_mean', None)
+        self.use_mean = None
         self.random_seed = kwargs.pop('random_seed', None)
         self.solver_type = kwargs.pop('solver_type', None)
         self.rms_decay = kwargs.pop('rms_decay', None)

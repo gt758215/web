@@ -395,12 +395,13 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
                 logger.warning('SKIPPED: Unexpected error while decoding %s.' % filename)
                 continue
 
-            if (height != image_height or width != image_width):
-                image_buffer = tf.image.resize_images(
-                    image_buffer,
-                    [image_height, image_width],
-                    tf.image.ResizeMethod.BILINEAR,
-                    align_corners=False)
+            # can't resize without decode
+            #if (height != image_height or width != image_width):
+            #    image_buffer = tf.image.resize_images(
+            #        image_buffer,
+            #        [image_height, image_width],
+            #        tf.image.ResizeMethod.BILINEAR,
+            #        align_corners=False)
             example = _convert_to_example(filename, image_buffer, label,
                                           text, height, width)
             writer.write(example.SerializeToString())

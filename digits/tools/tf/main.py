@@ -501,7 +501,7 @@ def main(_):
                                              batch_size_train//FLAGS.small_chunk,
                                              FLAGS.epoch*FLAGS.small_chunk,
                                              FLAGS.seed)
-                train_model.dataloader.set_augmentation(mean_loader, aug_dict)
+                #train_model.dataloader.set_augmentation(mean_loader, aug_dict)
                 train_model.create_model(UserModel, stage_scope)  # noqa
 
         if FLAGS.validation_db:
@@ -514,7 +514,7 @@ def main(_):
                                            batch_size_val//FLAGS.small_chunk,
                                            1e9,
                                            FLAGS.seed)  # @TODO(tzaman): set numepochs to 1
-                val_model.dataloader.set_augmentation(mean_loader)
+                #val_model.dataloader.set_augmentation(mean_loader)
                 val_model.create_model(UserModel, stage_scope)  # noqa
 
         if FLAGS.inference_db:
@@ -522,7 +522,7 @@ def main(_):
                 inf_model = Model(digits.STAGE_INF, FLAGS.croplen, nclasses)
                 inf_model.create_dataloader(FLAGS.inference_db)
                 inf_model.dataloader.setup(None, False, FLAGS.bitdepth, FLAGS.batch_size, 1, FLAGS.seed)
-                inf_model.dataloader.set_augmentation(mean_loader)
+                #inf_model.dataloader.set_augmentation(mean_loader)
                 inf_model.create_model(UserModel, stage_scope)  # noqa
 
         # Start running operations on the Graph. allow_soft_placement must be set to

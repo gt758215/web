@@ -21,6 +21,9 @@ import tf_data
 import utils as digits
 from utils import model_property
 
+from tensorflow.contrib.data.python.ops import prefetching_ops
+import convnet_builder
+
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
@@ -150,50 +153,79 @@ class Model(object):
                 images = tf.reshape(images,
                     shape=[
                       self.dataloader.batch_size // self.dataloader.num_splits, self.croplen, self.croplen,
-                      self.dataset.channels
+                      self.dataloader.channels
                     ])
 
                 current_scope = stage_scope if len(available_devices) == 1 else ('tower_%d' % dev_i)
                 with tf.name_scope(current_scope) as scope_tower:
 
-                    if self.stage != digits.STAGE_INF:
-                        tower_model = self.add_tower(obj_tower=obj_UserModel,
-                                                     images,
-                                                     labels)
-                    else:
-                        tower_model = self.add_tower(obj_tower=obj_UserModel,
-                                                     images,
-                                                     None)
+                    #if self.stage != digits.STAGE_INF:
+                        #tower_model = self.add_tower(obj_tower=obj_UserModel,
+                        #                             images,
+                        #                             labels)
+                    #else:
+                        #tower_model = self.add_tower(obj_tower=obj_UserModel,
+                        #                             images,
+                        #                             None)
 
-                    with tf.variable_scope(digits.GraphKeys.MODEL, reuse=dev_i > 0 or self._reuse):
-                        tower_model.inference  # touch to initialize
+                    with tf.variable_scope('tower_%i' % dev_i, self._reuse):
+                    #with tf.variable_scope(digits.GraphKeys.MODEL, reuse=dev_i > 0 or self._reuse):
+
+                        network = convnet_builder.ConvNetBuilder(
+                            images, 3, phase_train=True, use_tf_layers=True,
+                            data_format='NHWC')
+                        tower_model = obj_UserModel()
+                        tower_model.inference(network)
+                        logits = network.affine(self.nclasses, activation='linear')
+ 
+                        #tower_model.inference  # touch to initialize
 
                         # Reuse the variables in this scope for the next tower/device
-                        tf.get_variable_scope().reuse_variables()
+                        #tf.get_variable_scope().reuse_variables()
 
                         if self.stage == digits.STAGE_INF:
                             # For inferencing we will only use the inference part of the graph
                             continue
 
                         with tf.name_scope(digits.GraphKeys.LOSS):
-                            for loss in self.get_tower_losses(tower_model):
-                                tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
+                            cross_entropy = tf.losses.sparse_softmax_cross_entropy(
+                                logits=logits, labels=labels)
+                            base_loss = tf.reduce_mean(cross_entropy, name='xentropy_mean')
+                            total_loss = base_loss
+
+                            accuracy = tf.reduce_sum(
+                                tf.cast(tf.nn.in_top_k(logits, labels, 1), tf.float32))
+                            tf.summary.scalar('accuracy', accuracy)
+
+                            #for loss in self.get_tower_losses(tower_model):
+                            #    tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
+                              
+                            tf.add_to_collection(digits.GraphKeys.LOSSES, total_loss)
 
                             # Assemble all made within this scope so far. The user can add custom
                             # losses to the digits.GraphKeys.LOSSES collection
-                            losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=scope_tower)
-                            losses += ops.get_collection(ops.GraphKeys.REGULARIZATION_LOSSES, scope=None)
-                            tower_loss = tf.add_n(losses, name='loss')
+                            #losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=scope_tower)
+                            #losses += ops.get_collection(ops.GraphKeys.REGULARIZATION_LOSSES, scope=None)
+                            #tower_loss = tf.add_n(losses, name='loss')
 
-                            self.summaries.append(tf.summary.scalar(tower_loss.op.name, tower_loss))
+                            #self.summaries.append(tf.summary.scalar(tower_loss.op.name, tower_loss))
 
                         if self.stage == digits.STAGE_TRAIN:
-                            grad_tower_losses = []
-                            for loss in self.get_tower_losses(tower_model):
-                                grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
-                                grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
-                                grad_tower_losses.append(grad_tower_loss)
-                            grad_towers.append(grad_tower_losses)
+                            params = [
+                                v for v in tf.trainable_variables()
+                                if v.name.startswith('tower_%i/' % dev_i)
+                            ]
+                            aggmeth = tf.AggregationMethod.DEFAULT
+                            grads = tf.gradients(total_loss, params, aggregation_method=aggmeth)
+                            gradvars = list(zip(grads, params))
+                            grad_towers.append(gradvars)
+
+                            #grad_tower_losses = []
+                            #for loss in self.get_tower_losses(tower_model):
+                            #    grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
+                            #    grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
+                            #    grad_tower_losses.append(grad_tower_loss)
+                            #grad_towers.append(grad_tower_losses)
 
         # Assemble and average the gradients from all towers
         if self.stage == digits.STAGE_TRAIN:
@@ -232,19 +264,11 @@ class Model(object):
             self.queue_coord.join(self.queue_threads)
 
     def add_tower(self, obj_tower, images, labels):
-        var_type = tf.float32
-        data_format = 'NHWC'
-        data_type = tf.float32
-        network = convnet_builder.ConvNetBuilder(
-            images, image_depth, phase_train=True, use_tf_layers=True,
-            data_format, data_type, var_type)
-        tower = obj_tower(network, labels)
-        self.towers.append(tower)
 
         #is_training = self.stage == digits.STAGE_TRAIN
         #is_inference = self.stage == digits.STAGE_INF
         #input_shape = self.dataloader.get_shape()
-        #tower = obj_tower(x, y, input_shape, self.nclasses, is_training, is_inference)
+        tower = obj_tower(x, y, input_shape, self.nclasses, is_training, is_inference)
         #self.towers.append(tower)
         return tower
 
@@ -324,18 +348,18 @@ class Model(object):
 class Tower(object):
 
     def __init__(self,
-               model,
-               image_size,
-               batch_size,
-               learning_rate,
-               layer_counts=None,
-               fp16_loss_scale=128):
-    self.model = model
-    self.image_size = image_size
-    self.batch_size = batch_size
-    self.default_batch_size = batch_size
-    self.learning_rate = learning_rate
-    self.layer_counts = layer_counts
+                 model,
+                 image_size,
+                 batch_size,
+                 learning_rate,
+                 layer_counts=None,
+                 fp16_loss_scale=128):
+        self.model = model
+        self.image_size = image_size
+        self.batch_size = batch_size
+        self.default_batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.layer_counts = layer_counts
 
     #def __init__(self, x, y, input_shape, nclasses, is_training, is_inference):
     #    self.input_shape = input_shape
@@ -346,12 +370,6 @@ class Tower(object):
     #    self.x = x
     #    self.y = y
     #    self.train = None
-
-    @model_property
-    def loss(self):
-        model = self.inference
-        loss = 
-        return loss
 
     def gradientUpdate(self, grad):
         return grad

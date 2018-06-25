@@ -339,10 +339,10 @@ class ModelForm(FlaskForm):
 
     custom_network = utils.forms.TextAreaField(
         'Custom Network',
-        validators=[
-            validate_required_iff(method='custom'),
-            validate_NetParameter,
-        ],
+        validators=[],
+        #    validate_required_iff(method='custom'),
+        #    validate_NetParameter,
+        #],
     )
 
     custom_network_snapshot = utils.forms.TextField(
