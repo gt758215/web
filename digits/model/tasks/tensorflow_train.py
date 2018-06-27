@@ -175,16 +175,17 @@ class TensorflowTrainTask(TrainTask):
     def task_arguments(self, resources, env):
 
         args = [sys.executable,
-                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'main.py'),
+                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'tf_cnn_benchmarks.py'),
                 '--network=%s' % self.model_file,
                 '--epoch=%d' % int(self.train_epochs),
                 '--networkDirectory=%s' % self.job_dir,
                 '--save=%s' % self.job_dir,
                 '--snapshotPrefix=%s' % self.snapshot_prefix,
                 '--snapshotInterval=%s' % self.snapshot_interval,
-                '--lr_base_rate=%s' % self.learning_rate,
+                '--piecewise_learning_rate_schedule=%s' % self.learning_rate,
                 '--lr_policy=%s' % str(self.lr_policy['policy']),
-                '--allow_growth=True'
+                '--allow_growth=True',
+                '--num_gpus=%d' % self.gpu_count
                 ]
 
         if self.small_chunk is not None:

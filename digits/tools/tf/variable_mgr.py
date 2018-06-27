@@ -163,15 +163,6 @@ class VariableMgrIndependent(VariableMgr):
     device_grads = gradient_state
     tower_grad = device_grads[device_num]
 
-    if self.benchmark_cnn.enable_auto_loss_scale and device_num == 0:
-      # Since we don't aggregate variables in --independent mode, we cannot tell
-      # if there are NaNs on all GPUs. So we arbitrarily choose to only check
-      # NaNs on the first GPU.
-      has_inf_nan_list = []
-      for grad, _ in tower_grad:
-        has_inf_nan_list.append(tf.reduce_all(tf.is_finite(grad)))
-      self.grad_has_inf_nan = tf.logical_not(tf.reduce_all(has_inf_nan_list))
-
     return tower_grad
 
   def get_devices(self):
@@ -204,7 +195,7 @@ class VariableMgrLocalFetchFromPS(VariableMgr):
         aggregate_gradients_using_copy_with_variable_colocation(
             device_grads,
             use_mean=True,
-            check_inf_nan=self.benchmark_cnn.enable_auto_loss_scale))
+            check_inf_nan=False))
     return agg_grads
 
   def get_devices(self):
@@ -288,8 +279,9 @@ class VariableMgrLocalReplicated(VariableMgr):
                              use_resource=self.use_resource_vars)
 
   def preprocess_device_grads(self, device_grads):
-    compact_grads = (self.benchmark_cnn.params.use_fp16 and
-                     self.benchmark_cnn.params.compact_gradient_transfer)
+    #compact_grads = (self.benchmark_cnn.params.use_fp16 and
+    #                 self.benchmark_cnn.params.compact_gradient_transfer)
+    compact_grads = False
     defer_grads = (self.benchmark_cnn.params.variable_consistency == 'relaxed')
 
     grads_to_reduce = [[g for g, _ in grad_vars] for grad_vars in device_grads]
@@ -297,16 +289,7 @@ class VariableMgrLocalReplicated(VariableMgr):
     reduced_grads, self._warmup_ops = algorithm.batch_all_reduce(
         grads_to_reduce, self.benchmark_cnn.params.gradient_repacking,
         compact_grads, defer_grads)
-    if self.benchmark_cnn.enable_auto_loss_scale:
-      # Check for infs or nans
-      is_finite_list = []
-      for tower_grads in reduced_grads:
-        with tf.colocate_with(tower_grads[0]):
-          # TODO(tanmingxing): Create fused op that takes in a list of tensors
-          # as input and returns scalar boolean True if there are any infs/nans.
-          is_finite_list.append(tf.reduce_all(
-              [tf.reduce_all(tf.is_finite(g)) for g in tower_grads]))
-      self.grad_has_inf_nan = tf.logical_not(tf.reduce_all(is_finite_list))
+
     reduced_device_grads = [[
         (g, v) for g, (_, v) in zip(grads, grad_vars)
     ] for grads, grad_vars in zip(reduced_grads, device_grads)]
@@ -486,7 +469,7 @@ class VariableMgrDistributedFetchFromPS(VariableMgr):
         variable_mgr_util.aggregate_gradients_using_copy(
             gradient_state,
             use_mean=True,
-            check_inf_nan=self.benchmark_cnn.enable_auto_loss_scale))
+            check_inf_nan=False))
     return agg_grads
 
   def get_devices(self):
@@ -559,7 +542,7 @@ class VariableMgrDistributedReplicated(VariableMgr):
             self.benchmark_cnn,
             device_grads,
             use_mean=True,
-            check_inf_nan=self.benchmark_cnn.enable_auto_loss_scale))
+            check_inf_nan=False))
 
     # Make shadow variable on a parameter server for each original trainable
     # variable.

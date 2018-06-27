@@ -573,7 +573,7 @@ def main(_):
 
         # Initial Forward Validation Pass
         if FLAGS.validation_db:
-            val_model.start_queue_runners(sess)
+            #val_model.start_queue_runners(sess)
             Validation(sess, val_model, 0)
 
         if FLAGS.train_db:
@@ -606,91 +606,107 @@ def main(_):
                                           FLAGS.lr_stepvalues,
                                           FLAGS.warm_lr,
                                           (FLAGS.warm_epoch * train_steps_per_epoch))
-            train_model.start_queue_runners(sess)
+            #train_model.start_queue_runners(sess)
 
             # Training
             logging.info('Started training the model')
 
-            current_epoch = 0
+            current_step = 0
             try:
-                step = 0
-                step_last_log = 0
-                print_vals_sum = 0
-                while not train_model.queue_coord.should_stop():
-                    log_runtime = FLAGS.log_runtime_stats_per_step and (step % FLAGS.log_runtime_stats_per_step == 0)
+                num_iterations = int(float(FLAGS.epoch) * train_model.dataloader.get_total() /
+                                     FLAGS.batch_size)
+                while not (current_step == num_iterations):
+                    feed_dict = {train_model.learning_rate: lrpolicy.get_learning_rate(current_step)}
+                    results = sess.run([train_model.train,
+                                                 train_model_summary],
+                                                feed_dict=feed_dict,
+                                                options=run_options,
+                                                run_metadata=run_metadata)
+                    current_step += 1
+                    logging.info("results:{}".format(results))
 
-                    run_options = None
-                    run_metadata = None
-                    if log_runtime:
-                        # For a HARDWARE_TRACE you need NVIDIA CUPTI, a 'CUDA-EXTRA'
-                        # SOFTWARE_TRACE HARDWARE_TRACE FULL_TRACE
-                        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                        run_metadata = tf.RunMetadata()
 
-                    feed_dict = {train_model.learning_rate: lrpolicy.get_learning_rate(step)}
 
-                    if False:
-                        for op in train_model.train:
-                            _, summary_str, step = sess.run([op, train_model.summary, train_model.global_step],
-                                                            feed_dict=feed_dict,
-                                                            options=run_options,
-                                                            run_metadata=run_metadata)
-                    else:
-                        _, summary_str, step = sess.run([train_model.train,
-                                                         train_model.summary,
-                                                         train_model.global_step],
-                                                        feed_dict=feed_dict,
-                                                        options=run_options,
-                                                        run_metadata=run_metadata)
+            #current_epoch = 0
+            #try:
+            #    step = 0
+            #    step_last_log = 0
+            #    print_vals_sum = 0
+            #    while not train_model.queue_coord.should_stop():
+            #        log_runtime = FLAGS.log_runtime_stats_per_step and (step % FLAGS.log_runtime_stats_per_step == 0)
+
+                    #run_options = None
+                    #run_metadata = None
+                    #if log_runtime:
+                    #    # For a HARDWARE_TRACE you need NVIDIA CUPTI, a 'CUDA-EXTRA'
+                    #    # SOFTWARE_TRACE HARDWARE_TRACE FULL_TRACE
+                    #    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    #    run_metadata = tf.RunMetadata()
+
+                    #feed_dict = {train_model.learning_rate: lrpolicy.get_learning_rate(step)}
+
+                    #if False:
+                    #    for op in train_model.train:
+                    #        _, summary_str, step = sess.run([op, train_model.summary, train_model.global_step],
+                    #                                        feed_dict=feed_dict,
+                    #                                        options=run_options,
+                    #                                        run_metadata=run_metadata)
+                    #else:
+                    #    _, summary_str, step = sess.run([train_model.train,
+                    #                                     train_model.summary,
+                    #                                     train_model.global_step],
+                    #                                    feed_dict=feed_dict,
+                    #                                    options=run_options,
+                    #                                    run_metadata=run_metadata)
 
                     # HACK
-                    step = step / len(train_model.train)
+                    #step = step / len(train_model.train)
 
                     # logging.info(sess.run(queue_size_op)) # DEVELOPMENT: for checking the queue size
 
-                    if log_runtime:
-                        writer.add_run_metadata(run_metadata, str(step))
-                        save_timeline_trace(run_metadata, FLAGS.save, int(step))
+                    #if log_runtime:
+                    #    writer.add_run_metadata(run_metadata, str(step))
+                    #    save_timeline_trace(run_metadata, FLAGS.save, int(step))
 
-                    writer.add_summary(summary_str, step)
+                    #writer.add_summary(summary_str, step)
 
                     # Parse the summary
-                    tags, print_vals = summary_to_lists(summary_str)
+                    #tags, print_vals = summary_to_lists(summary_str)
 
-                    print_vals_sum = print_vals + print_vals_sum
+                    #print_vals_sum = print_vals + print_vals_sum
 
-                    # @TODO(tzaman): account for variable batch_size value on very last epoch
-                    current_epoch = round((step * batch_size_train) / train_model.dataloader.get_total(), epoch_round)
+                    ## @TODO(tzaman): account for variable batch_size value on very last epoch
+                    #current_epoch = round((step * batch_size_train) / train_model.dataloader.get_total(), epoch_round)
                     # Start with a forward pass
-                    if ((step % logging_interval_step) == 0):
-                        steps_since_log = step - step_last_log
-                        print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
-                        logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
-                        print_vals_sum = 0
-                        step_last_log = step
+                    #if ((step % logging_interval_step) == 0):
+                    #    steps_since_log = step - step_last_log
+                    #    print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
+                    #    logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)
+                    #    print_vals_sum = 0
+                    #    step_last_log = step
 
                     # Potential Validation Pass
-                    if FLAGS.validation_db and current_epoch >= next_validation:
-                        Validation(sess, val_model, current_epoch)
-                        # Find next nearest epoch value that exactly divisible by FLAGS.validation_interval:
-                        next_validation = (round(float(current_epoch)/FLAGS.validation_interval) + 1) * \
-                            FLAGS.validation_interval
+                    #if FLAGS.validation_db and current_epoch >= next_validation:
+                    #    Validation(sess, val_model, current_epoch)
+                    #    # Find next nearest epoch value that exactly divisible by FLAGS.validation_interval:
+                    #    next_validation = (round(float(current_epoch)/FLAGS.validation_interval) + 1) * \
+                    #        FLAGS.validation_interval
 
                     # Saving Snapshot
-                    if FLAGS.snapshotInterval > 0 and current_epoch >= next_snapshot_save:
-                        checkpoint_path, graphdef_path = save_snapshot(sess,
-                                                                       saver,
-                                                                       FLAGS.save,
-                                                                       snapshot_prefix,
-                                                                       current_epoch,
-                                                                       FLAGS.serving_export
-                                                                       )
+                    #if FLAGS.snapshotInterval > 0 and current_epoch >= next_snapshot_save:
+                    #    checkpoint_path, graphdef_path = save_snapshot(sess,
+                    #                                                   saver,
+                    #                                                   FLAGS.save,
+                    #                                                   snapshot_prefix,
+                    #                                                   current_epoch,
+                    #                                                   FLAGS.serving_export
+                    #                                                   )
 
                         # To find next nearest epoch value that exactly divisible by FLAGS.snapshotInterval
-                        next_snapshot_save = (round(float(current_epoch)/FLAGS.snapshotInterval) + 1) * \
-                            FLAGS.snapshotInterval
-                        last_snapshot_save_epoch = current_epoch
-                    writer.flush()
+                    #    next_snapshot_save = (round(float(current_epoch)/FLAGS.snapshotInterval) + 1) * \
+                    #        FLAGS.snapshotInterval
+                    #    last_snapshot_save_epoch = current_epoch
+                    #writer.flush()
 
             except tf.errors.OutOfRangeError:
                 logging.info('Done training for epochs: tf.errors.OutOfRangeError')

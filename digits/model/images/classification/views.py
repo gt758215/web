@@ -169,7 +169,7 @@ def create():
 
                 network = fw.get_network_from_desc(form.custom_network.data)
 
-                logger.debug('Network: {}'.format(network))
+                #logger.debug('Network: {}'.format(network))
                 # can we find it in standard networks?
                 #network_desc = fw.get_standard_network_desc(form.standard_networks.data)
                 #if network_desc:
@@ -290,12 +290,13 @@ def create():
                  if form.python_layer_client_file.name in flask.request.files
                  else ''), form.python_layer_server_file.data)
 
+            logger.debug('debug lr_piecewise.data: %s' % form.lr_piecewise.data)
             job.tasks.append(fw.create_train_task(
                 job=job,
                 dataset=datasetJob,
                 train_epochs=form.train_epochs.data,
                 snapshot_interval=form.snapshot_interval.data,
-                learning_rate=form.learning_rate.data[0],
+                learning_rate=form.lr_piecewise.data,
                 lr_policy=policy,
                 gpu_count=gpu_count,
                 selected_gpus=selected_gpus,

@@ -13,9 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 """Contains functions to define flags and params.
+
 Calling a DEFINE_* function will add a ParamSpec namedtuple to the param_spec
 dict. The DEFINE_* arguments match those in absl. Calling define_flags() creates
 a command-line flag for every ParamSpec defined by a DEFINE_* functions.
+
 The reason we don't use absl flags directly is that we want to be able to use
 tf_cnn_benchmarks as a library. When using it as a library, we don't want to
 define any flags, but instead pass parameters to the BenchmarkCNN constructor.

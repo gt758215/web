@@ -6,6 +6,7 @@ import re
 import subprocess
 import tempfile
 import sys
+import logging
 
 from .errors import NetworkVisualizationError
 from .framework import Framework
@@ -14,6 +15,7 @@ from digits import utils
 from digits.model.tasks import TensorflowTrainTask
 from digits.utils import subclass, override, constants
 
+logger = logging.getLogger('digits.frameworks.tensorflow_framework')
 
 @subclass
 class TensorflowFramework(Framework):
@@ -110,6 +112,8 @@ class TensorflowFramework(Framework):
         num_gpus = kwargs['num_gpus']
         if dataset is None:
             raise NetworkVisualizationError('Make sure a dataset is selected to visualize this network.')
+        if num_gpus == 0:
+            raise NetworkVisualizationError('Make sure at least GPU selected to visualize this network.')
 
         # save network description to temporary file
         temp_network_handle, temp_network_path = tempfile.mkstemp(suffix='.py')
@@ -124,11 +128,12 @@ class TensorflowFramework(Framework):
         try:  # do this in a try..finally clause to make sure we delete the temp file
             # build command line
             args = [sys.executable,
-                    os.path.join(os.path.dirname(digits.__file__), 'tools', 'tensorflow', 'main.py'),
+                    os.path.join(os.path.dirname(digits.__file__), 'tools', 'tf', 'tf_cnn_benchmarks.py'),
                     '--network=%s' % os.path.basename(temp_network_path),
                     '--networkDirectory=%s' % os.path.dirname(temp_network_path),
                     '--visualizeModelPath=%s' % temp_graphdef_path,
                     '--optimization=%s' % solver_type,
+                    '--num_gpus=%s' % num_gpus,
                     ]
 
             if crop_size:
@@ -160,6 +165,7 @@ class TensorflowFramework(Framework):
             # make only a selected number of GPUs visible. The ID is not important for just the vis
             env['CUDA_VISIBLE_DEVICES'] = ",".join([str(i) for i in range(0, int(num_gpus))])
 
+            logger.debug('networkVirualize: %s' % (args))
             # execute command
             p = subprocess.Popen(args,
                                  stdout=subprocess.PIPE,
@@ -174,6 +180,7 @@ class TensorflowFramework(Framework):
                     if line is not None:
                         stdout_log += line
             if p.returncode:
+                logger.debug("returncode: %s, log: %s" % (p.returncode, stdout_log))
                 raise NetworkVisualizationError(stdout_log)
             else:  # Success!
                 return repr(str(open(temp_graphdef_path).read()))

@@ -26,6 +26,33 @@ import cnn_util
 import data_utils
 
 
+def parse_example_proto2(example_serialized):
+  """
+      'image/height': _int64_feature(height),
+      'image/width': _int64_feature(width),
+      'image/colorspace': _bytes_feature(tf.compat.as_bytes(colorspace)),
+      'image/channels': _int64_feature(channels),
+      'image/class/label': _int64_feature(label),
+      'image/class/text': _bytes_feature(tf.compat.as_bytes(text)),
+      'image/format': _bytes_feature(tf.compat.as_bytes(image_format)),
+      'image/filename': _bytes_feature(tf.compat.as_bytes(os.path.basename(filename))),
+      'image/encoded': _bytes_feature(tf.compat.as_bytes(image_buffer))}))
+  """
+  # Dense features in Example proto.
+  feature_map = {
+      'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
+                                          default_value=''),
+      'image/class/label': tf.FixedLenFeature([1], dtype=tf.int64,
+                                              default_value=-1),
+      'image/class/text': tf.FixedLenFeature([], dtype=tf.string,
+                                             default_value=''),
+  }
+  features = tf.parse_single_example(example_serialized, feature_map)
+  label = tf.cast(features['image/class/label'], dtype=tf.int32)
+
+  return features['image/encoded'], label
+
+
 def parse_example_proto(example_serialized):
   """Parses an Example proto containing a training example of an image.
 
@@ -516,7 +543,6 @@ class RecordInputImagePreprocessor(BaseImagePreprocess):
             self.parse_and_preprocess, dataset, subset, self.train, cache_data)
         for d in xrange(self.num_splits):
           labels[d], images[d] = ds_iterator.get_next()
-
       else:
         record_input = data_flow_ops.RecordInput(
             file_pattern=dataset.tf_record_pattern(subset),
@@ -550,6 +576,22 @@ class RecordInputImagePreprocessor(BaseImagePreprocess):
 
   def supports_datasets(self):
     return True
+
+
+class GeneralImagePreprocessor(RecordInputImagePreprocessor):
+  """Preprocessor for images with RecordInput format."""
+  def parse_and_preprocess(self, value, batch_position):
+    image_buffer, label_index  = parse_example_proto2(value)
+    image = tf.image.decode_jpeg(image_buffer, channels=3, dct_method='INTEGER_FAST')
+    if self.summary_verbosity >= 3:
+      tf.summary.image('original_image', tf.expand_dims(image, 0))
+    image_resize_method = get_image_resize_method(self.resize_method, batch_position)
+    distorted_image = tf.image.resize_images(image,
+                                             [self.height, self.width],
+                                             image_resize_method,
+                                             align_corners=False)
+    distorted_image.set_shape([self.height, self.width, 3])
+    return (label_index, distorted_image)
 
 
 class ImagenetPreprocessor(RecordInputImagePreprocessor):

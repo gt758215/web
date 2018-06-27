@@ -143,7 +143,16 @@ class Model(object):
 
         # Run the user model through the build_model function that should be filled in
         buffer_resources = self.dataloader.buffer_resources
-        grad_towers = []
+        # grad_towers = []
+        losses = []
+        device_grads = []
+        all_logits = []
+        all_top_1_ops = []
+        all_top_5_ops = []
+
+        with tf.device('/cpu:0'):
+            global_step = tf.train.get_or_create_global_step()
+
         for dev_i, dev_name in enumerate(available_devices):
             with tf.device(dev_name):
                 buffer_resource = buffer_resources[dev_i]
@@ -195,7 +204,6 @@ class Model(object):
 
                             accuracy = tf.reduce_sum(
                                 tf.cast(tf.nn.in_top_k(logits, labels, 1), tf.float32))
-                            tf.summary.scalar('accuracy', accuracy)
 
                             #for loss in self.get_tower_losses(tower_model):
                             #    tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
@@ -218,7 +226,9 @@ class Model(object):
                             aggmeth = tf.AggregationMethod.DEFAULT
                             grads = tf.gradients(total_loss, params, aggregation_method=aggmeth)
                             gradvars = list(zip(grads, params))
-                            grad_towers.append(gradvars)
+                            losses.append(total_loss)
+                            device_grads.append(gradvars)
+                            all_top_1_ops.append(accuracy)
 
                             #grad_tower_losses = []
                             #for loss in self.get_tower_losses(tower_model):
@@ -226,22 +236,62 @@ class Model(object):
                             #    grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
                             #    grad_tower_losses.append(grad_tower_loss)
                             #grad_towers.append(grad_tower_losses)
+        fetches = {}
+        fetches['top_1_accuracy'] = tf.reduce_sum(all_top_1_ops) / self.dataloader.batch_size
+        tf.summary.scalar('top_1_accuracy', fetches['top_1_accuracy'])
+
+        all_grads = []
+        all_vars = []
+        for tower in gradvars:
+            all_grads.append([x[0] for x in tower])
+            all_vars.append([x[1] for x in tower])
+
+        from tensorflow.contrib import nccl
+        nr_tower = len(all_grads)
+        if nr_tower == 1:
+            new_all_grads = all_grads
+        else:
+            new_all_grads = []
+            for grads in zip(*all_grads):
+                summed = nccl.all_sum(grads)
+                grads_for_devices = []
+                for g in summed:
+                    with tf.device(g.device):
+                        g = tf.multiply(g, 1.0 / nr_tower)
+                        grads_for_devices.append(g)
+                new_all_grads.append(grads_for_devices)
+            new_all_grads = list(zip(*new_all_grads))
+
+        gradvars = [list(zip(gs, vs)) for gs, vs in zip(new_all_grads, all_vars)]
+
+        training_ops = []
+        for dev_i, dev_name in enumerate(available_devices):
+            with tf.device(dev_name):
+                average_loss = tf.reduce_mean(losses)
+                avg_grads = gradvars[dev_i]
+
+                training_ops.extend([self.optimizer.apply_gradients(avg_grads)])
+
+        train_op = tf.group(*(training_ops))
+        self._train = train_op
+        return
+
 
         # Assemble and average the gradients from all towers
-        if self.stage == digits.STAGE_TRAIN:
-            n_gpus = len(available_devices)
-            if n_gpus == 1:
-                grad_averages = grad_towers[0]
-            else:
-                with tf.device(available_devices[0]):
-                    n_losses = len(grad_towers[0])
-                    grad_averages = []
-                    for loss in xrange(n_losses):
-                        grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
-            apply_gradient_ops = []
-            for grad_avg in grad_averages:
-                apply_gradient_ops.append(self.optimizer.apply_gradients(grad_avg, global_step=self.global_step))
-            self._train = apply_gradient_ops
+        #if self.stage == digits.STAGE_TRAIN:
+        #    n_gpus = len(available_devices)
+        #    if n_gpus == 1:
+        #        grad_averages = grad_towers[0]
+        #    else:
+        #        with tf.device(available_devices[0]):
+        #            n_losses = len(grad_towers[0])
+        #            grad_averages = []
+        #            for loss in xrange(n_losses):
+        #                grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+        #    apply_gradient_ops = []
+        #    for grad_avg in grad_averages:
+        #        apply_gradient_ops.append(self.optimizer.apply_gradients(grad_avg, global_step=self.global_step))
+        #    self._train = apply_gradient_ops
 
     def start_queue_runners(self, sess):
         logging.info('Starting queue runners (%s)', self.stage)

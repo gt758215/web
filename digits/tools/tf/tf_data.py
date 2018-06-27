@@ -367,7 +367,7 @@ class LoaderFactory(object):
             labels, images = remote_iterator.get_next()
             image_size = self.croplen
             images = tf.reshape(
-                images, shape=[batch_size_per_split, image_size, image_size, self.channels])
+                images, shape=[batch_size_per_split, image_size, image_size, 3])
             labels = tf.reshape(labels, [batch_size_per_split])
             return images, labels
 
@@ -756,20 +756,20 @@ class TFRecordsLoader(LoaderFactory):
             if not self.total:
                 raise ValueError('Database or shard contains no records (%s)' % (self.db_path))
             self.shard_paths.append(shard_path)
-        self.keys = ['%s:0' % p for p in self.shard_paths]
+            self.keys = ['%s:0' % p for p in self.shard_paths]
 
-        # Use last record read to extract some preliminary data that is sometimes needed or useful
-        example_proto = tf.train.Example()
-        example_proto.ParseFromString(r)
+            # Use last record read to extract some preliminary data that is sometimes needed or useful
+            example_proto = tf.train.Example()
+            example_proto.ParseFromString(r)
 
         # @TODO(tzaman) - bitdepth flag?
         #self.channels = example_proto.features.feature['depth'].int64_list.value[0]
         #self.height = example_proto.features.feature['height'].int64_list.value[0]
         #self.width = example_proto.features.feature['width'].int64_list.value[0]
         #data_encoding_id = example_proto.features.feature['encoding'].int64_list.value[0]
-        self.channels = example_proto.features.feature['image/channels'].int64_list.value[0]
-        self.height = example_proto.features.feature['image/height'].int64_list.value[0]
-        self.width = example_proto.features.feature['image/width'].int64_list.value[0]
+            self.channels = example_proto.features.feature['image/channels'].int64_list.value[0]
+            self.height = example_proto.features.feature['image/height'].int64_list.value[0]
+            self.width = example_proto.features.feature['image/width'].int64_list.value[0]
         data_encoding_id = 0 # 0 for decoded
  
         if data_encoding_id:

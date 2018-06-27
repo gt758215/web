@@ -87,6 +87,12 @@ input.invalid {
   margin-top:10px;
   margin-bottom:100px;
 }
+
+.my-bootbox .modal-content {
+  margin-top: 10px;
+  margin-left: 0px;
+  width: 200%;
+}
 </style>
 
 <div class="animated fadeIn">
@@ -194,9 +200,9 @@ input.invalid {
                 {{form.rms_decay(class='form-control')}}
               </div>
               <div class="form-group">
-                {{form.learning_rate.label}}
-                {{form.learning_rate.tooltip}}
-                {{form.learning_rate(class='form-control learning-rate-option')}}
+                {{form.lr_piecewise.label}}
+                {{form.lr_piecewise.tooltip}}
+                {{form.lr_piecewise(class='form-control')}}
               </div>
               <div class="form-group">
                 {{form.weight_decay.label}}
@@ -558,6 +564,7 @@ function get_hyperparameters(){
         $("#solver_type").val(data['solver_type']);
         $("#weight_decay").val(data['weight_decay']);
         $("#learning_rate").val(data['learning_rate']);
+        $("#lr_piecewise").val(data['lr_piecewise']);
         $("#rampup_lr").val(data['rampup_lr']);
         $("#rampup_epoch").val(data['rampup_epoch']);
         if (data['small_chunk']) {
@@ -679,7 +686,7 @@ function visualizeNetwork() {
     } else if ($("#select_gpu_count").val()) {
       num_sel_gpus = $("#select_gpu_count").val()
     }
-    var bootboxClass = "full-bootbox";
+    var bootboxClass = "my-bootbox";
     var bbox_content = $('<div class="text-center"><i class="glyphicon-refresh glyphicon-spin"></i> Loading...</div>');
     var bbox = bootbox.alert({
       message: bbox_content,
@@ -697,7 +704,7 @@ function visualizeNetwork() {
         solver_type: $('#solver_type').val(),
         use_mean: document.getElementById('use_mean').value,
         crop_size: document.getElementById('crop_size').value,
-        num_gpus: num_sel_gpus,
+        num_gpus: document.getElementById('select_gpu_count').value,
       }
     })
     .done(function(data) {

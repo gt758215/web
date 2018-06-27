@@ -27,6 +27,7 @@ _ROOT_PROJECT_DIR = os.path.dirname(cnn_util.__file__)
 
 def define_platform_params():
   """Defines platform-specific parameters.
+
   Currently there are no platform-specific parameters to be defined.
   """
   pass

@@ -166,6 +166,7 @@
         <div class="card" {{'style=display:none;' if not task.status == 'D' else ''}}>
             <div class="card-body card-block">
                 <h1>Inference</h1>
+                <a href="#" class="btn btn-info" onClick="return tensorboardOpen();">Tensorboard</a>
                 <form action="" method="post" enctype="multipart/form-data" class="form-horizontal">
                 <div class="form-group">
                     <label for="image_path" class="control-label">Image Path</label>
@@ -184,6 +185,9 @@
                     </div>
                 </div>
 <script type="text/javascript">
+function tensorboardOpen() {
+  return false
+}
   jQuery(document).ready(function($) {
     // When you fill in one field, the other gets blanked out
     $("#image_path").change(function() { $("#image_file").val(""); });

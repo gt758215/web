@@ -160,7 +160,7 @@ class ModelForm(FlaskForm):
             utils.forms.MultiNumberRange(min=1),
             utils.forms.MultiOptional(),
         ],
-        tooltip="How many images to process at once. If blank, values are used from the network definition."
+        tooltip="How many images to process at once per device. If blank, values are used from the network definition."
     )
 
     batch_accumulation = utils.forms.IntegerField(
@@ -238,6 +238,18 @@ class ModelForm(FlaskForm):
     )
 
     # Learning rate
+    lr_piecewise = utils.forms.StringField(
+        'Piecewise learning Rate Schedule',
+        default='0.1;10;0.01',
+        tooltip=("Specifies a piecewise learning rate schedule based on the "
+                 "number of epochs. This is the form LR0;E1;LR1;...;En;LRn, "
+                 "where each LRi is a learning rate and each Ei is an epoch "
+                 "indexed from 0. The learning rate is LRi if the "
+                 "E(i-1) <= current_epoch < Ei. For example, if this "
+                 "paramater is 0.3;10;0.2;25;0.1, the learning rate is 0.3 "
+                 "for the first 10 epochs, then is 0.2 for the next 15 "
+                 "epochs, then is 0.1 until training ends.")
+    )
 
     learning_rate = utils.forms.MultiFloatField(
         'Base Learning Rate',

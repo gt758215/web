@@ -28,6 +28,8 @@ from models import overfeat_model
 from models import resnet_model
 from models import trivial_model
 from models import vgg_model
+import inspect
+import os
 
 
 _model_name_to_imagenet_model = {
@@ -97,18 +99,37 @@ _model_name_to_cifar_model = {
     'nasnet': nasnet_model.NasnetCifarModel,
 }
 
+_model_name_to_flowers_model = {
+    'resnet50': resnet_model.create_resnet50_model,
+}
+
 
 def _get_model_map(dataset_name):
   if 'cifar10' == dataset_name:
     return _model_name_to_cifar_model
   elif dataset_name in ('imagenet', 'synthetic'):
     return _model_name_to_imagenet_model
+  elif 'flowers' == dataset_name:
+    return _model_name_to_flowers_model
   else:
     raise ValueError('Invalid dataset name: %s' % dataset_name)
 
 
-def get_model_config(model_name, dataset):
+def get_model_config(model_name, dataset, model_dir, file_name="network.py"):
   """Map model name to model network configuration."""
+  if model_dir:
+    model_file = os.path.join(model_dir, file_name)
+    if not os.path.isfile(model_file):
+      raise ValueError('Could not find %s in %s for model file' % (model_file, model_dir))
+    exec(open(model_file).read(), globals())
+    try:
+      UserModel
+    except NameError:
+      tf.logging.fatal("The user model class 'UserModel' is not defined.")
+      exit(-1)
+    if not inspect.isclass(UserModel):
+      raise ValueError("The user model class 'UserModel' is not a class.")
+    return UserModel()
   model_map = _get_model_map(dataset.name)
   if model_name not in model_map:
     raise ValueError('Invalid model name \'%s\' for dataset \'%s\'' %

@@ -189,6 +189,10 @@ def view_config(extension_id):
     return flask.render_template_string(template, **context)
 
 
+@blueprint.route('/tensorboard', methods=['POST'])
+def tensorboard_vis():
+    return
+
 @blueprint.route('/visualize-network', methods=['POST'])
 def visualize_network():
     """
@@ -209,7 +213,7 @@ def visualize_network():
         solver_type=flask.request.form['solver_type'] if 'solver_type' in flask.request.form else None,
         use_mean=flask.request.form['use_mean'] if 'use_mean' in flask.request.form else None,
         crop_size=flask.request.form['crop_size'] if 'crop_size' in flask.request.form else None,
-        num_gpus=flask.request.form['num_gpus'] if 'num_gpus' in flask.request.form else None,
+        num_gpus=flask.request.form['num_gpus'] if 'num_gpus' in flask.request.form else 1,
     )
     return ret
 
@@ -496,12 +500,12 @@ def networks_from_request():
     if network_id == 'resnet50':
         data = {
             'train_epochs': 30,
-            'batch_size': 8192,
+            'batch_size': 32,
             'solver_type': 'SGD',
             'rampup_lr': 0.1,
             'rampup_epoch': 3,
             'weight_decay': 0.0001,
-            'learning_rate': 3.2,
+            'lr_piecewise': '0.1;10;0.01;20;0.001',
             'small_chunk': 8192/(nr_tower*32),
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID
@@ -509,12 +513,12 @@ def networks_from_request():
     elif network_id == 'vgg16':
         data = {
             'train_epochs': 8,
-            'batch_size': nr_tower*32,
+            'batch_size': 32,
             'solver_type': 'SGD',
             'rampup_lr': 0,
             'rampup_epoch': 0,
             'weight_decay': 0.0005,
-            'learning_rate': 0.01,
+            'lr_piecewise': '0.1;10;0.01;20;0.001',
             'small_chunk': 1,
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID
@@ -558,7 +562,6 @@ def networks_from_request():
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID
         }
-    logger.debug('network_id: %s, data: %s' % (network_id, data))
     return data
 
 @blueprint.route('/summary', methods=['GET'])

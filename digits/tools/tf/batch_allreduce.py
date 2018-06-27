@@ -321,13 +321,15 @@ class AllReduceSpecAlgorithm(BatchAllReduceAlgorithm):
 def algorithm_from_params(params):
   """Returns a BatchAllReduceAlgorithm from a Params tuple."""
   if params.all_reduce_spec:
-    if params.gpu_indices:
-      gpu_indices = [int(x) for x in params.gpu_indices.split(',')]
-    else:
-      gpu_indices = [x for x in range(params.num_gpus)]
+    #if params.gpu_indices:
+    #  gpu_indices = [int(x) for x in params.gpu_indices.split(',')]
+    #else:
+    #  gpu_indices = [x for x in range(params.num_gpus)]
+    gpu_indices = [x for x in range(params.num_gpus)]
     return AllReduceSpecAlgorithm(params.all_reduce_spec, gpu_indices,
-                                  params.agg_small_grads_max_bytes,
-                                  params.agg_small_grads_max_group)
+                                  0, 10)
+                                  #params.agg_small_grads_max_bytes,
+                                  #params.agg_small_grads_max_group)
   elif params.hierarchical_copy:
     return HierarchicalCopyAlgorithm(params.network_topology)
   else:
