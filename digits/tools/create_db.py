@@ -34,6 +34,7 @@ from digits import utils, log  # noqa
 # Import digits.config first to set the path to Caffe
 import digits.tools.tf.caffe_tf_io as caffe_io  # noqa
 import digits.tools.tf.caffe_tf_pb2 as caffe_pb2  # noqa
+import multiprocessing
 
 if digits.config.config_value('tensorflow')['enabled']:
     import tensorflow as tf
@@ -432,9 +433,6 @@ def create_tfrecords_db(input_file, output_dir,
               **kwargs):
     """ find labels and convert to tfrecords
     """
-    num_threads = 2
-    #num_shards = 2
-
     os.makedirs(output_dir)
 
     filenames, texts, labels =_find_datadir_labels(input_file)
@@ -442,8 +440,15 @@ def create_tfrecords_db(input_file, output_dir,
     assert len(filenames) == len(labels)
 
     num_shards = len(filenames) // 10000
-    if num_shards = 0:
-      num_shards = 1
+    if num_shards % 2 or num_shards == 0:
+      num_shards += 1 # make this number even or one
+
+    if num_shards < (multiprocessing.cpu_count() // 2):
+      num_threads = num_shards
+    else:
+      num_threads = (multiprocessing.cpu_count() // 2)
+      while num_shards % num_threads:
+        num_threads -= 1
 
     # Break all images into batches with a [ranges[i][0], ranges[i][1]].
     spacing = np.linspace(0, len(filenames), num_threads + 1).astype(np.int)
