@@ -3,22 +3,25 @@
 {% block head %}
 {% endblock %}
 
-{% block page_title %} Inferencing {% endblock %}
+{% block page_title %} ImageClassification {% endblock %}
 
 {% block page_list %}
 <li><a href="{{url_for('digits.views.home')}}"> Dashboard </a></li>
-<li class="active"> Inferencing </li>
+<li class="active"> ImageClassification </li>
 {% endblock %}
 
 {% block content %}
 
 <div class="row" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
-  {[ jc.model_jobs = (jobs | filter:is_model | filter:not_running);'' ]}
+  {[ jc.model_jobs = (jobs | filter:is_model);'' ]}
   <div ng-controller="models_controller">
     <div class="animated fadeIn">
       <div class="col">
         <div class="card">
           <div class="card-body">
+            <div align="justify">
+            <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('digits.model.images.classification.views.new') }}';">New Training</a></button>
+            </div>
             <table class="table">
               <col ng-repeat="field in model_fields | filter:show(true)"
                    ng-style="$index == 0 ? '{}' : {'width':visualLength(field.name, field.min_width) + 'px'}">
@@ -65,5 +68,4 @@
           </div>
         </div>
 
-
-        {% endblock %}
+{% endblock %}

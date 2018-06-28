@@ -28,14 +28,9 @@ from tensorflow.python.platform import gfile
 
 def build_prefetch_image_processing(height, width, batch_size, num_splits,
                                     preprocess_fn, cpu_device, params,
-                                    gpu_devices, dataset):
+                                    gpu_devices, dataset, subset):
   """"Returns FunctionBufferingResources that do image pre(processing)."""
   with tf.device(cpu_device):
-    if params.eval:
-      subset = 'validation'
-    else:
-      subset = 'train'
-
     function_buffering_resources = []
     remote_fn, args = minibatch_fn(
         height=height,

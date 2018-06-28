@@ -433,13 +433,17 @@ def create_tfrecords_db(input_file, output_dir,
     """ find labels and convert to tfrecords
     """
     num_threads = 2
-    num_shards = 2
+    #num_shards = 2
 
     os.makedirs(output_dir)
 
     filenames, texts, labels =_find_datadir_labels(input_file)
     assert len(filenames) == len(texts)
     assert len(filenames) == len(labels)
+
+    num_shards = len(filenames) // 10000
+    if num_shards = 0:
+      num_shards = 1
 
     # Break all images into batches with a [ranges[i][0], ranges[i][1]].
     spacing = np.linspace(0, len(filenames), num_threads + 1).astype(np.int)

@@ -440,56 +440,12 @@ flags.DEFINE_string('labels_list', None,
                    'list of labels file ')
 flags.DEFINE_string('visualizeModelPath', None,
                     'Constructs the current model for visualization.')
+flags.DEFINE_integer('warm_epoch', 0,
+                     'Slowly increase to the initial learning rate in the first '
+                     'num_learning_rate_warmup_epochs linearly.')
+
 
 platforms_util.define_platform_params()
-
-
-class GlobalStepWatcher(threading.Thread):
-  """A helper class for global_step.
-
-  Polls for changes in the global_step of the model, and finishes when the
-  number of steps for the global run are done.
-  """
-
-  def __init__(self, sess, global_step_op, start_at_global_step,
-               end_at_global_step):
-    threading.Thread.__init__(self)
-    self.sess = sess
-    self.global_step_op = global_step_op
-    self.start_at_global_step = start_at_global_step
-    self.end_at_global_step = end_at_global_step
-
-    self.start_time = 0
-    self.start_step = 0
-    self.finish_time = 0
-    self.finish_step = 0
-
-  def run(self):
-    while self.finish_time == 0:
-      time.sleep(.25)
-      global_step_val, = self.sess.run([self.global_step_op])
-      if self.start_time == 0 and global_step_val >= self.start_at_global_step:
-        # Use tf.logging.info instead of log_fn, since print (which is log_fn)
-        # is not thread safe and may interleave the outputs from two parallel
-        # calls to print, which can break tests.
-        tf.logging.info('Starting real work at step %s at time %s' %
-                        (global_step_val, time.ctime()))
-        self.start_time = time.time()
-        self.start_step = global_step_val
-      if self.finish_time == 0 and global_step_val >= self.end_at_global_step:
-        tf.logging.info('Finishing real work at step %s at time %s' %
-                        (global_step_val, time.ctime()))
-        self.finish_time = time.time()
-        self.finish_step = global_step_val
-
-  def done(self):
-    return self.finish_time > 0
-
-  def num_steps(self):
-    return self.finish_step - self.start_step
-
-  def elapsed_time(self):
-    return self.finish_time - self.start_time
 
 
 class CheckpointNotFoundException(Exception):
@@ -594,8 +550,7 @@ def benchmark_one_step(sess,
                        params,
                        summary_op=None,
                        show_images_per_sec=True,
-                       benchmark_logger=None,
-                       phase_train=True):
+                       benchmark_logger=None):
   """Advance one step of benchmarking."""
   should_profile = profiler and 0 <= step < _NUM_STEPS_TO_PROFILE
   need_options_and_metadata = (
@@ -632,10 +587,7 @@ def benchmark_one_step(sess,
   step_train_times.append(train_time)
   if (show_images_per_sec and step >= 0 and
       (step == 0 or (step + 1) % params.display_every == 0)):
-    if phase_train:
-      log_str = "Training"
-    else:
-      log_str = "Validation"
+    log_str = "Training"
     log_str += ' (epoch %.*f): loss = %.*f' % (
         2, float(step + 1)/num_batches_per_epoch,
         LOSS_AND_ACCURACY_DIGITS_TO_SHOW, lossval)
@@ -1086,15 +1038,23 @@ class BenchmarkCNN(object):
         for i in xrange(self.num_gpus)
     ]
 
-    subset = 'validation' if params.eval else 'train'
     self.num_batches, self.num_epochs = get_num_batches_and_epochs(
         params, self.batch_size,
-        self.dataset.num_examples_per_epoch(subset))
-    self.num_batches_per_epoch = self.num_batches // self.num_epochs
+        self.dataset.num_examples_per_epoch('validation'))
+    self.num_batches_per_val_epoch = self.num_batches // self.num_epochs
+    logging.info('num_batches_per_val_epoch: %d' % self.num_batches_per_val_epoch)
 
+    self.num_batches, self.num_epochs = get_num_batches_and_epochs(
+        params, self.batch_size,
+        self.dataset.num_examples_per_epoch('train'))
+    self.num_batches_per_train_epoch = self.num_batches // self.num_epochs
+    logging.info('num_batches_per_train_epoch: %d' % self.num_batches_per_train_epoch)
+ 
     # adjust display_every number
     if self.params.display_every > 0:
       display = self.num_batches // self.num_epochs // 10
+      if display == 0:
+        display = 1
       logging.info("adjust display_every: %d" % display)
       self.params.display_every = display
 
@@ -1117,10 +1077,11 @@ class BenchmarkCNN(object):
     # self.raw_devices = [
     self.global_step_device = self.cpu_device
 
-    self.image_preprocessor = self.get_image_preprocessor()
+    self.train_image_preprocessor = self.get_image_preprocessor()
+    self.val_image_preprocessor = self.get_image_preprocessor(phase_train=False)
     self.datasets_use_prefetch = (
         self.params.datasets_use_prefetch and
-        self.image_preprocessor.supports_datasets())
+        self.train_image_preprocessor.supports_datasets())
     self.init_global_step = 0
 
     self._config_benchmark_logger()
@@ -1226,7 +1187,11 @@ class BenchmarkCNN(object):
       if self.params.eval:
         return self._eval_cnn()
       else:
-        return self._benchmark_cnn()
+        with tf.name_scope("train"):
+            (_, _, train_fetches) = self._build_model_with_dataset_prefetching(phase_train=True)
+        with tf.name_scope("val"):
+            (_, _, val_fetches) = self._build_model_with_dataset_prefetching(phase_train=False)
+        return self._benchmark_cnn(train_fetches, val_fetches)
 
   def _eval_cnn(self):
     """Evaluate a model every self.params.eval_interval_secs.
@@ -1237,7 +1202,7 @@ class BenchmarkCNN(object):
     """
     if self.datasets_use_prefetch:
       (image_producer_ops, enqueue_ops, fetches) = (
-          self._build_model_with_dataset_prefetching())
+          self._build_model_with_dataset_prefetching(phase_train=False))
     else:
       #(image_producer_ops, enqueue_ops, fetches) = self._build_model()
       pass
@@ -1263,6 +1228,24 @@ class BenchmarkCNN(object):
       time.sleep(self.params.eval_interval_secs)
     return {}
 
+  def _eval_one_epoch(self, sess, sv, local_step, fetches):
+    top_1_accuracy_sum = 0.0
+    top_5_accuracy_sum = 0.0
+    for step in xrange(int(self.num_batches_per_val_epoch)):
+      results = sess.run(fetches)
+      top_1_accuracy_sum += results['top_1_accuracy']
+      top_5_accuracy_sum += results['top_5_accuracy']
+    accuracy_at_1 = top_1_accuracy_sum / int(self.num_batches_per_val_epoch)
+    accuracy_at_5 = top_5_accuracy_sum / int(self.num_batches_per_val_epoch)
+    summary = tf.Summary()
+    summary.value.add(tag='eval/Accuracy@1', simple_value=accuracy_at_1)
+    summary.value.add(tag='eval/Accuracy@5', simple_value=accuracy_at_5)
+    #sv.summary_computed(sess, summary, global_step)
+    sv.summary_computed(sess, summary)
+    logging.info('Validation (epoch %.*f): top1_accuracy = %.4f, top5_accuracy = %.4f' %
+                 (2, float(local_step + 1)/self.num_batches_per_train_epoch,
+                  accuracy_at_1, accuracy_at_5))
+
   def _eval_once(self, saver, summary_writer, target, local_var_init_op_group,
                  image_producer_ops, enqueue_ops, fetches, summary_op):
     """Evaluate the model from a checkpoint using validation dataset."""
@@ -1279,16 +1262,16 @@ class BenchmarkCNN(object):
       if self.dataset.queue_runner_required():
         tf.train.start_queue_runners(sess=sess)
       image_producer = None
-      if image_producer_ops is not None:
-        image_producer = cnn_util.ImageProducer(
-            #sess, image_producer_ops, self.batch_group_size,
-            sess, image_producer_ops, 1,
-            #self.params.use_python32_barrier)
-            False)
-        image_producer.start()
-        for i in xrange(len(enqueue_ops)):
-          sess.run(enqueue_ops[:(i + 1)])
-          image_producer.notify_image_consumption()
+      #if image_producer_ops is not None:
+      #  image_producer = cnn_util.ImageProducer(
+      #      #sess, image_producer_ops, self.batch_group_size,
+      #      sess, image_producer_ops, 1,
+      #      #self.params.use_python32_barrier)
+      #      False)
+      #  image_producer.start()
+      #  for i in xrange(len(enqueue_ops)):
+      #    sess.run(enqueue_ops[:(i + 1)])
+      #    image_producer.notify_image_consumption()
       loop_start_time = start_time = time.time()
       top_1_accuracy_sum = 0.0
       top_5_accuracy_sum = 0.0
@@ -1337,7 +1320,7 @@ class BenchmarkCNN(object):
         }
         self.benchmark_logger.log_evaluation_result(eval_result)
 
-  def _benchmark_cnn(self):
+  def _benchmark_cnn(self, train_fetches, val_fetches):
     """Run cnn in benchmark mode. Skip the backward pass if forward_only is on.
 
     Returns:
@@ -1345,19 +1328,19 @@ class BenchmarkCNN(object):
       average_wall_time, images_per_sec).
     """
     self.single_session = False
-    if self.datasets_use_prefetch:
-      (image_producer_ops, enqueue_ops, fetches) = (
-          self._build_model_with_dataset_prefetching())
-    else:
-      pass
+    #if self.datasets_use_prefetch:
+    #  (image_producer_ops, enqueue_ops, fetches) = (
+    #      self._build_model_with_dataset_prefetching(phase_train=True))
+    #else:
+    #  pass
       # (image_producer_ops, enqueue_ops, fetches) = self._build_model()
-    fetches_list = nest.flatten(list(fetches.values()))
-    main_fetch_group = tf.group(*fetches_list)
+    train_fetches_list = nest.flatten(list(train_fetches.values()))
+    main_fetch_group = tf.group(*train_fetches_list)
 
     global_step = tf.train.get_global_step()
     with tf.device(self.global_step_device):
       with tf.control_dependencies([main_fetch_group]):
-        fetches['inc_global_step'] = global_step.assign_add(1)
+        train_fetches['inc_global_step'] = global_step.assign_add(1)
 
     local_var_init_op = tf.local_variables_initializer()
     table_init_ops = tf.tables_initializer()
@@ -1410,15 +1393,15 @@ class BenchmarkCNN(object):
         exit(0)
 
       image_producer = None
-      if image_producer_ops is not None:
-        image_producer = cnn_util.ImageProducer(
-            sess, image_producer_ops, 1, False)
-            #sess, image_producer_ops, self.batch_group_size,
-            #self.params.use_python32_barrier)
-        image_producer.start()
-        for i in xrange(len(enqueue_ops)):
-          sess.run(enqueue_ops[:(i + 1)])
-          image_producer.notify_image_consumption()
+      #if image_producer_ops is not None:
+      #  image_producer = cnn_util.ImageProducer(
+      #      sess, image_producer_ops, 1, False)
+      #      #sess, image_producer_ops, self.batch_group_size,
+      #      #self.params.use_python32_barrier)
+      #  image_producer.start()
+      #  for i in xrange(len(enqueue_ops)):
+      #    sess.run(enqueue_ops[:(i + 1)])
+      #    image_producer.notify_image_consumption()
       self.init_global_step, = sess.run([global_step])
       #if self.job_name and not self.params.cross_replica_sync:
 
@@ -1439,16 +1422,6 @@ class BenchmarkCNN(object):
       while not (local_step == self.num_batches):
         if local_step == 0:
           logging.info('Done warm up')
-          #if execution_barrier:
-          #  logging.info('Waiting for other replicas to finish warm up')
-          #  sess.run([execution_barrier])
-
-          #header_str = ('Step\tImg/sec\t' +
-          #              self.params.loss_type_to_report.replace('/', ' '))
-          #if self.params.print_training_accuracy or self.params.forward_only:
-          #if self.params.print_training_accuracy:
-          #  header_str += '\ttop_1_accuracy\ttop_5_accuracy'
-          #logging.info(header_str)
           assert len(step_train_times) == self.num_warmup_batches
           # reset times to ignore warm up batch
           step_train_times = []
@@ -1459,18 +1432,27 @@ class BenchmarkCNN(object):
         else:
           fetch_summary = None
         summary_str = benchmark_one_step(
-            sess, fetches, local_step,
+            sess, train_fetches, local_step,
             self.batch_size,
-            self.num_batches_per_epoch,
+            self.num_batches_per_train_epoch,
             step_train_times,
             #self.trace_filename, self.params.partitioned_graph_file_prefix,
             self.trace_filename, None,
             profiler, image_producer, self.params, fetch_summary,
-            benchmark_logger=self.benchmark_logger,
-            phase_train = not (self.params.eval))
+            benchmark_logger=self.benchmark_logger)
         if summary_str is not None:
           sv.summary_computed(sess, summary_str)
         local_step += 1
+        # create checkpoint every epoch
+        if local_step % self.num_batches_per_train_epoch == 0:
+          #if self.params.train_dir is not None:
+          #  checkpoint_path = os.path.join(self.params.train_dir, 'model.ckpt')
+          #  if not gfile.Exists(self.params.train_dir):
+          #    gfile.MakeDirs(self.params.train_dir)
+          #  sv.saver.save(sess, checkpoint_path, global_step)
+          # validation model
+          self._eval_one_epoch(sess, sv, local_step, val_fetches)
+ 
       loop_end_time = time.time()
 
       elapsed_time = loop_end_time - loop_start_time
@@ -1511,50 +1493,20 @@ class BenchmarkCNN(object):
         'images_per_sec': images_per_sec
     }
 
-  def _build_image_processing(self, shift_ratio=0):
-    """"Build the image (pre)processing portion of the model graph."""
-    with tf.device(self.cpu_device):
-      if self.params.eval:
-        subset = 'validation'
-      else:
-        subset = 'train'
-      image_producer_ops = []
-      image_producer_stages = []
-      images_splits, labels_splits = self.image_preprocessor.minibatch(
-          self.dataset,
-          subset=subset,
-          use_datasets=self.params.use_datasets,
-          cache_data=self.params.cache_data,
-          shift_ratio=shift_ratio)
-      images_shape = images_splits[0].get_shape()
-      labels_shape = labels_splits[0].get_shape()
-      for device_num in range(len(self.devices)):
-        image_producer_stages.append(
-            data_flow_ops.StagingArea(
-                [images_splits[0].dtype, labels_splits[0].dtype],
-                shapes=[images_shape, labels_shape]))
-        #for group_index in xrange(self.batch_group_size):
-        for group_index in xrange(1):
-          if not self.use_synthetic_gpu_images:
-            #batch_index = group_index + device_num * self.batch_group_size
-            batch_index = group_index + device_num
-            put_op = image_producer_stages[device_num].put(
-                [images_splits[batch_index], labels_splits[batch_index]])
-            image_producer_ops.append(put_op)
-    return (image_producer_ops, image_producer_stages)
-
-
   # TODO(rohanj): Refactor this function and share with other code path.
-  def _build_model_with_dataset_prefetching(self):
+  def _build_model_with_dataset_prefetching(self, phase_train):
     """Build the TensorFlow graph using datasets prefetching."""
     #assert not self.params.staged_vars
     assert not self.variable_mgr.supports_staged_vars()
 
     tf.set_random_seed(self.params.tf_random_seed)
     np.random.seed(4321)
-    phase_train = not (self.params.eval)
+    #phase_train = not (self.params.eval)
 
-    logging.info('Generating model')
+    if phase_train:
+      logging.info('Generating train model')
+    else:
+      logging.info('Generating val model')
     losses = []
     device_grads = []
     all_logits = []
@@ -1565,18 +1517,28 @@ class BenchmarkCNN(object):
       global_step = tf.train.get_or_create_global_step()
 
     with tf.name_scope("Data"):
-      # Build the processing and model for the worker.
-      function_buffering_resources = data_utils.build_prefetch_image_processing(
-          self.model.get_image_size(), self.model.get_image_size(),
-          self.batch_size, len(
-              self.devices), self.image_preprocessor.parse_and_preprocess,
-          self.cpu_device, self.params, self.devices, self.dataset)
+      if phase_train:
+        # Build the processing and model for the worker.
+        function_buffering_resources = data_utils.build_prefetch_image_processing(
+            self.model.get_image_size(), self.model.get_image_size(),
+            self.batch_size, len(
+                self.devices), self.train_image_preprocessor.parse_and_preprocess,
+            self.cpu_device, self.params, self.devices, self.dataset, 'train')
+      else:
+        # Build the processing and model for the worker.
+        function_buffering_resources = data_utils.build_prefetch_image_processing(
+            self.model.get_image_size(), self.model.get_image_size(),
+            self.batch_size, len(
+                self.devices), self.val_image_preprocessor.parse_and_preprocess,
+            self.cpu_device, self.params, self.devices, self.dataset, 'validation')
 
     update_ops = None
 
     for device_num in range(len(self.devices)):
-      with self.variable_mgr.create_outer_variable_scope(
-          device_num), tf.name_scope('tower_%i' % device_num) as name_scope:
+      with tf.variable_scope('tower_%i' % device_num, reuse=tf.AUTO_REUSE):
+        name_scope = 'tower_%i' % device_num
+      #with self.variable_mgr.create_outer_variable_scope(
+      #    device_num, phase_train), tf.name_scope('tower_%i' % device_num) as name_scope:
         function_buffering_resource = function_buffering_resources[device_num]
         results = self.add_forward_pass_and_gradients(
             phase_train, device_num, device_num, None, None, None,
@@ -1718,44 +1680,6 @@ class BenchmarkCNN(object):
             ])
     else:
       pass
-      #if not self.use_synthetic_gpu_images:
-      #  with tf.device(self.cpu_device):
-      #    host_images, host_labels = image_producer_stage.get()
-      #    images_shape = host_images.get_shape()
-      #    labels_shape = host_labels.get_shape()
-      #with tf.device(self.raw_devices[rel_device_num]):
-      #  if not self.use_synthetic_gpu_images:
-      #    gpu_compute_stage = data_flow_ops.StagingArea(
-      #        [host_images.dtype, host_labels.dtype],
-      #        shapes=[images_shape, labels_shape])
-      #    # The CPU-to-GPU copy is triggered here.
-      #    gpu_compute_stage_op = gpu_compute_stage.put(
-      #        [host_images, host_labels])
-      #    images, labels = gpu_compute_stage.get()
-      #    images = tf.reshape(images, shape=images_shape)
-      #    gpu_compute_stage_ops.append(gpu_compute_stage_op)
-      #  else:
-      #    # Minor hack to avoid H2D copy when using synthetic data
-      #    image_shape = [
-      #        self.batch_size // self.num_gpus, image_size, image_size,
-      #        self.dataset.depth
-      #    ]
-      #    labels_shape = [self.batch_size // self.num_gpus]
-      #    # Synthetic image should be within [0, 255].
-      #    images = tf.truncated_normal(
-      #        image_shape,
-      #        dtype=data_type,
-      #        mean=127,
-      #        stddev=60,
-      #        name='synthetic_images')
-      #    images = tf.contrib.framework.local_variable(
-      #        images, name='gpu_cached_images')
-      #    labels = tf.random_uniform(
-      #        labels_shape,
-      #        minval=0,
-      #        maxval=nclass - 1,
-      #        dtype=tf.int32,
-      #        name='synthetic_labels')
 
     with tf.device(self.devices[rel_device_num]):
       logits, aux_logits = self.model.build_network(
@@ -1831,7 +1755,7 @@ class BenchmarkCNN(object):
       results['gradvars'] = gradvars
       return results
 
-  def get_image_preprocessor(self):
+  def get_image_preprocessor(self, phase_train=True):
     """Returns the image preprocessor to used, based on the model.
 
     Returns:
@@ -1853,7 +1777,7 @@ class BenchmarkCNN(object):
         #len(self.devices) * self.batch_group_size,
         len(self.devices),
         dtype=input_data_type,
-        train=(not self.params.eval),
+        train=phase_train,
         distortions=self.params.distortions,
         resize_method=self.resize_method,
         shift_ratio=shift_ratio,
@@ -1947,6 +1871,8 @@ def setup():
     logging.info("epoch: {}".format(FLAGS.epoch))
     FLAGS.num_epochs=FLAGS.epoch
     logging.info("num_epochs: {}".format(FLAGS.num_epochs))
+  if FLAGS.warm_epoch:
+    FLAGS.num_learning_rate_warmup_epochs = FLAGS.warm_epoch
 
   platforms_util.initialize(FLAGS, create_config_proto(FLAGS))
 

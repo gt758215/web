@@ -24,6 +24,12 @@ import allreduce
 import batch_allreduce
 import variable_mgr_util
 
+import logging
+
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO)
+
 
 class VariableMgr(object):
   """Abstract superclass for class used by BenchmarkCNN to control variables.
@@ -134,7 +140,8 @@ class VariableMgr(object):
     if self.each_tower_has_variables():
       params = [
           v for v in tf.trainable_variables()
-          if v.name.startswith('v%s/' % abs_device_num)
+          if v.name.startswith('tower_%s/' % abs_device_num)
+          #if v.name.startswith('v%s/' % abs_device_num)
       ]
     else:
       params = tf.trainable_variables()
@@ -303,15 +310,21 @@ class VariableMgrLocalReplicated(VariableMgr):
     # Copy initialized values for variables on GPU 0 to other GPUs.
     global_vars = tf.global_variables()
     var_by_name = dict([(v.name, v) for v in global_vars])
+    #for var in global_vars:
+    #  logging.info('dump global_var: %s' % var)
+    #for var in var_by_name:
+    #  logging.info('dump var_by_name: %s' % var)
     post_init_ops = []
     for v in global_vars:
       split_name = v.name.split('/')
       # TODO(b/62630508): use more specific prefix than v or v0.
-      if split_name[0] == 'v0' or not v.name.startswith('v'):
+      if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
         continue
-      split_name[0] = 'v0'
+      split_name[0] = 'tower_0'
       copy_from = var_by_name['/'.join(split_name)]
+      logging.info('get_post_init_ops: (%s, %s)' % (split_name, copy_from))
       post_init_ops.append(v.assign(copy_from.read_value()))
+
     post_init_ops += self._warmup_ops
     return post_init_ops
 
@@ -320,8 +333,10 @@ class VariableMgrLocalReplicated(VariableMgr):
     params = []
     for v in tf.global_variables():
       split_name = v.name.split('/')
-      if split_name[0] == 'v0' or not v.name.startswith('v'):
+      if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
         params.append(v)
+    for p in params:
+      logging.info('savable_variables: %s' % p)
     return params
 
   def get_devices(self):
