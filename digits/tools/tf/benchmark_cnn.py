@@ -576,10 +576,6 @@ def benchmark_one_step(sess,
     (results, summary_str) = sess.run(
         [fetches, summary_op], options=run_options, run_metadata=run_metadata)
 
-  #if not params.forward_only:
-  #  lossval = results['average_loss']
-  #else:
-  #  lossval = 0.
   lossval = results['average_loss']
   if image_producer is not None:
     image_producer.notify_image_consumption()
@@ -969,7 +965,7 @@ class BenchmarkCNN(object):
                                            self.params.validation_db,
                                            self.params.labels_list)
     logging.info("total_train: %s, total_val: %s" % (self.dataset.total_train,
-                                                            self.dataset.total_val))
+                                                     self.dataset.total_val))
 
     self.model = model_config.get_model_config(self.params.model,
                                                self.dataset,
@@ -1044,11 +1040,12 @@ class BenchmarkCNN(object):
     self.num_batches_per_val_epoch = self.num_batches // self.num_epochs
     logging.info('num_batches_per_val_epoch: %d' % self.num_batches_per_val_epoch)
 
-    self.num_batches, self.num_epochs = get_num_batches_and_epochs(
-        params, self.batch_size,
-        self.dataset.num_examples_per_epoch('train'))
-    self.num_batches_per_train_epoch = self.num_batches // self.num_epochs
-    logging.info('num_batches_per_train_epoch: %d' % self.num_batches_per_train_epoch)
+    if not self.params.eval:
+      self.num_batches, self.num_epochs = get_num_batches_and_epochs(
+          params, self.batch_size,
+          self.dataset.num_examples_per_epoch('train'))
+      self.num_batches_per_train_epoch = self.num_batches // self.num_epochs
+      logging.info('num_batches_per_train_epoch: %d' % self.num_batches_per_train_epoch)
  
     # adjust display_every number
     if self.params.display_every > 0:
@@ -1079,9 +1076,7 @@ class BenchmarkCNN(object):
 
     self.train_image_preprocessor = self.get_image_preprocessor()
     self.val_image_preprocessor = self.get_image_preprocessor(phase_train=False)
-    self.datasets_use_prefetch = (
-        self.params.datasets_use_prefetch and
-        self.train_image_preprocessor.supports_datasets())
+    self.datasets_use_prefetch = True
     self.init_global_step = 0
 
     self._config_benchmark_logger()
@@ -1113,6 +1108,9 @@ class BenchmarkCNN(object):
     logging.info('             %s per device' % (self.batch_size /
                                            len(self.raw_devices)))
     logging.info('Num batches: %d' % self.num_batches)
+    if self.num_batches_per_train_epoch:
+      logging.info('Num train batches: %d' % self.num_batches_per_train_epoch)
+    logging.info('Num val batches: %d' % self.num_batches_per_val_epoch)
     logging.info('Num epochs:  %.2f' % self.num_epochs)
     logging.info('Devices:     %s' % benchmark_info['device_list'])
     logging.info('Data format: %s' % self.data_format)
@@ -1187,10 +1185,10 @@ class BenchmarkCNN(object):
       if self.params.eval:
         return self._eval_cnn()
       else:
-        with tf.name_scope("train"):
-            (_, _, train_fetches) = self._build_model_with_dataset_prefetching(phase_train=True)
-        with tf.name_scope("val"):
-            (_, _, val_fetches) = self._build_model_with_dataset_prefetching(phase_train=False)
+        #with tf.name_scope("train"):
+        (_, _, train_fetches) = self._build_model_with_dataset_prefetching(phase_train=True)
+        #with tf.name_scope("val"):
+        (_, _, val_fetches) = self._build_model_with_dataset_prefetching(phase_train=False, reuse=True)
         return self._benchmark_cnn(train_fetches, val_fetches)
 
   def _eval_cnn(self):
@@ -1240,9 +1238,8 @@ class BenchmarkCNN(object):
     summary = tf.Summary()
     summary.value.add(tag='eval/Accuracy@1', simple_value=accuracy_at_1)
     summary.value.add(tag='eval/Accuracy@5', simple_value=accuracy_at_5)
-    #sv.summary_computed(sess, summary, global_step)
     sv.summary_computed(sess, summary)
-    logging.info('Validation (epoch %.*f): top1_accuracy = %.4f, top5_accuracy = %.4f' %
+    logging.info('Validation (epoch %.*f): accuracy = %.4f, top5_accuracy = %.4f' %
                  (2, float(local_step + 1)/self.num_batches_per_train_epoch,
                   accuracy_at_1, accuracy_at_5))
 
@@ -1259,19 +1256,10 @@ class BenchmarkCNN(object):
         logging.info('Checkpoint not found in %s' % self.params.train_dir)
         return
       sess.run(local_var_init_op_group)
+
       if self.dataset.queue_runner_required():
         tf.train.start_queue_runners(sess=sess)
       image_producer = None
-      #if image_producer_ops is not None:
-      #  image_producer = cnn_util.ImageProducer(
-      #      #sess, image_producer_ops, self.batch_group_size,
-      #      sess, image_producer_ops, 1,
-      #      #self.params.use_python32_barrier)
-      #      False)
-      #  image_producer.start()
-      #  for i in xrange(len(enqueue_ops)):
-      #    sess.run(enqueue_ops[:(i + 1)])
-      #    image_producer.notify_image_consumption()
       loop_start_time = start_time = time.time()
       top_1_accuracy_sum = 0.0
       top_5_accuracy_sum = 0.0
@@ -1291,11 +1279,7 @@ class BenchmarkCNN(object):
               self.batch_size * self.params.display_every / duration)
           logging.info('%i\t%.1f examples/sec' % (step + 1, examples_per_sec))
           start_time = time.time()
-        if image_producer is not None:
-          image_producer.notify_image_consumption()
       loop_end_time = time.time()
-      if image_producer is not None:
-        image_producer.done()
       accuracy_at_1 = top_1_accuracy_sum / self.num_batches
       accuracy_at_5 = top_5_accuracy_sum / self.num_batches
       summary = tf.Summary()
@@ -1328,12 +1312,6 @@ class BenchmarkCNN(object):
       average_wall_time, images_per_sec).
     """
     self.single_session = False
-    #if self.datasets_use_prefetch:
-    #  (image_producer_ops, enqueue_ops, fetches) = (
-    #      self._build_model_with_dataset_prefetching(phase_train=True))
-    #else:
-    #  pass
-      # (image_producer_ops, enqueue_ops, fetches) = self._build_model()
     train_fetches_list = nest.flatten(list(train_fetches.values()))
     main_fetch_group = tf.group(*train_fetches_list)
 
@@ -1383,6 +1361,7 @@ class BenchmarkCNN(object):
         self.params.summary_verbosity >= 1 or
         self.dataset.queue_runner_required())
     target = ''
+    filename_graph = ''
     with sv.managed_session(
         master=target,
         config=create_config_proto(self.params),
@@ -1445,12 +1424,6 @@ class BenchmarkCNN(object):
         local_step += 1
         # create checkpoint every epoch
         if local_step % self.num_batches_per_train_epoch == 0:
-          #if self.params.train_dir is not None:
-          #  checkpoint_path = os.path.join(self.params.train_dir, 'model.ckpt')
-          #  if not gfile.Exists(self.params.train_dir):
-          #    gfile.MakeDirs(self.params.train_dir)
-          #  sv.saver.save(sess, checkpoint_path, global_step)
-          # validation model
           self._eval_one_epoch(sess, sv, local_step, val_fetches)
  
       loop_end_time = time.time()
@@ -1478,12 +1451,34 @@ class BenchmarkCNN(object):
         if not gfile.Exists(self.params.train_dir):
           gfile.MakeDirs(self.params.train_dir)
         sv.saver.save(sess, checkpoint_path, global_step)
+        filename_graph = os.path.join(checkpoint_path, "graph.bp")
+        if not os.path.isfile(filename_graph):
+          with open(filename_graph, 'wb') as f:
+            logging.info('Saving graph to %s', filename_graph)
+            f.write(sess.graph_def.SerializeToString())
+            logging.info('Saved graph to %s', filename_graph)
 
       #if execution_barrier:
       #  # Wait for other workers to reach the end, so this worker doesn't
       #  # go away underneath them.
       #  sess.run([execution_barrier])
     sv.stop()
+
+    #path_frozen = os.path.join(params.train_dir, 'frozen_model.pb')
+    #logging.info('Saving frozen model at path {}'.format(path_frozen))
+    #freeze_graph.freeze_graph(
+    #    input_graph=filename_graph,
+    #    input_saver='',
+    #    input_binary=True,
+    #    input_checkpoint=checkpoint_path,
+    #    output_node_names="",
+    #    restore_op_name="save/restore_all",
+    #    filename_tensor_name="save/Const:0",
+    #    output_graph=path_frozen,
+    #    clear_devices=True,
+    #    initializer_nodes="",
+    #)
+
     if profiler:
       generate_tfprof_profile(profiler, self.params.tfprof_file)
     return {
@@ -1494,7 +1489,7 @@ class BenchmarkCNN(object):
     }
 
   # TODO(rohanj): Refactor this function and share with other code path.
-  def _build_model_with_dataset_prefetching(self, phase_train):
+  def _build_model_with_dataset_prefetching(self, phase_train, reuse=False):
     """Build the TensorFlow graph using datasets prefetching."""
     #assert not self.params.staged_vars
     assert not self.variable_mgr.supports_staged_vars()
@@ -1535,7 +1530,9 @@ class BenchmarkCNN(object):
     update_ops = None
 
     for device_num in range(len(self.devices)):
-      with tf.variable_scope('tower_%i' % device_num, reuse=tf.AUTO_REUSE):
+      with tf.variable_scope('tower_%i' % device_num, reuse=reuse):
+        if reuse:
+          tf.get_variable_scope().reuse_variables()
         name_scope = 'tower_%i' % device_num
       #with self.variable_mgr.create_outer_variable_scope(
       #    device_num, phase_train), tf.name_scope('tower_%i' % device_num) as name_scope:
@@ -1548,9 +1545,9 @@ class BenchmarkCNN(object):
           device_grads.append(results['gradvars'])
         else:
           all_logits.append(results['logits'])
-        if not phase_train or self.params.print_training_accuracy:
-          all_top_1_ops.append(results['top_1_op'])
-          all_top_5_ops.append(results['top_5_op'])
+
+        all_top_1_ops.append(results['top_1_op'])
+        all_top_5_ops.append(results['top_5_op'])
 
         if device_num == 0:
           # Retain the Batch Normalization updates operations only from the
@@ -1686,14 +1683,15 @@ class BenchmarkCNN(object):
           images, phase_train, nclass, self.dataset.depth, data_type,
           #self.data_format, self.params.use_tf_layers, self.params.fp16_vars)
           self.data_format, self.params.use_tf_layers)
+      #out_name, _ = logits.name.split(':')
+      #print("out_name: {}".format(out_name))
       results = {}  # The return value
-      if not phase_train or self.params.print_training_accuracy:
-        top_1_op = tf.reduce_sum(
-            tf.cast(tf.nn.in_top_k(logits, labels, 1), data_type))
-        top_5_op = tf.reduce_sum(
-            tf.cast(tf.nn.in_top_k(logits, labels, 5), data_type))
-        results['top_1_op'] = top_1_op
-        results['top_5_op'] = top_5_op
+      top_1_op = tf.reduce_sum(
+          tf.cast(tf.nn.in_top_k(logits, labels, 1), data_type))
+      top_5_op = tf.reduce_sum(
+          tf.cast(tf.nn.in_top_k(logits, labels, 5), data_type))
+      results['top_1_op'] = top_1_op
+      results['top_5_op'] = top_5_op
 
       if not phase_train:
         results['logits'] = logits

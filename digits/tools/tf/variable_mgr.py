@@ -322,7 +322,7 @@ class VariableMgrLocalReplicated(VariableMgr):
         continue
       split_name[0] = 'tower_0'
       copy_from = var_by_name['/'.join(split_name)]
-      logging.info('get_post_init_ops: (%s, %s)' % (split_name, copy_from))
+      logging.info('get_post_init_ops: (%s, %s)' % (v, copy_from))
       post_init_ops.append(v.assign(copy_from.read_value()))
 
     post_init_ops += self._warmup_ops

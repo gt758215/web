@@ -421,6 +421,24 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
         logger.info('%s [thread %d]: Wrote %d images to %d shards.' %
                     (datetime.now(), thread_index, counter, num_files_in_thread))
 
+def create_tfrecords_file(input_file, output_dir,
+              image_width, image_height, image_channels):
+    os.makedirs(output_dir)
+
+    with open(input_file) as infile:
+      line = infile.readline().strip()
+      if not line:
+        raise ParseLineError
+      filename = line
+
+    output_file = os.path.join(output_dir, "shard-00000-of-00001")
+    writer = tf.python_io.TFRecordWriter(output_file)
+    coder = ImageCoder()
+    image_buffer, height, width = _process_image(filename, coder)
+    example = _convert_to_example(filename, image_buffer, 0, '0', height, width)
+    writer.write(example.SerializeToString())
+    writer.close()
+    logger.info('tfrecord generated on %s' % output_dir)
 
 def create_tfrecords_db(input_file, output_dir,
               image_width, image_height, image_channels,
@@ -480,6 +498,9 @@ def create_tfrecords_db(input_file, output_dir,
 
     # Wait for all the threads to terminate.
     coord.join(threads)
+    listfile = open(os.path.join(output_dir, "list.txt"), 'w')
+    for filename in filenames:
+      listfile.write("%s\n" % filename)
     logger.info('%s images written to database' % len(filenames))
 
 
@@ -1216,6 +1237,9 @@ if __name__ == '__main__':
     parser.add_argument('--delete_files',
                         action='store_true',
                         help='Specifies whether to keep files after creation of dataset')
+    parser.add_argument('--inference',
+                        action='store_true',
+                        help='create db for inference')
 
     args = vars(parser.parse_args())
 
@@ -1225,6 +1249,10 @@ if __name__ == '__main__':
 
     try:
         if args['backend'] == 'tfrecords':
+            if args['inference']:
+              create_tfrecords_file(args['input_file'], args['output_dir'],
+                  args['width'], args['height'], args['channels'])
+              exit(0)
             create_tfrecords_db(args['input_file'], args['output_dir'],
                   args['width'], args['height'], args['channels'],
                   args['backend'],

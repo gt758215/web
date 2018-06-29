@@ -23,6 +23,7 @@ import numpy as np
 from six.moves import cPickle
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
+import time
 
 from tensorflow.python.platform import gfile
 import preprocessing
@@ -211,18 +212,29 @@ def create_dataset(data_dir, data_name, train_db=None, validation_db=None,
 
     train_file_pattern = os.path.join(train_db, 'shard-*')
     train_files = tf.gfile.Glob(train_file_pattern)
+
+    start_time = time.time()
     total_train = 0
-    for shard_file in train_files:
-      record_iter = tf.python_io.tf_record_iterator(shard_file)
-      for r in record_iter:
-        total_train += 1
+    if os.path.isfile(os.path.join(train_db, "list.txt")):
+      total_train = sum(1 for line in open(os.path.join(train_db, "list.txt")))
+    else:
+      for shard_file in train_files:
+        record_iter = tf.python_io.tf_record_iterator(shard_file)
+        for r in record_iter:
+          total_train += 1
+    train_time = time.time() - start_time
+    print("parse all train files took: %d" % train_time)
+
     val_file_pattern = os.path.join(validation_db, 'shard-*')
     val_files = tf.gfile.Glob(val_file_pattern)
     total_val = 0
-    for shard_file in val_files:
-      record_iter = tf.python_io.tf_record_iterator(shard_file)
-      for r in record_iter:
-        total_val += 1
+    if os.path.isfile(os.path.join(validation_db, "list.txt")):
+      total_val = sum(1 for line in open(os.path.join(validation_db, "list.txt")))
+    else:
+      for shard_file in val_files:
+        record_iter = tf.python_io.tf_record_iterator(shard_file)
+        for r in record_iter:
+          total_val += 1
     return Dataset(data_name,
                    data_dir=data_dir,
                    num_classes=len(labels_list)+1,
