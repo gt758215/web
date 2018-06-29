@@ -220,43 +220,17 @@ def _find_datadir_labels(input_file):
     labels:
         [n01440764, n15075141]
     """
-    with open(input_file) as infile:
-        line = infile.readline().strip()
-        if not line:
-            raise ParseLineError
-        match = re.match(r'(.+)(\btrain\b|\bvalidation\b)', line)
-        if match is None:
-            raise ParseLineError
-        data_dir = match.group(1) + match.group(2)
-
-    subdirs = []
-    if os.path.exists(data_dir) and os.path.isdir(data_dir):
-        for filename in os.listdir(data_dir):
-            subdir = os.path.join(data_dir, filename)
-            if os.path.isdir(subdir):
-                subdirs.append(filename)
-    else:
-        logger.error('folder does not exist')
-        return False
-    subdirs.sort()
-
     filenames = []
     labels = []
-    texts = []
-    # leave label index 0 empty as a background class
-    label_index = 1
-    for text in subdirs:
-        jpeg_file_path = '%s/%s/*' % (data_dir, text)
-        matching_files = tf.gfile.Glob(jpeg_file_path)
-
-        labels.extend([label_index] * len(matching_files))
-        texts.extend([text] * len(matching_files))
-        filenames.extend(matching_files)
-
-        if not label_index % 100:
-            logger.info('Finished finding files in %d of %d classes.' % (
-                        label_index, len(labels)))
-        label_index += 1
+    with open(input_file) as infile:
+        for line in infile:
+            match = re.match(r'(.+)\s+(\d+)\s*$', line)
+            if match is None:
+                raise ParseLineError
+            filepath = match.group(1)
+            label = match.group(2)
+            filenames.append(filepath)
+            labels.append(int(label))
 
     # Shuffle the ordering of all image files in order to guarantee
     # random ordering of the images with respect to label in the
@@ -266,13 +240,9 @@ def _find_datadir_labels(input_file):
     random.shuffle(shuffled_index)
 
     filenames = [filenames[i] for i in shuffled_index]
-    texts = [texts[i] for i in shuffled_index]
     labels = [labels[i] for i in shuffled_index]
 
-    logger.info('Found %d JPEG files across %d labels inside %s.' %
-                (len(filenames), len(subdirs), data_dir))
-
-    return filenames, texts, labels
+    return filenames, labels
 
 
 class ImageCoder(object):
@@ -294,6 +264,21 @@ class ImageCoder(object):
         self._decode_jpeg_data = tf.placeholder(dtype=tf.string)
         self._decode_jpeg = tf.image.decode_jpeg(self._decode_jpeg_data, channels=3)
 
+        self._resize_size = tf.placeholder(dtype=tf.int32)
+        self._resize_jpeg_data = tf.placeholder(dtype=tf.string)
+        self._resize_jpeg_decoded = tf.image.decode_jpeg(self._resize_jpeg_data, channels=3)
+        self._resize_jpeg_cropped = tf.cast(tf.image.resize_images(
+                                            self._resize_jpeg_decoded,
+                                            [self._resize_size, self._resize_size]), tf.uint8)
+        self._resize_jpeg = tf.image.encode_jpeg(self._resize_jpeg_cropped)
+
+        self._resize_png_data = tf.placeholder(dtype=tf.string)
+        self._resize_png_decoded = tf.image.decode_png(self._resize_png_data, channels=3)
+        self._resize_png_cropped = tf.cast(tf.image.resize_images(
+                                           self._resize_png_decoded,
+                                           [self._resize_size, self._resize_size]), tf.uint8)
+        self._resize_png = tf.image.encode_png(self._resize_png_cropped)
+
     def png_to_jpeg(self, image_data):
         return self._sess.run(self._png_to_jpeg,
                               feed_dict={self._png_data: image_data})
@@ -305,12 +290,21 @@ class ImageCoder(object):
         assert image.shape[2] == 3
         return image
 
+    def resize_jpeg(self, image_data, size):
+        image = self._sess.run(self._resize_jpeg,
+            feed_dict={self._resize_jpeg_data: image_data, self._resize_size: size})
+        return image
+
+    def resize_png(self, image_data, size):
+        image = self._sess.run(self._resize_png,
+            feed_dict={self._resize_png_data: image_data, self._resize_size: size})
+        return image
 
 def _is_png(filename):
     return filename.endswith('.png')
 
 
-def _process_image(filename, coder):
+def _process_image(filename, coder, height=0, width=0, channels=3):
     """Process a single image file.
     Args:
       filename: string, path to an image file e.g., '/path/to/example.JPG'.
@@ -326,27 +320,18 @@ def _process_image(filename, coder):
 
     # Convert any PNG to JPEG's for consistency.
     if _is_png(filename):
-        logger.info('Converting PNG to JPEG for %s' % filename)
-        image_data = coder.png_to_jpeg(image_data)
+        image_buffer = coder.resize_png(image_data, height)
+    else:
+        image_buffer = coder.resize_jpeg(image_data, height)
 
-    # Decode the RGB JPEG.
-    image = coder.decode_jpeg(image_data)
-
-    # Check that image converted to RGB
-    assert len(image.shape) == 3
-    height = image.shape[0]
-    width = image.shape[1]
-    assert image.shape[2] == 3
-
-    return image_data, height, width
+    return image_buffer, height, width
 
 
-def _convert_to_example(filename, image_buffer, label, text, height, width):
+def _convert_to_example(filename, image_buffer, label, height, width, channels):
     """Build an Example proto for an example.
     """
 
     colorspace = 'RGB'
-    channels = 3
     image_format = 'JPEG'
 
     example = tf.train.Example(features=tf.train.Features(feature={
@@ -355,16 +340,16 @@ def _convert_to_example(filename, image_buffer, label, text, height, width):
       'image/colorspace': _bytes_feature(tf.compat.as_bytes(colorspace)),
       'image/channels': _int64_feature(channels),
       'image/class/label': _int64_feature(label),
-      'image/class/text': _bytes_feature(tf.compat.as_bytes(text)),
       'image/format': _bytes_feature(tf.compat.as_bytes(image_format)),
       'image/filename': _bytes_feature(tf.compat.as_bytes(os.path.basename(filename))),
       'image/encoded': _bytes_feature(tf.compat.as_bytes(image_buffer))}))
     return example
 
 
-def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
-                               texts, labels, num_shards, output_dir,
-                               image_count, image_width, image_height):
+def _process_image_files_batch(coder, thread_index, ranges, name,
+                               filenames, labels, num_shards, output_dir,
+                               image_count, image_width, image_height,
+                               image_channels):
     num_threads = len(ranges)
     assert not num_shards % num_threads
     num_shards_per_batch = int(num_shards / num_threads)
@@ -387,24 +372,16 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
         for i in files_in_shard:
             filename = filenames[i]
             label = labels[i]
-            text = texts[i]
 
             try:
-                image_buffer, height, width = _process_image(filename, coder)
+                image_buffer, height, width = _process_image(
+                    filename, coder, image_height, image_width, image_channels)
             except Exception as e:
                 logger.warning(e)
                 logger.warning('SKIPPED: Unexpected error while decoding %s.' % filename)
                 continue
-
-            # can't resize without decode
-            #if (height != image_height or width != image_width):
-            #    image_buffer = tf.image.resize_images(
-            #        image_buffer,
-            #        [image_height, image_width],
-            #        tf.image.ResizeMethod.BILINEAR,
-            #        align_corners=False)
             example = _convert_to_example(filename, image_buffer, label,
-                                          text, height, width)
+                                          height, width, image_channels)
             writer.write(example.SerializeToString())
             shard_counter += 1
             counter += 1
@@ -451,10 +428,11 @@ def create_tfrecords_db(input_file, output_dir,
               **kwargs):
     """ find labels and convert to tfrecords
     """
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir, ignore_errors=True)
     os.makedirs(output_dir)
 
-    filenames, texts, labels =_find_datadir_labels(input_file)
-    assert len(filenames) == len(texts)
+    filenames, labels = _find_datadir_labels(input_file)
     assert len(filenames) == len(labels)
 
     num_shards = len(filenames) // 10000
@@ -483,8 +461,8 @@ def create_tfrecords_db(input_file, output_dir,
     image_count = [0] * num_threads
     for thread_index in range(len(ranges)):
         args = (coder, thread_index, ranges, "shard", filenames,
-                texts, labels, num_shards, output_dir, image_count,
-                image_width, image_height)
+                labels, num_shards, output_dir, image_count,
+                image_width, image_height, image_channels)
         t = threading.Thread(target=_process_image_files_batch, args=args)
         t.start()
         threads.append(t)
