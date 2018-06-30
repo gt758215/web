@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 from datetime import datetime
+import six
 
 # Find the best implementation available
 try:
@@ -987,10 +988,13 @@ def _initial_image_sum(width, height, channels):
 
 
 def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
+    if not isinstance(value, list):
+        value = [value]
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 def _bytes_feature(value):
+    if six.PY3 and isinstance(value, six.text_type):
+        value = six.binary_type(value, encoding='utf-8')
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 def _float_array_feature(value):
