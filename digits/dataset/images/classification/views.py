@@ -115,6 +115,7 @@ def from_folders(job, form):
             compression=compression,
             mean_file=utils.constants.MEAN_FILE_CAFFE,
             labels_file=job.labels_file,
+            prefix='train',
         )
     )
 
@@ -131,6 +132,7 @@ def from_folders(job, form):
                 encoding=encoding,
                 compression=compression,
                 labels_file=job.labels_file,
+                prefix='validation',
             )
         )
 

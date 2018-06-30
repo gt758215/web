@@ -229,47 +229,7 @@ $('#db-tabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
 $('#db-tabs a[href="#db-{{ form.method.data }}"]').tab('show');
 
 </script>
-          <div class="tab">
-              <div class="row">
-                  <div class="form-group{{mark_errors([form.resize_channels])}}">
-                      {{ form.resize_channels.label }}
-                      {{ form.resize_channels.tooltip }}
-                      {{ form.resize_channels(class='form-control') }}
-                  </div>
-              </div>
-              <div class="row">
-                  <div class="form-group{{mark_errors([form.resize_width, form.resize_height])}}">
-                      <label>Image size (Width x Height)</label>
-                      <span name="resize_dims_explanation"
-                          class="explanation-tooltip glyphicon glyphicon-question-sign"
-                          data-container="body"
-                          title="Input images will be resized to fit.">
-                      </span>
-                      <div class="input-group">
-                          {{ form.resize_width(size=4, placeholder='width', class='form-control') }}
-                          <span class="input-group-addon">x</span>
-                          {{ form.resize_height(size=4, placeholder='height', class='form-control') }}
-                      </div>
-                  </div>
-              </div>
-              <div class="row">
-                  <div class="form-group{{mark_errors([form.resize_mode])}}">
-                      {{ form.resize_mode.label }}
-                      {{ form.resize_mode.tooltip }}
-                      {{ form.resize_mode(class='form-control') }}
-                  </div>
-              </div>
-              <a href="#" class="btn btn-info" onClick="return showResizeExample();"> See example </a>
-              <div class="row">
-                  <br>
-                  <br>
-                  <div id="resize-example" style="display:none;">
-                      <button class="close" onClick="$('#resize-example').hide();return false;">&times;</button>
-                      <div id="resize-example-image"></div>
-                  </div>
-              </div>
-          </div>
-<script>
+          <script>
 $=jQuery.noConflict();
 function showResizeExample()
 {
@@ -313,13 +273,6 @@ function showResizeExample()
                     {{form.compression.label}}
                     {{form.compression.tooltip}}
                     {{form.compression(class='form-control')}}
-                </div>
-            </div>
-            <div class="form-group{{mark_errors([form.encoding])}}">
-                <div class="form-group{{mark_errors([form.encoding])}}">
-                    {{form.encoding.label}}
-                    {{form.encoding.tooltip}}
-                    {{form.encoding(class='form-control')}}
                 </div>
             </div>
             <script>

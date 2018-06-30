@@ -44,6 +44,7 @@ class CreateDbTask(Task):
         self.mean_file = kwargs.pop('mean_file', None)
         self.labels_file = kwargs.pop('labels_file', None)
         self.delete_files = kwargs.pop('delete_files', False)
+        self.prefix = kwargs.pop('prefix', None)
         super(CreateDbTask, self).__init__(**kwargs)
         self.pickver_task_createdb = PICKLE_VERSION
 
@@ -152,29 +153,33 @@ class CreateDbTask(Task):
             'tools', 'create_db.py'),
             self.path(self.input_file),
             self.path(self.db_name),
-            self.image_dims[1],
-            self.image_dims[0],
-            '--backend=%s' % self.backend,
-            '--channels=%s' % self.image_dims[2],
-            '--resize_mode=%s' % self.resize_mode,
+            #self.image_dims[1],
+            #self.image_dims[0],
+            #'--backend=%s' % self.backend,
+            #'--channels=%s' % self.image_dims[2],
+            #'--resize_mode=%s' % self.resize_mode,
         ]
 
-        if self.mean_file is not None:
-            args.append('--mean_file=%s' % self.path(self.mean_file))
-            # Add a visual mean_file
-            args.append('--mean_file=%s' % self.path(utils.constants.MEAN_FILE_IMAGE))
-        if self.image_folder:
-            args.append('--image_folder=%s' % self.image_folder)
-        if self.shuffle:
-            args.append('--shuffle')
-        if self.encoding and self.encoding != 'none':
-            args.append('--encoding=%s' % self.encoding)
-        if self.compression and self.compression != 'none':
-            args.append('--compression=%s' % self.compression)
-        if self.backend == 'hdf5':
-            args.append('--hdf5_dset_limit=%d' % 2**31)
-        if self.delete_files:
-            args.append('--delete_files')
+        #if self.mean_file is not None:
+        #    args.append('--mean_file=%s' % self.path(self.mean_file))
+        #    # Add a visual mean_file
+        #    args.append('--mean_file=%s' % self.path(utils.constants.MEAN_FILE_IMAGE))
+        #if self.image_folder:
+        #    args.append('--image_folder=%s' % self.image_folder)
+        #if self.shuffle:
+        #    args.append('--shuffle')
+        #if self.encoding and self.encoding != 'none':
+        #    args.append('--encoding=%s' % self.encoding)
+        #if self.compression and self.compression != 'none':
+        #    args.append('--compression=%s' % self.compression)
+        #if self.backend == 'hdf5':
+        #    args.append('--hdf5_dset_limit=%d' % 2**31)
+        #if self.delete_files:
+        #    args.append('--delete_files')
+        if self.labels_file:
+            args.append('--labels_file=%s' % self.path(self.labels_file))
+        if self.prefix:
+            args.append('--prefix=%s' % self.prefix)
 
         return args
 

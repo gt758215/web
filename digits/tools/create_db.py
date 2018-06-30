@@ -211,7 +211,7 @@ class Hdf5Writer(DbWriter):
         return '%s.h5' % self.count()
 
 
-def _find_datadir_labels(input_file):
+def _find_datadir_labels(input_file, labels_file):
     """
     Search for subdirection under train or validation foler as labels name
     input_file:
@@ -220,17 +220,25 @@ def _find_datadir_labels(input_file):
     labels:
         [n01440764, n15075141]
     """
+    labelfile = []
+    with open(labels_file) as lfile:
+        for line in lfile:
+            labelfile.append(line.rstrip())
     filenames = []
     labels = []
+    texts = []
     with open(input_file) as infile:
         for line in infile:
             match = re.match(r'(.+)\s+(\d+)\s*$', line)
             if match is None:
                 raise ParseLineError
+            if len(match.groups()) == 1:
+              label = 0
             filepath = match.group(1)
             label = match.group(2)
             filenames.append(filepath)
             labels.append(int(label))
+            texts.append(labelfile[int(label)])
 
     # Shuffle the ordering of all image files in order to guarantee
     # random ordering of the images with respect to label in the
@@ -241,8 +249,9 @@ def _find_datadir_labels(input_file):
 
     filenames = [filenames[i] for i in shuffled_index]
     labels = [labels[i] for i in shuffled_index]
+    texts = [texts[i] for i in shuffled_index]
 
-    return filenames, labels
+    return filenames, labels, texts
 
 
 class ImageCoder(object):
@@ -304,7 +313,7 @@ def _is_png(filename):
     return filename.endswith('.png')
 
 
-def _process_image(filename, coder, height=0, width=0, channels=3):
+def _process_image(filename, coder):
     """Process a single image file.
     Args:
       filename: string, path to an image file e.g., '/path/to/example.JPG'.
@@ -319,37 +328,40 @@ def _process_image(filename, coder, height=0, width=0, channels=3):
         image_data = f.read()
 
     # Convert any PNG to JPEG's for consistency.
+    image_jpeg = None
     if _is_png(filename):
-        image_buffer = coder.resize_png(image_data, height)
+        image_jpeg = coder.png_to_jpeg(image_data)
     else:
-        image_buffer = coder.resize_jpeg(image_data, height)
+        image_jpeg = image_data
+    image = coder.decode_jpeg(image_jpeg)
+    # Check that image converted to RGB
+    assert len(image.shape) == 3
+    height = image.shape[0]
+    width = image.shape[1]
+    return image_jpeg, height, width
 
-    return image_buffer, height, width
 
-
-def _convert_to_example(filename, image_buffer, label, height, width, channels):
+def _convert_to_example(filename, image_buffer, height, width, label, text):
     """Build an Example proto for an example.
     """
-
     colorspace = 'RGB'
     image_format = 'JPEG'
-
+    channels = 3
     example = tf.train.Example(features=tf.train.Features(feature={
       'image/height': _int64_feature(height),
       'image/width': _int64_feature(width),
       'image/colorspace': _bytes_feature(tf.compat.as_bytes(colorspace)),
       'image/channels': _int64_feature(channels),
       'image/class/label': _int64_feature(label),
+      'image/class/text': _bytes_feature(tf.compat.as_bytes(text)),
       'image/format': _bytes_feature(tf.compat.as_bytes(image_format)),
       'image/filename': _bytes_feature(tf.compat.as_bytes(os.path.basename(filename))),
       'image/encoded': _bytes_feature(tf.compat.as_bytes(image_buffer))}))
     return example
 
 
-def _process_image_files_batch(coder, thread_index, ranges, name,
-                               filenames, labels, num_shards, output_dir,
-                               image_count, image_width, image_height,
-                               image_channels):
+def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
+        labels, texts, num_shards, output_dir, image_count):
     num_threads = len(ranges)
     assert not num_shards % num_threads
     num_shards_per_batch = int(num_shards / num_threads)
@@ -372,25 +384,21 @@ def _process_image_files_batch(coder, thread_index, ranges, name,
         for i in files_in_shard:
             filename = filenames[i]
             label = labels[i]
-
+            text = texts[i]
             try:
-                image_buffer, height, width = _process_image(
-                    filename, coder, image_height, image_width, image_channels)
+                image_buffer, height, width = _process_image(filename, coder)
             except Exception as e:
                 logger.warning(e)
                 logger.warning('SKIPPED: Unexpected error while decoding %s.' % filename)
                 continue
-            example = _convert_to_example(filename, image_buffer, label,
-                                          height, width, image_channels)
+            example = _convert_to_example(filename, image_buffer, height, width, label, text)
             writer.write(example.SerializeToString())
             shard_counter += 1
             counter += 1
             image_count[thread_index] = counter
-
             if not counter % 1000:
                 logger.info('%s [thread %d]: Processed %d of %d images in thread batch.' %
                             (datetime.now(), thread_index, counter, num_files_in_thread))
-
         writer.close()
         logger.info('%s [thread %d]: Wrote %d images to %s' %
                     (datetime.now(), thread_index, shard_counter, output_file))
@@ -398,42 +406,16 @@ def _process_image_files_batch(coder, thread_index, ranges, name,
         logger.info('%s [thread %d]: Wrote %d images to %d shards.' %
                     (datetime.now(), thread_index, counter, num_files_in_thread))
 
-def create_tfrecords_file(input_file, output_dir,
-              image_width, image_height, image_channels):
-    os.makedirs(output_dir)
-
-    with open(input_file) as infile:
-      line = infile.readline().strip()
-      if not line:
-        raise ParseLineError
-      filename = line
-
-    output_file = os.path.join(output_dir, "shard-00000-of-00001")
-    writer = tf.python_io.TFRecordWriter(output_file)
-    coder = ImageCoder()
-    image_buffer, height, width = _process_image(filename, coder)
-    example = _convert_to_example(filename, image_buffer, 0, '0', height, width)
-    writer.write(example.SerializeToString())
-    writer.close()
-    logger.info('tfrecord generated on %s' % output_dir)
-
-def create_tfrecords_db(input_file, output_dir,
-              image_width, image_height, image_channels,
-              backend,
-              resize_mode=None,
-              image_folder=None,
-              shuffle=True,
-              mean_files=None,
-              delete_files=False,
-              **kwargs):
+def create_tfrecords_db(input_file, output_dir, labels_file, prefix):
     """ find labels and convert to tfrecords
     """
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir, ignore_errors=True)
     os.makedirs(output_dir)
 
-    filenames, labels = _find_datadir_labels(input_file)
+    filenames, labels, texts = _find_datadir_labels(input_file, labels_file)
     assert len(filenames) == len(labels)
+    assert len(filenames) == len(texts)
 
     num_shards = len(filenames) // 10000
     if num_shards % 2 or num_shards == 0:
@@ -460,9 +442,8 @@ def create_tfrecords_db(input_file, output_dir,
     threads = []
     image_count = [0] * num_threads
     for thread_index in range(len(ranges)):
-        args = (coder, thread_index, ranges, "shard", filenames,
-                labels, num_shards, output_dir, image_count,
-                image_width, image_height, image_channels)
+        args = (coder, thread_index, ranges, prefix, filenames,
+                labels, texts, num_shards, output_dir, image_count) 
         t = threading.Thread(target=_process_image_files_batch, args=args)
         t.start()
         threads.append(t)
@@ -1169,93 +1150,16 @@ if __name__ == '__main__':
                         help='An input file of labeled images')
     parser.add_argument('output_dir',
                         help='Path to the output database')
-    parser.add_argument('width',
-                        type=int,
-                        help='width of resized images'
-                        )
-    parser.add_argument('height',
-                        type=int,
-                        help='height of resized images'
-                        )
-
-    # Optional arguments
-
-    parser.add_argument('-c', '--channels',
-                        type=int,
-                        default=3,
-                        help='channels of resized images (1 for grayscale, 3 for color [default])'
-                        )
-    parser.add_argument('-r', '--resize_mode',
-                        help='resize mode for images (must be "crop", "squash" [default], "fill" or "half_crop")'
-                        )
-    parser.add_argument('-m', '--mean_file', action='append',
-                        help="location to output the image mean (doesn't save mean if not specified)")
-    parser.add_argument('-f', '--image_folder',
-                        help='folder containing the images (if the paths in input_file are not absolute)')
-    parser.add_argument('-s', '--shuffle',
-                        action='store_true',
-                        help='Shuffle images before saving'
-                        )
-    parser.add_argument('-e', '--encoding',
-                        help='Image encoding format (jpg/png)'
-                        )
-    parser.add_argument('-C', '--compression',
-                        help='Database compression format (gzip)'
-                        )
-    parser.add_argument('-b', '--backend',
-                        default='lmdb',
-                        help='The database backend - lmdb[default], hdf5 or tfrecords')
-    parser.add_argument('--lmdb_map_size',
-                        type=int,
-                        help='The initial map size for LMDB (in MB)')
-    parser.add_argument('--hdf5_dset_limit',
-                        type=int,
-                        default=2**31,
-                        help='The size limit for HDF5 datasets')
-    parser.add_argument('--delete_files',
-                        action='store_true',
-                        help='Specifies whether to keep files after creation of dataset')
-    parser.add_argument('--inference',
-                        action='store_true',
-                        help='create db for inference')
+    parser.add_argument('--labels_file',
+                        help='Path to the label file')
+    parser.add_argument('--prefix', default='shard',
+                        help='prefix for the output database')
 
     args = vars(parser.parse_args())
 
-    if args['lmdb_map_size']:
-        # convert from MB to B
-        args['lmdb_map_size'] <<= 20
-
     try:
-        if args['backend'] == 'tfrecords':
-            if args['inference']:
-              create_tfrecords_file(args['input_file'], args['output_dir'],
-                  args['width'], args['height'], args['channels'])
-              exit(0)
-            create_tfrecords_db(args['input_file'], args['output_dir'],
-                  args['width'], args['height'], args['channels'],
-                  args['backend'],
-                  resize_mode=args['resize_mode'],
-                  image_folder=args['image_folder'],
-                  shuffle=args['shuffle'],
-                  mean_files=args['mean_file'],
-                  encoding=args['encoding'],
-                  compression=args['compression'],
-                  delete_files=args['delete_files'])
-            exit(0)
-
-        create_db(args['input_file'], args['output_dir'],
-                  args['width'], args['height'], args['channels'],
-                  args['backend'],
-                  resize_mode=args['resize_mode'],
-                  image_folder=args['image_folder'],
-                  shuffle=args['shuffle'],
-                  mean_files=args['mean_file'],
-                  encoding=args['encoding'],
-                  compression=args['compression'],
-                  lmdb_map_size=args['lmdb_map_size'],
-                  hdf5_dset_limit=args['hdf5_dset_limit'],
-                  delete_files=args['delete_files']
-                  )
+        create_tfrecords_db(args['input_file'], args['output_dir'],
+                            args['labels_file'], args['prefix'])
     except Exception as e:
         logger.error('%s: %s' % (type(e).__name__, e.message))
         raise
