@@ -53,9 +53,9 @@ class Dataset(object):
 
   def tf_record_pattern(self, subset):
     if subset == 'train' and self.train_dir:
-      return os.path.join(self.train_dir, 'shard-*')
+      return os.path.join(self.train_dir, 'train-*')
     if subset == 'validation' and self.val_dir:
-      return os.path.join(self.val_dir, 'shard-*')
+      return os.path.join(self.val_dir, 'validation-*')
     return os.path.join(self.data_dir, '%s-*-of-*' % subset)
 
   def reader(self):

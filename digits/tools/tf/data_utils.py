@@ -203,10 +203,10 @@ def minibatch_fn(height, width, batch_size, num_splits, preprocess_fn, dataset,
       depth = 3
       remote_iterator = tf.data.Iterator.from_string_handle(
           h, ds_iterator.output_types, ds_iterator.output_shapes)
-      labels, images = remote_iterator.get_next()
+      images, labels = remote_iterator.get_next()
       images = tf.reshape(
           images, shape=[batch_size_per_split, height, width, depth])
-      labels = tf.reshape(labels, [batch_size_per_split])
+      #labels = tf.reshape(labels, [batch_size_per_split])
       return images, labels
 
     return _fn, [ds_iterator_string_handle]

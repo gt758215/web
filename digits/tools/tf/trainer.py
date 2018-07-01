@@ -1,10 +1,12 @@
 from collections import namedtuple
 import tensorflow as tf
 from tensorflow.python.util import nest
+from tensorflow.python.platform import gfile
 import model_config
 import data_config
 import batch_allreduce
 import logging
+import os
 
 flags = tf.app.flags
 FLAGS = tf.app.flags.FLAGS
@@ -44,7 +46,7 @@ flags.DEFINE_string('train_db', None,
                     'Path to train dataset in TFRecord format.')
 flags.DEFINE_string('validation_db', None,
                     'Path to validation dataset in TFRecord format.')
-flags.DEFINE_string('labels_file', None,
+flags.DEFINE_string('labels_list', None,
                     'list of labels file ')
 flags.DEFINE_string('visualizeModelPath', None,
                     'Constructs the current model for visualization.')
@@ -188,13 +190,13 @@ class BenchmarkCNN(object):
       raise ValueError('train_db not defined')
     if not FLAGS.validation_db:
       raise ValueError('validation_db not defined')
-    if not FLAGS.labels_file:
-      raise ValueError('labels_file not defined')
+    if not FLAGS.labels_list:
+      raise ValueError('labels_list not defined')
     self.dataset = data_config.DataLoader(
         self.model.get_image_size(), self.model.get_image_size(),
         FLAGS.batch_size, FLAGS.num_gpus, self.cpu_device,
         self.raw_devices, self.data_type, FLAGS.train_db,
-        FLAGS.validation_db, FLAGS.labels_file,
+        FLAGS.validation_db, FLAGS.labels_list,
         FLAGS.summary_verbosity)
     if not FLAGS.epoch:
       raise ValueError('epoch not defined')
@@ -494,6 +496,7 @@ class BenchmarkCNN(object):
         start_standard_services=False) as sess:
       self.init_global_step, = sess.run([graph_info.global_step])
       print('Running warm up')
+      print('init_global_step: {}'.format(self.init_global_step))
       local_step = -10
       end_local_step = self.train_batches - self.init_global_step
       while local_step < end_local_step:

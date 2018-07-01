@@ -422,7 +422,7 @@ flags.DEFINE_string('benchmark_log_dir', None,
 
 flags.DEFINE_string('networkDirectory', None,
                     'The directory where placed model file')
-flags.DEFINE_string('network', None,
+flags.DEFINE_string('network', 'network.py',
                     'The network file name')
 flags.DEFINE_string('save', None,
                     'Path to session checkpoints. Pass None to disable saving '
@@ -1108,8 +1108,8 @@ class BenchmarkCNN(object):
     logging.info('             %s per device' % (self.batch_size /
                                            len(self.raw_devices)))
     logging.info('Num batches: %d' % self.num_batches)
-    if self.num_batches_per_train_epoch:
-      logging.info('Num train batches: %d' % self.num_batches_per_train_epoch)
+    #if self.num_batches_per_train_epoch:
+    #  logging.info('Num train batches: %d' % self.num_batches_per_train_epoch)
     logging.info('Num val batches: %d' % self.num_batches_per_val_epoch)
     logging.info('Num epochs:  %.2f' % self.num_epochs)
     logging.info('Devices:     %s' % benchmark_info['device_list'])
@@ -1451,7 +1451,7 @@ class BenchmarkCNN(object):
         if not gfile.Exists(self.params.train_dir):
           gfile.MakeDirs(self.params.train_dir)
         sv.saver.save(sess, checkpoint_path, global_step)
-        filename_graph = os.path.join(checkpoint_path, "graph.bp")
+        filename_graph = os.path.join(self.params.train_dir, "graph.bp")
         if not os.path.isfile(filename_graph):
           with open(filename_graph, 'wb') as f:
             logging.info('Saving graph to %s', filename_graph)
@@ -1675,6 +1675,7 @@ class BenchmarkCNN(object):
                 self.batch_size // self.num_gpus, image_size, image_size,
                 self.dataset.depth
             ])
+        labels = tf.reshape(labels, [self.batch_size // self.num_gpus])
     else:
       pass
 

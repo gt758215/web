@@ -590,8 +590,12 @@ class GeneralImagePreprocessor(RecordInputImagePreprocessor):
                                              [self.height, self.width],
                                              image_resize_method,
                                              align_corners=False)
-    distorted_image.set_shape([self.height, self.width, 3])
-    return (label_index, distorted_image)
+    if self.train:
+      distorted_image = tf.image.random_flip_left_right(distorted_image)
+    normalized = normalized_image(distorted_image)
+    image = tf.cast(normalized, tf.float32)
+    #distorted_image.set_shape([self.height, self.width, 3])
+    return (image, label_index)
 
 
 class ImagenetPreprocessor(RecordInputImagePreprocessor):
