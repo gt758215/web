@@ -227,7 +227,7 @@ class BenchmarkCNN(object):
     self.train_batches = get_num_batches(self.num_epochs,
         self.dataset.num_examples_per_epoch('train'),
         self.batch_size)
-    self.val_batches = get_num_batches(self.num_epochs,
+    self.val_batches = get_num_batches(1,
         self.dataset.num_examples_per_epoch('validation'),
         self.batch_size)
     if not FLAGS.piecewise_learning_rate_schedule:
