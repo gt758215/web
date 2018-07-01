@@ -6,6 +6,8 @@ import model_config
 import data_config
 import batch_allreduce
 import logging
+import numpy as np
+import time
 import os
 
 flags = tf.app.flags
@@ -95,6 +97,9 @@ flags.DEFINE_float('epoch', None,
                    'number of epochs to run, excluding warmup. '
                    'This and --num_batches cannot both be specified.')
 flags.DEFINE_integer('batch_size', 0, 'batch size per compute device')
+flags.DEFINE_float('num_learning_rate_warmup_epochs', 0,
+                   'Slowly increase to the initial learning rate in the first '
+                   'num_learning_rate_warmup_epochs linearly.')
 
 
 def loss_function(logits, labels, aux_logits):
@@ -161,6 +166,22 @@ def get_piecewise_learning_rate(piecewise_learning_rate_schedule,
   return tf.train.piecewise_constant(global_step, boundaries, values,
                                      name='piecewise_learning_rate')
 
+def get_learning_rate(global_step, num_examples_per_epoch,
+                      batch_size):
+  num_batches_per_epoch = (float(num_examples_per_epoch) / batch_size)
+  learning_rate = get_piecewise_learning_rate(
+      FLAGS.piecewise_learning_rate_schedule,
+      global_step, num_batches_per_epoch)
+  if FLAGS.num_learning_rate_warmup_epochs > 0:
+    warmup_steps = int(num_batches_per_epoch *
+                       FLAGS.num_learning_rate_warmup_epochs)
+    init_lr = float(FLAGS.piecewise_learning_rate_schedule.split(';')[0])
+    warmup_lr = init_lr * tf.cast(global_step, tf.float32) / tf.cast(
+        warmup_steps, tf.float32)
+    learning_rate = tf.cond(global_step < warmup_steps,
+                            lambda: warmup_lr, lambda: learning_rate)
+  return learning_rate
+
 class BenchmarkCNN(object):
   def __init__(self):
     self.train_dir = FLAGS.train_dir
@@ -211,7 +232,6 @@ class BenchmarkCNN(object):
         self.batch_size)
     if not FLAGS.piecewise_learning_rate_schedule:
       raise ValueError('piecewise_learning_rate_schedule not defined')
-    self.piecewise_lr = FLAGS.piecewise_learning_rate_schedule
 
   def print_info(self):
     """Print basic information."""
@@ -226,7 +246,7 @@ class BenchmarkCNN(object):
     print('Layout optimizer: %s' % FLAGS.enable_layout_optimizer)
     print('Optimizer:   %s' % FLAGS.optimizer)
     print('Variables:   %s' % self.variable_update)
-    print('Lr:   %s' % self.piecewise_lr)
+    print('Lr:   %s' % FLAGS.piecewise_learning_rate_schedule)
     print('==========')
 
   def _add_forward_pass_and_gradients(self,
@@ -253,17 +273,19 @@ class BenchmarkCNN(object):
         return results
       base_loss = loss_function(logits, labels, aux_logits=aux_logits)
       # get per tower trainable variable
-      fp32_params = [
+      params = [
           v for v in tf.trainable_variables()
           if v.name.startswith('tower_%s/' % device_num)
       ]
+      fp32_params = params
       total_loss = base_loss
       if device_num == len(self.raw_devices) - 1:
         l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in fp32_params])
         weight_decay = FLAGS.weight_decay
         if weight_decay is not None and weight_decay != 0.:
           total_loss += len(self.raw_devices) * weight_decay * l2_loss
-      grads = tf.gradients(total_loss, fp32_params, aggregation_method=tf.AggregationMethod.DEFAULT)
+      grads = tf.gradients(total_loss, params,
+          aggregation_method=tf.AggregationMethod.DEFAULT)
       param_refs = [
           v for v in tf.trainable_variables()
           if v.name.startswith('tower_%s/' % device_num)
@@ -331,9 +353,10 @@ class BenchmarkCNN(object):
       with tf.device(device):
         average_loss = tf.reduce_mean(losses)
         avg_grads = gradient_state[d]
-        num_batches_per_epoch = (float(self.dataset.num_examples_per_epoch()) / self.batch_size)
-        learning_rate = get_piecewise_learning_rate(
-            self.piecewise_lr, global_step, num_batches_per_epoch)
+        learning_rate = get_learning_rate(
+            global_step,
+            self.dataset.num_examples_per_epoch(),
+            self.batch_size)
         learning_rate = tf.identity(learning_rate, name='learning_rate')
         opt = self.get_optimizer(learning_rate)
         training_ops.extend([opt.apply_gradients(avg_grads)])
@@ -392,6 +415,8 @@ class BenchmarkCNN(object):
     return post_init_ops
 
   def _build_graph(self, phase_train=True):
+    tf.set_random_seed(1234)
+    np.random.seed(4321)
     if phase_train:
       print('Generating train model')
     else:
@@ -401,10 +426,7 @@ class BenchmarkCNN(object):
     all_logits = []
     all_top_1_ops = []
     all_top_5_ops = []
-    enqueue_ops = []
-    gpu_compute_stage_ops = []
-    gpu_grad_stage_ops = []
-
+    # get global step
     with tf.device(self.cpu_device):
       global_step = tf.train.get_or_create_global_step()
     # get datainputs and build model
@@ -412,6 +434,7 @@ class BenchmarkCNN(object):
       images_split, labels_split = self.dataset.get_inputs('train')
     else:
       images_split, labels_split = self.dataset.get_inputs('validation')
+    update_ops = None
     for device_num in range(len(self.raw_devices)):
       with tf.variable_scope('tower_%i' % device_num):
         name_scope = 'tower_%i' % device_num
@@ -451,13 +474,17 @@ class BenchmarkCNN(object):
         global_step=global_step,
         local_var_init_op_group=local_var_init_op_group)
 
-  def benchmark_one_step(self, sess, fetches, step, batch_size, summary_op):
+  def benchmark_one_step(self, sess, fetches, step,
+                         batch_size, step_train_times, summary_op):
     summary_str = None
+    start_time = time.time()
     if summary_op is None:
       results = sess.run(fetches)
     else:
       (results, summary_str) = sess.run([fetches, summary_op])
     lossval = results['average_loss']
+    train_time = time.time() - start_time
+    step_train_times.append(train_time)
     if (step >= 0 and
         (step == 0 or (step + 1) % FLAGS.display_every == 0)):
       log_str = '%i\t%.*f' % (
@@ -490,6 +517,7 @@ class BenchmarkCNN(object):
         summary_op=None,
         save_model_secs=0,
         summary_writer=summary_writer)
+    step_train_times = []
     with sv.managed_session(
         master='',
         config=create_config_proto(),
@@ -499,12 +527,15 @@ class BenchmarkCNN(object):
       print('init_global_step: {}'.format(self.init_global_step))
       local_step = -10
       end_local_step = self.train_batches - self.init_global_step
+      loop_start_time = time.time()
       while local_step < end_local_step:
         if local_step == 0:
           print('Done warm up')
           header_str = ('Step\ttotal_loss')
           header_str += '\ttop_1_accuracy\ttop_5_accuracy'
           print(header_str)
+          step_train_times = []
+          loop_start_time = time.time()
         if (summary_writer and 
             (local_step + 1) % FLAGS.save_summaries_steps == 0):
           fetch_summary = summary_op
@@ -512,10 +543,19 @@ class BenchmarkCNN(object):
           fetch_summary = None
         summary_str = self.benchmark_one_step(
             sess, graph_info.fetches, local_step,
-            self.batch_size, fetch_summary)
+            self.batch_size, step_train_times, fetch_summary)
         if summary_str is not None:
           sv.summary_computed(sess, summary_str)
         local_step += 1
+      # loop End
+      loop_end_time = time.time()
+      elapsed_time = loop_end_time - loop_start_time
+      average_wall_time = elapsed_time / local_step if local_step > 0 else 0
+      images_per_sec = (self.num_workers * local_step * self.batch_size /
+                        elapsed_time)
+      log_fn('-' * 64)
+      log_fn('total images/sec: %.2f' % images_per_sec)
+      log_fn('-' * 64)
       # Save the model checkpoint.
       if self.train_dir is not None:
         checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
@@ -525,6 +565,7 @@ class BenchmarkCNN(object):
     sv.stop()
 
   def run(self):
+    # _benchmark_cnn
     graph = tf.Graph()
     with graph.as_default():
       train_result = self._build_graph()
