@@ -52,7 +52,7 @@ flags.DEFINE_string('labels_list', None,
                     'list of labels file ')
 flags.DEFINE_string('visualizeModelPath', None,
                     'Constructs the current model for visualization.')
-flags.DEFINE_integer('save_summaries_steps', 0,
+flags.DEFINE_integer('save_summaries_steps', 100,
                      'How often to save summaries for trained models. Pass 0 '
                      'to disable summaries.')
 flags.DEFINE_integer('display_every', 10,
@@ -215,7 +215,7 @@ class BenchmarkCNN(object):
       raise ValueError('labels_list not defined')
     self.dataset = data_config.DataLoader(
         self.model.get_image_size(), self.model.get_image_size(),
-        FLAGS.batch_size, FLAGS.num_gpus, self.cpu_device,
+        self.batch_size, FLAGS.num_gpus, self.cpu_device,
         self.raw_devices, self.data_type, FLAGS.train_db,
         FLAGS.validation_db, FLAGS.labels_list,
         FLAGS.summary_verbosity)
@@ -232,6 +232,14 @@ class BenchmarkCNN(object):
         self.batch_size)
     if not FLAGS.piecewise_learning_rate_schedule:
       raise ValueError('piecewise_learning_rate_schedule not defined')
+    self.display_every = FLAGS.display_every
+    if self.display_every > 0:
+      display = self.train_batches // self.num_epochs // 10
+      if display == 0:
+        display = 1
+      logging.info("adjust display_every: %d" % display)
+      self.display_every = display
+
 
   def print_info(self):
     """Print basic information."""
@@ -383,6 +391,7 @@ class BenchmarkCNN(object):
               tf.summary.histogram(var.op.name + '/gradients', grad)
           for var in tf.trainable_variables():
             tf.summary.histogram(var.op.name, var)
+    fetches['learning_rate'] = learning_rate
     fetches['train_op'] = train_op
     fetches['average_loss'] = average_loss
     return fetches
@@ -434,13 +443,17 @@ class BenchmarkCNN(object):
       images_split, labels_split = self.dataset.get_inputs('train')
     else:
       images_split, labels_split = self.dataset.get_inputs('validation')
+    #images_split, labels_split = tf.cond(phase_train,
+    #                                     lambda: self.dataset.get_inputs('train'),
+    #                                     lambda: self.dataset.get_inputs('validation'))
     update_ops = None
     for device_num in range(len(self.raw_devices)):
       with tf.variable_scope('tower_%i' % device_num):
         name_scope = 'tower_%i' % device_num
         results = self._add_forward_pass_and_gradients(
             phase_train, device_num,
-            images_split[device_num], labels_split[device_num])
+            images_split[device_num],
+            labels_split[device_num])
         if phase_train:
           losses.append(results['loss'])
           device_grads.append(results['gradvars'])
@@ -453,6 +466,8 @@ class BenchmarkCNN(object):
     fetches = self._build_fetches(global_step, all_logits, losses, device_grads,
                                   update_ops, all_top_1_ops,
                                   all_top_5_ops, phase_train)
+    if not phase_train:
+      return fetches
     # construct init op group
     fetches_list = nest.flatten(list(fetches.values()))
     main_fetch_group = tf.group(*fetches_list)
@@ -485,18 +500,41 @@ class BenchmarkCNN(object):
     lossval = results['average_loss']
     train_time = time.time() - start_time
     step_train_times.append(train_time)
+    num_batches_per_epoch = (float(self.dataset.num_examples_per_epoch('train')) / self.batch_size)
     if (step >= 0 and
-        (step == 0 or (step + 1) % FLAGS.display_every == 0)):
-      log_str = '%i\t%.*f' % (
-        step + 1,
-        LOSS_AND_ACCURACY_DIGITS_TO_SHOW, lossval)
-      log_str += '\t%.*f\t%.*f' % (
+        (step == 0 or (step + 1) % self.display_every == 0)):
+      log_str = "Training (epoch %.*f): loss = %.*f, accuracy = %.*f, lr = %.*f" % (
+          2, float(step + 1)/num_batches_per_epoch,
+          LOSS_AND_ACCURACY_DIGITS_TO_SHOW, lossval,
           LOSS_AND_ACCURACY_DIGITS_TO_SHOW, results['top_1_accuracy'],
-          LOSS_AND_ACCURACY_DIGITS_TO_SHOW, results['top_5_accuracy'])
-      print(log_str)
+          5, results['learning_rate'])
+      #log_str = '%i\t%.*f' % (
+      #  step + 1,
+      #  LOSS_AND_ACCURACY_DIGITS_TO_SHOW, lossval)
+      #log_str += '\t%.*f\t%.*f' % (
+      #    LOSS_AND_ACCURACY_DIGITS_TO_SHOW, results['top_1_accuracy'],
+      #    LOSS_AND_ACCURACY_DIGITS_TO_SHOW, results['top_5_accuracy'])
+      logging.info(log_str)
     return summary_str
 
-  def _benchmark_graph(self, graph_info):
+  def eval_one_epoch(self, sess, step, fetches):
+    local_step = 0
+    top_1_accuracy_sum = 0.0
+    top_5_accuracy_sum = 0.0
+    self.val_batches = 1
+    while local_step < self.val_batches:
+      results = sess.run(fetches)
+      top_1_accuracy_sum += results['top_1_accuracy']
+      top_5_accuracy_sum += results['top_5_accuracy']
+      local_step += 1
+    accuracy_at_1 = top_1_accuracy_sum / int(self.val_batches)
+    accuracy_at_5 = top_5_accuracy_sum / int(self.val_batches)
+    num_batches_per_epoch = (float(self.dataset.num_examples_per_epoch('train')) / self.batch_size)
+    logging.info('Validation (epoch %.*f): accuracy = %.4f, top5_accuracy = %.4f' %
+                 (2, float(step + 1)/num_batches_per_epoch,
+                  accuracy_at_1, accuracy_at_5))
+
+  def _benchmark_graph(self, graph_info, val_fetches):
     summary_op = tf.summary.merge_all()
     summary_writer = None
     if (FLAGS.summary_verbosity and self.train_dir and
@@ -547,31 +585,43 @@ class BenchmarkCNN(object):
         if summary_str is not None:
           sv.summary_computed(sess, summary_str)
         local_step += 1
+        #validation per epoch end
+        num_batches_per_epoch = (float(self.dataset.num_examples_per_epoch('train')) // self.batch_size)
+        if local_step % num_batches_per_epoch == 0:
+          self.eval_one_epoch(sess, local_step, val_fetches)
       # loop End
       loop_end_time = time.time()
       elapsed_time = loop_end_time - loop_start_time
       average_wall_time = elapsed_time / local_step if local_step > 0 else 0
-      images_per_sec = (self.num_workers * local_step * self.batch_size /
+      images_per_sec = (local_step * self.batch_size /
                         elapsed_time)
-      log_fn('-' * 64)
-      log_fn('total images/sec: %.2f' % images_per_sec)
-      log_fn('-' * 64)
+      print('-' * 64)
+      print('total images/sec: %.2f' % images_per_sec)
+      print('-' * 64)
       # Save the model checkpoint.
       if self.train_dir is not None:
         checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
         if not gfile.Exists(self.train_dir):
           gfile.MakeDirs(self.train_dir)
         sv.saver.save(sess, checkpoint_path, graph_info.global_step)
+        filename_graph = os.path.join(self.train_dir, "graph.bp")
+        if not os.path.isfile(filename_graph):
+          with open(filename_graph, 'wb') as f:
+            logging.info('Saving graph to %s', filename_graph)
+            f.write(sess.graph_def.SerializeToString())
+            logging.info('Saved graph to %s', filename_graph)
     sv.stop()
 
   def run(self):
     # _benchmark_cnn
     graph = tf.Graph()
     with graph.as_default():
-      train_result = self._build_graph()
-      #val_result = self._build_graph(phase_train=False)
+      #with tf.name_scope('train'):
+        train_result = self._build_graph()
+      #with tf.name_scope('val'):
+        val_fetches = self._build_graph(phase_train=False)
     with graph.as_default():
-      self._benchmark_graph(train_result)
+      self._benchmark_graph(train_result, val_fetches)
 
 def tensorflow_version_tuple():
   v = tf.__version__
