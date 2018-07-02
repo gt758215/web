@@ -98,15 +98,16 @@ class DataLoader(object):
       else:
         glob_pattern = os.path.join(self.val_db, "validation-*-of-*")
       files = tf.data.Dataset.list_files(glob_pattern)
-      dataset = files.apply(tf.contrib.data.parallel_interleave(
+      ds = files.apply(tf.contrib.data.parallel_interleave(
           tf.data.TFRecordDataset, cycle_length=self.num_splits))
-      dataset = dataset.repeat()
-      dataset = dataset.apply(tf.contrib.data.map_and_batch(
+      ds = ds.repeat()
+      ds = ds.apply(tf.contrib.data.map_and_batch(
           map_func=self.parse_fn,
           batch_size=batch_size_per_split,
           num_parallel_batches=self.num_splits))
-      dataset = dataset.prefetch(buffer_size=10000)
-      ds_iterator = dataset.make_one_shot_iterator()
+      ds = ds.prefetch(buffer_size=10000)
+      ds_iterator = ds.make_one_shot_iterator()
+
     # build final results for split.
     images = [[] for _ in range(self.num_splits)]
     labels = [[] for _ in range(self.num_splits)]
@@ -117,5 +118,4 @@ class DataLoader(object):
           images_d, shape=[batch_size_per_split, self.height, self.width, 3])
         labels[d] = tf.reshape(labels_d, [batch_size_per_split])
     return images, labels
-
 

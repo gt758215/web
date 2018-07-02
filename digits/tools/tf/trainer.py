@@ -100,7 +100,11 @@ flags.DEFINE_integer('batch_size', 0, 'batch size per compute device')
 flags.DEFINE_float('num_learning_rate_warmup_epochs', 0,
                    'Slowly increase to the initial learning rate in the first '
                    'num_learning_rate_warmup_epochs linearly.')
+flags.DEFINE_boolean('eval', False, 'whether use eval or benchmarking')
 
+
+class CheckpointNotFoundException(Exception):
+  pass
 
 def loss_function(logits, labels, aux_logits):
   """Loss function."""
@@ -181,6 +185,29 @@ def get_learning_rate(global_step, num_examples_per_epoch,
     learning_rate = tf.cond(global_step < warmup_steps,
                             lambda: warmup_lr, lambda: learning_rate)
   return learning_rate
+
+def load_checkpoint(saver, sess, ckpt_dir):
+  ckpt = tf.train.get_checkpoint_state(ckpt_dir)
+  if ckpt and ckpt.model_checkpoint_path:
+    if os.path.isabs(ckpt.model_checkpoint_path):
+      # Restores from checkpoint with absolute path.
+      model_checkpoint_path = ckpt.model_checkpoint_path
+    else:
+      # Restores from checkpoint with relative path.
+      model_checkpoint_path = os.path.join(ckpt_dir, ckpt.model_checkpoint_path)
+    # Assuming model_checkpoint_path looks something like:
+    #   /my-favorite-path/imagenet_train/model.ckpt-0,
+    # extract global_step from it.
+    global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+    if not global_step.isdigit():
+      global_step = 0
+    else:
+      global_step = int(global_step)
+    saver.restore(sess, model_checkpoint_path)
+    print('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
+    return global_step
+  else:
+    raise CheckpointNotFoundException('No checkpoint file found.')
 
 class BenchmarkCNN(object):
   def __init__(self):
@@ -403,25 +430,7 @@ class BenchmarkCNN(object):
           'fetches',
           # The global step variable
           'global_step',
-          # Group of ops that perform per-device initialization work
-          'local_var_init_op_group'
       ])
-
-  def get_post_init_ops(self):
-    # Copy initialized values for variables on GPU 0 to other GPUs.
-    global_vars = tf.global_variables()
-    var_by_name = dict([(v.name, v) for v in global_vars])
-    post_init_ops = []
-    for v in global_vars:
-      split_name = v.name.split('/')
-      # TODO(b/62630508): use more specific prefix than v or v0.
-      if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
-        continue
-      split_name[0] = 'tower_0'
-      copy_from = var_by_name['/'.join(split_name)]
-      post_init_ops.append(v.assign(copy_from.read_value()))
-    post_init_ops += self._warmup_ops
-    return post_init_ops
 
   def _build_graph(self, phase_train=True):
     tf.set_random_seed(1234)
@@ -440,15 +449,16 @@ class BenchmarkCNN(object):
       global_step = tf.train.get_or_create_global_step()
     # get datainputs and build model
     if phase_train:
-      images_split, labels_split = self.dataset.get_inputs('train')
+      with tf.name_scope('train_data'):
+        images_split, labels_split = self.dataset.get_inputs('train')
     else:
-      images_split, labels_split = self.dataset.get_inputs('validation')
-    #images_split, labels_split = tf.cond(phase_train,
-    #                                     lambda: self.dataset.get_inputs('train'),
-    #                                     lambda: self.dataset.get_inputs('validation'))
+      with tf.name_scope('validation_data'):
+        images_split, labels_split = self.dataset.get_inputs('validation')
     update_ops = None
     for device_num in range(len(self.raw_devices)):
-      with tf.variable_scope('tower_%i' % device_num):
+      # only use first tower for validation
+      current_scope = 'tower_%i' % device_num
+      with tf.variable_scope(current_scope, reuse=tf.AUTO_REUSE):
         name_scope = 'tower_%i' % device_num
         results = self._add_forward_pass_and_gradients(
             phase_train, device_num,
@@ -474,20 +484,10 @@ class BenchmarkCNN(object):
     with tf.device(self.cpu_device):
       with tf.control_dependencies([main_fetch_group]):
         fetches['inc_global_step'] = global_step.assign_add(1)
-    local_var_init_op = tf.local_variables_initializer()
-    table_init_ops = tf.tables_initializer()
-    variable_mgr_init_ops = []
-    variable_mgr_init_ops.append(local_var_init_op)
-    if table_init_ops:
-      variable_mgr_init_ops.extend([table_init_ops])
-    with tf.control_dependencies([local_var_init_op]):
-      variable_mgr_init_ops.extend(self.get_post_init_ops())
-    local_var_init_op_group = tf.group(*variable_mgr_init_ops)
     # return GraphInfo
     return BenchmarkCNN.GraphInfo(
         fetches=fetches,
-        global_step=global_step,
-        local_var_init_op_group=local_var_init_op_group)
+        global_step=global_step)
 
   def benchmark_one_step(self, sess, fetches, step,
                          batch_size, step_train_times, summary_op):
@@ -534,7 +534,8 @@ class BenchmarkCNN(object):
                  (2, float(step + 1)/num_batches_per_epoch,
                   accuracy_at_1, accuracy_at_5))
 
-  def _benchmark_graph(self, graph_info, val_fetches):
+  def _benchmark_graph(self, graph_info, val_fetches,
+                       local_var_init_op_group):
     summary_op = tf.summary.merge_all()
     summary_writer = None
     if (FLAGS.summary_verbosity and self.train_dir and
@@ -549,7 +550,7 @@ class BenchmarkCNN(object):
         # workers from corrupting each other's checkpoints.
         logdir=self.train_dir,
         ready_for_local_init_op=None,
-        local_init_op=graph_info.local_var_init_op_group,
+        local_init_op=local_var_init_op_group,
         saver=saver,
         global_step=graph_info.global_step,
         summary_op=None,
@@ -612,16 +613,83 @@ class BenchmarkCNN(object):
             logging.info('Saved graph to %s', filename_graph)
     sv.stop()
 
+  def _eval_cnn(self):
+    fetches = self._build_graph(phase_train=False)
+    params = []
+    for v in tf.global_variables():
+      split_name = v.name.split('/')
+      if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
+        params.append(v)
+    saver = tf.train.Saver(params)
+    # get local init op group
+    local_var_init_op_group = self.get_init_op_group()
+    self._eval_once(saver, local_var_init_op_group, fetches)
+
+  def _eval_once(self, saver, local_var_init_op_group, fetches):
+    with tf.Session(
+        config=create_config_proto()) as sess:
+      try:
+        global_step = load_checkpoint(saver, sess, self.train_dir)
+      except CheckpointNotFoundException:
+        print('Checkpoint not found in %s' % self.train_dir)
+        return
+      sess.run(local_var_init_op_group)
+      local_step = 0
+      top_1_accuracy_sum = 0.0
+      top_5_accuracy_sum = 0.0
+      total_eval_count = self.val_batches * self.batch_size
+      while local_step < self.val_batches:
+        results = sess.run(fetches)
+        top_1_accuracy_sum += results['top_1_accuracy']
+        top_5_accuracy_sum += results['top_5_accuracy']
+        local_step += 1
+      accuracy_at_1 = top_1_accuracy_sum / int(self.val_batches)
+      accuracy_at_5 = top_5_accuracy_sum / int(self.val_batches)
+      print('Accuracy @ 1 = %.4f Accuracy @ 5 = %.4f [%d examples]' %
+             (accuracy_at_1, accuracy_at_5, total_eval_count))
+
   def run(self):
+    if FLAGS.eval:
+      with tf.Graph().as_default():
+        return self._eval_cnn()
     # _benchmark_cnn
     graph = tf.Graph()
     with graph.as_default():
       #with tf.name_scope('train'):
-        train_result = self._build_graph()
+      train_result = self._build_graph()
       #with tf.name_scope('val'):
-        val_fetches = self._build_graph(phase_train=False)
+      val_fetches = self._build_graph(phase_train=False)
+      local_var_init_op_group = self.get_init_op_group()
     with graph.as_default():
-      self._benchmark_graph(train_result, val_fetches)
+      self._benchmark_graph(train_result, val_fetches,
+                            local_var_init_op_group)
+
+  def get_init_op_group(self):
+    local_var_init_op = tf.local_variables_initializer()
+    table_init_ops = tf.tables_initializer()
+    variable_mgr_init_ops = [local_var_init_op]
+    if table_init_ops:
+      variable_mgr_init_ops.extend([table_init_ops])
+    with tf.control_dependencies([local_var_init_op]):
+      variable_mgr_init_ops.extend(self.get_post_init_ops())
+    local_var_init_op_group = tf.group(*variable_mgr_init_ops)
+    return local_var_init_op_group
+
+  def get_post_init_ops(self):
+    # Copy initialized values for variables on GPU 0 to other GPUs.
+    global_vars = tf.global_variables()
+    var_by_name = dict([(v.name, v) for v in global_vars])
+    post_init_ops = []
+    for v in global_vars:
+      split_name = v.name.split('/')
+      # TODO(b/62630508): use more specific prefix than v or v0.
+      if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
+        continue
+      split_name[0] = 'tower_0'
+      copy_from = var_by_name['/'.join(split_name)]
+      post_init_ops.append(v.assign(copy_from.read_value()))
+    #post_init_ops += self._warmup_ops
+    return post_init_ops
 
 def tensorflow_version_tuple():
   v = tf.__version__

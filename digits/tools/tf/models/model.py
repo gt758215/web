@@ -90,7 +90,8 @@ class Model(object):
     network = convnet_builder.ConvNetBuilder(
         images, image_depth, phase_train, use_tf_layers,
         data_format, data_type, var_type)
-    with tf.variable_scope('model', reuse=tf.AUTO_REUSE, custom_getter=network.get_custom_getter()):
+    #with tf.variable_scope('model', reuse=tf.AUTO_REUSE, custom_getter=network.get_custom_getter()):
+    with tf.variable_scope('model', custom_getter=network.get_custom_getter()):
       self.add_inference(network)
       # Add the final fully-connected class layer
       logits = (network.affine(nclass, activation='linear')
