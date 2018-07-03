@@ -255,6 +255,10 @@ class BenchmarkCNN(object):
     self.model = model_config.get_model_config(
         FLAGS.networkDirectory,
         FLAGS.network)
+    # Ignore params for inference
+    if FLAGS.inf:
+      self.val_batches = 1
+      return
     if not FLAGS.train_db:
       raise ValueError('train_db not defined')
     if not FLAGS.validation_db:
@@ -287,7 +291,6 @@ class BenchmarkCNN(object):
         display = 1
       logging.info("adjust display_every: %d" % display)
       self.display_every = display
-
 
   def print_info(self):
     """Print basic information."""

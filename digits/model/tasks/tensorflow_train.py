@@ -550,11 +550,11 @@ class TensorflowTrainTask(TrainTask):
 
         image = image.astype('float')
         record = tf.train.Example(features=tf.train.Features(feature={
-            'height': _int64_feature(image.shape[0]),
-            'width': _int64_feature(image.shape[1]),
-            'depth': _int64_feature(image.shape[2]),
-            'image_raw': _float_array_feature(image.flatten()),
-            'label': _int64_feature(0),
+            #'height': _int64_feature(image.shape[0]),
+            #'width': _int64_feature(image.shape[1]),
+            #'depth': _int64_feature(image.shape[2]),
+            'image/encoded': _float_array_feature(image.flatten()),
+            'image/class/label': _int64_feature(0),
             'encoding': _int64_feature(0)}))
         writer.write(record.SerializeToString())
         writer.close()
@@ -562,8 +562,8 @@ class TensorflowTrainTask(TrainTask):
         file_to_load = self.get_snapshot(snapshot_epoch)
 
         args = [sys.executable,
-                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'main.py'),
-                '--inference_db=%s' % temp_image_path,
+                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'trainer.py'),
+                '--validation_db=%s' % temp_image_path,
                 '--network=%s' % self.model_file,
                 '--networkDirectory=%s' % self.job_dir,
                 '--weights=%s' % file_to_load,
