@@ -734,6 +734,7 @@ def get_standard_networks():
         ('alexnet', 'AlexNet'),
         ('googlenet', 'GoogLeNet'),
         ('vgg16', 'VGGNet'),
+        ('resnet32', 'ResNet32'),
         ('resnet50', 'ResNet50'),
     ]
 
