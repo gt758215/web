@@ -175,7 +175,7 @@ class TensorflowTrainTask(TrainTask):
     def task_arguments(self, resources, env):
 
         args = [sys.executable,
-                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'tf_cnn_benchmarks.py'),
+                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'trainer.py'),
                 '--network=%s' % self.model_file,
                 '--epoch=%d' % int(self.train_epochs),
                 '--networkDirectory=%s' % self.job_dir,
@@ -183,33 +183,31 @@ class TensorflowTrainTask(TrainTask):
                 '--snapshotPrefix=%s' % self.snapshot_prefix,
                 '--snapshotInterval=%s' % self.snapshot_interval,
                 '--piecewise_learning_rate_schedule=%s' % self.learning_rate,
-                '--lr_policy=%s' % str(self.lr_policy['policy']),
                 '--allow_growth=True',
                 '--num_gpus=%d' % self.gpu_count
                 ]
+        # python trainer.py --networkDirectory=/network --save=/trainer_logs --batch_size=32 --labels_list=//data/20180703-025306-ced5/labels.txt --train_db=/data/20180703-025306-ced5/train_db --validation_db=/data/20180703-025306-ced5/val_db --optimizor=sgd --piecewise_learning_rate_schedule='0.1;10;0.1' --num_gpus=2 --epoch=10
 
         if self.small_chunk is not None:
             args.append('--small_chunk=%d' % int(self.small_chunk))
         else:
             args.append('--small_chunk=0')
 
-        if self.rampup_lr is not None:
-            args.append('--warm_lr=%f' % float(self.rampup_lr))
-        else:
-            args.append('--warm_lr=0')
+        #if self.rampup_lr is not None:
+        #    args.append('--warm_lr=%f' % float(self.rampup_lr))
+        #else:
+        #    args.append('--warm_lr=0')
 
         if self.rampup_epoch  is not None:
-            args.append('--warm_epoch=%d' % self.rampup_epoch)
-        else:
-            args.append('--warm_epoch=0')
+            args.append('--num_learning_rate_warmup_epochs=%d' % self.rampup_epoch)
 
         if self.batch_size is not None:
             args.append('--batch_size=%d' % self.batch_size)
 
-        if self.use_mean != 'none':
-            mean_file = self.dataset.get_mean_file()
-            assert mean_file is not None, 'Failed to retrieve mean file.'
-            args.append('--mean=%s' % self.dataset.path(mean_file))
+        #if self.use_mean != 'none':
+        #    mean_file = self.dataset.get_mean_file()
+        #    assert mean_file is not None, 'Failed to retrieve mean file.'
+        #    args.append('--mean=%s' % self.dataset.path(mean_file))
 
         if hasattr(self.dataset, 'labels_file'):
             args.append('--labels_list=%s' % self.dataset.path(self.dataset.labels_file))
@@ -228,30 +226,30 @@ class TensorflowTrainTask(TrainTask):
             args.append('--validation_labels=%s' % val_label_db_path)
 
         # learning rate policy input parameters
-        if self.lr_policy['policy'] == 'fixed':
-            pass
-        elif self.lr_policy['policy'] == 'step':
-            args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
-            args.append('--lr_stepvalues=%s' % self.lr_policy['stepsize'])
-        elif self.lr_policy['policy'] == 'multistep':
-            args.append('--lr_stepvalues=%s' % self.lr_policy['stepvalue'])
-            args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
-        elif self.lr_policy['policy'] == 'exp':
-            args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
-        elif self.lr_policy['policy'] == 'inv':
-            args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
-            args.append('--lr_power=%s' % self.lr_policy['power'])
-        elif self.lr_policy['policy'] == 'poly':
-            args.append('--lr_power=%s' % self.lr_policy['power'])
-        elif self.lr_policy['policy'] == 'sigmoid':
-            args.append('--lr_stepvalues=%s' % self.lr_policy['stepsize'])
-            args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
+        #if self.lr_policy['policy'] == 'fixed':
+        #    pass
+        #elif self.lr_policy['policy'] == 'step':
+        #    args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
+        #    args.append('--lr_stepvalues=%s' % self.lr_policy['stepsize'])
+        #elif self.lr_policy['policy'] == 'multistep':
+        #    args.append('--lr_stepvalues=%s' % self.lr_policy['stepvalue'])
+        #    args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
+        #elif self.lr_policy['policy'] == 'exp':
+        #    args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
+        #elif self.lr_policy['policy'] == 'inv':
+        #    args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
+        #    args.append('--lr_power=%s' % self.lr_policy['power'])
+        #elif self.lr_policy['policy'] == 'poly':
+        #    args.append('--lr_power=%s' % self.lr_policy['power'])
+        #elif self.lr_policy['policy'] == 'sigmoid':
+        #    args.append('--lr_stepvalues=%s' % self.lr_policy['stepsize'])
+        #    args.append('--lr_gamma=%s' % self.lr_policy['gamma'])
 
-        if self.shuffle:
-            args.append('--shuffle=1')
+        #if self.shuffle:
+        #    args.append('--shuffle=1')
 
-        if self.crop_size:
-            args.append('--croplen=%d' % self.crop_size)
+        #if self.crop_size:
+        #    args.append('--croplen=%d' % self.crop_size)
 
         #if self.use_mean == 'pixel':
         #    args.append('--subtractMean=pixel')
@@ -260,33 +258,33 @@ class TensorflowTrainTask(TrainTask):
         #else:
         #    args.append('--subtractMean=none')
 
-        if self.random_seed is not None:
-            args.append('--seed=%s' % self.random_seed)
+        #if self.random_seed is not None:
+        #    args.append('--seed=%s' % self.random_seed)
 
         if self.solver_type == 'SGD':
-            args.append('--optimization=sgd')
-        elif self.solver_type == 'ADADELTA':
-            args.append('--optimization=adadelta')
-        elif self.solver_type == 'ADAGRAD':
-            args.append('--optimization=adagrad')
-        elif self.solver_type == 'ADAGRADDA':
-            args.append('--optimization=adagradda')
+            args.append('--optimizer=sgd')
+        #elif self.solver_type == 'ADADELTA':
+        #    args.append('--optimizor=adadelta')
+        #elif self.solver_type == 'ADAGRAD':
+        #    args.append('--optimizor=adagrad')
+        #elif self.solver_type == 'ADAGRADDA':
+        #    args.append('--optimizor=adagradda')
         elif self.solver_type == 'MOMENTUM':
-            args.append('--optimization=momentum')
-        elif self.solver_type == 'ADAM':
-            args.append('--optimization=adam')
-        elif self.solver_type == 'FTRL':
-            args.append('--optimization=ftrl')
+            args.append('--optimizer=momentum')
+        #elif self.solver_type == 'ADAM':
+        #    args.append('--optimizor=adam')
+        #elif self.solver_type == 'FTRL':
+        #    args.append('--optimizor=ftrl')
         elif self.solver_type == 'RMSPROP':
-            args.append('--optimization=rmsprop')
+            args.append('--optimizer=rmsprop')
         else:
             raise ValueError('Unknown solver_type %s' % self.solver_type)
 
-        if self.val_interval is not None:
-            args.append('--validation_interval=%d' % self.val_interval)
+        #if self.val_interval is not None:
+        #    args.append('--validation_interval=%d' % self.val_interval)
 
         # if self.traces_interval is not None:
-        args.append('--log_runtime_stats_per_step=%d' % self.traces_interval)
+        #args.append('--log_runtime_stats_per_step=%d' % self.traces_interval)
 
         if 'gpus' in resources:
             identifiers = []

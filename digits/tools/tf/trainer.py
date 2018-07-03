@@ -2,6 +2,7 @@ from collections import namedtuple
 import tensorflow as tf
 from tensorflow.python.util import nest
 from tensorflow.python.platform import gfile
+from tensorflow.python.lib.io import file_io
 import model_config
 import data_config
 import batch_allreduce
@@ -101,6 +102,7 @@ flags.DEFINE_float('num_learning_rate_warmup_epochs', 0,
                    'Slowly increase to the initial learning rate in the first '
                    'num_learning_rate_warmup_epochs linearly.')
 flags.DEFINE_boolean('eval', False, 'whether use eval or benchmarking')
+flags.DEFINE_boolean('inf', False, 'doing inference')
 
 
 class CheckpointNotFoundException(Exception):
@@ -209,6 +211,25 @@ def load_checkpoint(saver, sess, ckpt_dir):
   else:
     raise CheckpointNotFoundException('No checkpoint file found.')
 
+def strip_data_from_graph_def(graph_def):
+    strip_def = tf.GraphDef()
+    for n0 in graph_def.node:
+        n = strip_def.node.add()
+        n.MergeFrom(n0)
+        if n.op == 'Const':
+            tensor = n.attr['value'].tensor
+            if (tensor.tensor_content):
+                tensor.tensor_content = ''
+            if (tensor.string_val):
+                del tensor.string_val[:]
+    return strip_def
+
+def visualize_graph(graph_def, path):
+    graph_def = strip_data_from_graph_def(graph_def)
+    logging.info('Writing Graph Definition..')
+    file_io.write_string_to_file(path, str(graph_def))
+    logging.info('Graph Definition Written.')
+
 class BenchmarkCNN(object):
   def __init__(self):
     self.train_dir = FLAGS.train_dir
@@ -308,23 +329,26 @@ class BenchmarkCNN(object):
         return results
       base_loss = loss_function(logits, labels, aux_logits=aux_logits)
       # get per tower trainable variable
-      params = [
-          v for v in tf.trainable_variables()
-          if v.name.startswith('tower_%s/' % device_num)
-      ]
+      #params = [
+      #    v for v in tf.trainable_variables()
+      #    if v.name.startswith('tower_%s/' % device_num)
+      #]
+      params = [v for v in tf.trainable_variables()]
       fp32_params = params
       total_loss = base_loss
-      if device_num == len(self.raw_devices) - 1:
-        l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in fp32_params])
-        weight_decay = FLAGS.weight_decay
-        if weight_decay is not None and weight_decay != 0.:
-          total_loss += len(self.raw_devices) * weight_decay * l2_loss
+      #if device_num == len(self.raw_devices) - 1:
+      l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in fp32_params])
+      weight_decay = FLAGS.weight_decay
+      if weight_decay is not None and weight_decay != 0.:
+      #   total_loss += len(self.raw_devices) * weight_decay * l2_loss
+        total_loss += weight_decay * l2_loss
       grads = tf.gradients(total_loss, params,
           aggregation_method=tf.AggregationMethod.DEFAULT)
-      param_refs = [
-          v for v in tf.trainable_variables()
-          if v.name.startswith('tower_%s/' % device_num)
-      ]
+      #param_refs = [
+      #    v for v in tf.trainable_variables()
+      #    if v.name.startswith('tower_%s/' % device_num)
+      #]
+      param_refs = [v for v in tf.trainable_variables()]
       gradvars = list(zip(grads, param_refs))
       results['loss'] = total_loss
       results['gradvars'] = gradvars
@@ -338,14 +362,15 @@ class BenchmarkCNN(object):
       return batch_allreduce.AllReduceSpecAlgorithm('nccl', gpu_indices, 0, 10)
 
   def preprocess_device_grads(self, device_grads):
-    grads_to_reduce = [[g for g, _ in grad_vars] for grad_vars in device_grads]
-    algorithm = self.allreduce_algorithm()
-    reduced_grads, self._warmup_ops = algorithm.batch_all_reduce(
-        grads_to_reduce, 0, False, False)
-    reduced_device_grads = [[
-        (g, v) for g, (_, v) in zip(grads, grad_vars)
-    ] for grads, grad_vars in zip(reduced_grads, device_grads)]
-    return self.raw_devices, reduced_device_grads
+    with tf.name_scope('AllReduceGrads'):
+      grads_to_reduce = [[g for g, _ in grad_vars] for grad_vars in device_grads]
+      algorithm = self.allreduce_algorithm()
+      reduced_grads, self._warmup_ops = algorithm.batch_all_reduce(
+          grads_to_reduce, 0, False, False)
+      reduced_device_grads = [[
+          (g, v) for g, (_, v) in zip(grads, grad_vars)
+      ] for grads, grad_vars in zip(reduced_grads, device_grads)]
+      return self.raw_devices, reduced_device_grads
 
   def get_optimizer(self, learning_rate):
     """Returns the optimizer that should be used based on params."""
@@ -457,7 +482,7 @@ class BenchmarkCNN(object):
     update_ops = None
     for device_num in range(len(self.raw_devices)):
       current_scope = 'tower_%i' % device_num
-      with tf.variable_scope(current_scope, reuse=tf.AUTO_REUSE):
+      with tf.name_scope(current_scope):
         results = self._add_forward_pass_and_gradients(
             phase_train, device_num,
             images_split[device_num],
@@ -559,6 +584,10 @@ class BenchmarkCNN(object):
         master='',
         config=create_config_proto(),
         start_standard_services=False) as sess:
+      # return graph for visualize graph
+      if FLAGS.visualizeModelPath:
+        visualize_graph(sess.graph_def, FLAGS.visualizeModelPath)
+        exit(0)
       self.init_global_step, = sess.run([graph_info.global_step])
       print('Running warm up')
       print('init_global_step: {}'.format(self.init_global_step))
@@ -568,9 +597,9 @@ class BenchmarkCNN(object):
       while local_step < end_local_step:
         if local_step == 0:
           print('Done warm up')
-          header_str = ('Step\ttotal_loss')
-          header_str += '\ttop_1_accuracy\ttop_5_accuracy'
-          print(header_str)
+          #header_str = ('Step\ttotal_loss')
+          #header_str += '\ttop_1_accuracy\ttop_5_accuracy'
+          #print(header_str)
           step_train_times = []
           loop_start_time = time.time()
         if (summary_writer and 
@@ -611,13 +640,34 @@ class BenchmarkCNN(object):
             logging.info('Saved graph to %s', filename_graph)
     sv.stop()
 
+  def _inference_cnn(self):
+    fetches = self._build_graph(phase_train=False)
+    params = [v for v in tf.global_variables()]
+    saver = tf.train.Saver(params)
+    local_var_init_op_group = self.get_init_op_group()
+    self._inference_once(saver, local_var_init_op_group, fetches)
+
+  def _inference_once(self, saver, local_var_init_op_group, fetches):
+    with tf.Session(
+       config=create_config_proto()) as sess:
+      try:
+        global_step = load_checkpoint(saver, sess, self.train_dir)
+      except CheckpointNotFoundException:
+        print('Checkpoint not found in %s' % self.train_dir)
+        return
+      sess.run(local_var_init_op_group)
+      inference_op = tf.nn.softmax(fetches['all_logits'])
+      preds = sess.run(inference_op)
+      for pred in preds:
+        print('preds: {}'.format(pred.tolist()))
+
   def _eval_cnn(self):
     fetches = self._build_graph(phase_train=False)
-    params = []
-    for v in tf.global_variables():
-      split_name = v.name.split('/')
-      if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
-        params.append(v)
+    params = [v for v in tf.global_variables()]
+    #for v in tf.global_variables():
+    #  split_name = v.name.split('/')
+    #  if split_name[0] == 'tower_0' or not v.name.startswith('tower'):
+    #    params.append(v)
     saver = tf.train.Saver(params)
     # get local init op group
     local_var_init_op_group = self.get_init_op_group()
@@ -647,18 +697,21 @@ class BenchmarkCNN(object):
              (accuracy_at_1, accuracy_at_5, total_eval_count))
 
   def run(self):
+    if FLAGS.inf:
+      with tf.Graph().as_default():
+        return self._inference_cnn()
     if FLAGS.eval:
       with tf.Graph().as_default():
         return self._eval_cnn()
     # _benchmark_cnn
     graph = tf.Graph()
-    with graph.as_default():
+    with graph.as_default(), tf.device('/cpu:0'):
       #with tf.name_scope('train'):
       train_result = self._build_graph()
       #with tf.name_scope('val'):
       val_fetches = self._build_graph(phase_train=False)
       local_var_init_op_group = self.get_init_op_group()
-    with graph.as_default():
+    with graph.as_default(), tf.device('/cpu:0'):
       self._benchmark_graph(train_result, val_fetches,
                             local_var_init_op_group)
 
