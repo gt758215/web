@@ -67,7 +67,7 @@ flags.DEFINE_integer('num_inter_threads', 0,
                      'set to 0, the system will pick an appropriate number.')
 flags.DEFINE_boolean('force_gpu_compatible', False,
                      'whether to enable force_gpu_compatible in GPU_Options')
-flags.DEFINE_boolean('allow_growth', None,
+flags.DEFINE_boolean('allow_growth', True,
                      'whether to enable allow_growth in GPU_Options')
 flags.DEFINE_float('gpu_memory_frac_for_testing', 0,
                    'If non-zero, the fraction of GPU memory that will be used. '
@@ -456,10 +456,8 @@ class BenchmarkCNN(object):
         images_split, labels_split = self.dataset.get_inputs('validation')
     update_ops = None
     for device_num in range(len(self.raw_devices)):
-      # only use first tower for validation
       current_scope = 'tower_%i' % device_num
       with tf.variable_scope(current_scope, reuse=tf.AUTO_REUSE):
-        name_scope = 'tower_%i' % device_num
         results = self._add_forward_pass_and_gradients(
             phase_train, device_num,
             images_split[device_num],
@@ -472,7 +470,7 @@ class BenchmarkCNN(object):
         all_top_1_ops.append(results['top_1_op'])
         all_top_5_ops.append(results['top_5_op'])
         if device_num == 0:
-          update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, name_scope)
+          update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, current_scope)
     fetches = self._build_fetches(global_step, all_logits, losses, device_grads,
                                   update_ops, all_top_1_ops,
                                   all_top_5_ops, phase_train)
@@ -593,7 +591,7 @@ class BenchmarkCNN(object):
       # loop End
       loop_end_time = time.time()
       elapsed_time = loop_end_time - loop_start_time
-      average_wall_time = elapsed_time / local_step if local_step > 0 else 0
+      average_wall_time = (elapsed_time / local_step) if local_step > 0 else 0
       images_per_sec = (local_step * self.batch_size /
                         elapsed_time)
       print('-' * 64)
