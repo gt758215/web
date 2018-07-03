@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y \
 RUN git clone -b ${BRANCH} https://github.com/myelintek/web.git /build/ && \
     pip install --upgrade pip==9.0.3 && pip install numpy && pip install -e /build/
 
+RUN python -m digits.download_data cifar10 /cifar10 && \
+    python -m digits.download_data mnist /mnist
+
 RUN pip install tensorflow-gpu
 
 EXPOSE 2500
