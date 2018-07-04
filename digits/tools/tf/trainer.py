@@ -267,10 +267,13 @@ class BenchmarkCNN(object):
       raise ValueError('labels_list not defined')
     self.dataset = data_config.DataLoader(
         self.model.get_image_size(), self.model.get_image_size(),
-        self.batch_size, FLAGS.num_gpus, self.cpu_device,
-        self.raw_devices, self.data_type, FLAGS.train_db,
-        FLAGS.validation_db, FLAGS.labels_list,
-        FLAGS.summary_verbosity)
+        self.batch_size, FLAGS.num_gpus,
+        self.cpu_device,
+        self.raw_devices,
+        self.data_type,
+        'train',
+        FLAGS.train_db,
+        FLAGS.validation_db, FLAGS.labels_list)
     if not FLAGS.epoch:
       raise ValueError('epoch not defined')
     self.num_epochs = FLAGS.epoch
@@ -310,13 +313,19 @@ class BenchmarkCNN(object):
 
   def _add_forward_pass_and_gradients(self,
                                       phase_train,
-                                      device_num,
-                                      images, labels):
+                                      device_num):
     """Add ops for forward-pass and gradient computations."""
     nclass = self.dataset.num_classes
     image_size = self.model.get_image_size()
     # build network per tower
     with tf.device(self.raw_devices[device_num]):
+      images, labels = self.dataset.get_images_and_labels(device_num, self.data_type)
+      images = tf.reshape(
+          images,
+          shape=[
+              self.batch_size // self.num_gpus, image_size, image_size,
+              self.dataset.depth
+          ])
       logits, aux_logits = self.model.build_network(
           images, phase_train, nclass, self.dataset.depth, self.data_type,
           self.data_format)
@@ -476,20 +485,12 @@ class BenchmarkCNN(object):
     with tf.device(self.cpu_device):
       global_step = tf.train.get_or_create_global_step()
     # get datainputs and build model
-    if phase_train:
-      with tf.name_scope('train_data'):
-        images_split, labels_split = self.dataset.get_inputs('train')
-    else:
-      with tf.name_scope('validation_data'):
-        images_split, labels_split = self.dataset.get_inputs('validation')
     update_ops = None
     for device_num in range(len(self.raw_devices)):
       current_scope = 'tower_%i' % device_num
       with tf.name_scope(current_scope):
         results = self._add_forward_pass_and_gradients(
-            phase_train, device_num,
-            images_split[device_num],
-            labels_split[device_num])
+            phase_train, device_num)
         if phase_train:
           losses.append(results['loss'])
           device_grads.append(results['gradvars'])
@@ -707,16 +708,16 @@ class BenchmarkCNN(object):
       with tf.Graph().as_default():
         return self._eval_cnn()
     # _benchmark_cnn
-    graph = tf.Graph()
-    with graph.as_default(), tf.device('/cpu:0'):
+    #graph = tf.Graph()
+    #with graph.as_default():
       #with tf.name_scope('train'):
-      train_result = self._build_graph()
+    train_result = self._build_graph()
       #with tf.name_scope('val'):
-      val_fetches = self._build_graph(phase_train=False)
-      local_var_init_op_group = self.get_init_op_group()
-    with graph.as_default(), tf.device('/cpu:0'):
-      self._benchmark_graph(train_result, val_fetches,
-                            local_var_init_op_group)
+    val_fetches = self._build_graph(phase_train=False)
+    local_var_init_op_group = self.get_init_op_group()
+    #with graph.as_default():
+    self._benchmark_graph(train_result, val_fetches,
+                          local_var_init_op_group)
 
   def get_init_op_group(self):
     local_var_init_op = tf.local_variables_initializer()
