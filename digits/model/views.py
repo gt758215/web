@@ -545,6 +545,7 @@ def networks_from_request():
             'rampup_epoch': 0,
             'learning_rate': 0.03,
             'weight_decay': 0.00004,
+            'lr_piecewise': '0.1;10;0.01;20;0.001',
             'small_chunk': 1,
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID
@@ -558,6 +559,7 @@ def networks_from_request():
             'rampup_epoch': 0,
             'learning_rate': 0.01,
             'weight_decay': 0.0001,
+            'lr_piecewise': '0.1;10;0.01;20;0.001',
             'small_chunk': 1,
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID
@@ -571,6 +573,7 @@ def networks_from_request():
             'rampup_epoch': 0,
             'learning_rate': 0.1,
             'weight_decay': 0.0001,
+            'lr_piecewise': '0.1;10;0.01;20;0.001',
             'small_chunk': 1,
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID

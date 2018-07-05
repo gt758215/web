@@ -3,6 +3,7 @@ import tensorflow as tf
 from tensorflow.python.util import nest
 from tensorflow.python.platform import gfile
 from tensorflow.python.lib.io import file_io
+import utils as libutils
 import model_config
 import data_config
 import batch_allreduce
@@ -237,6 +238,11 @@ class BenchmarkCNN(object):
       self.train_dir = FLAGS.save
     if not self.train_dir:
       raise ValueError('train_dir or save not defined')
+    available_gpus = libutils.get_available_gpus()
+    if not available_gpus:
+        logging.info("No gpus found, auto switch to cpu mode.")
+        FLAGS.device = 'cpu'
+        FLAGS.data_format = 'NHWC'
     self.cpu_device = '/cpu:0'
     self.num_gpus = FLAGS.num_gpus
     self.raw_devices = [
