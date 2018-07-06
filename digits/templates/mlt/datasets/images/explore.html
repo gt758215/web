@@ -1,0 +1,84 @@
+{# Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved. #}
+
+{% extends "mlt/layout.html" %}
+
+{% block title %}
+{{job.name()}} - Explorer
+{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block nav %}
+<li class="active"><a href="{{ url_for('digits.views.show_job', job_id=job.id()) }}">{{job.job_type()}}</a></li>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-sm-12">
+         <div class="card">
+             <div class="card-header"><h2>Exploring {{job.name()}} ({{ db }}) images</h2></div>
+             <div class="card-body">
+            <ul class="nav nav-pills">
+                <li class="nav-item">Filter by label: </li>
+                <li class="nav-item"><a class="nav-link {% if label == None %}active{% endif %}" href="?job_id={{job.id()}}&page=0&size={{size}}&db={{db}}">No filter</a></li>
+            {% if labels %}
+                {% for l in labels %}
+                    <li class="nav-item"><a class="nav-link {% if label==loop.index0 %}active{% endif %} "href="?job_id={{job.id()}}&page=0&size={{size}}&db={{db}}&label={{loop.index0}}">{{l}}</a></li>
+                {% endfor %}
+            {% endif %}
+            </ul>
+            <ul class="nav nav-pills">
+                <li class="nav-item">Items per page:</li>
+                <li class="nav-item"><a href="?job_id={{job.id()}}&page=0&db={{db}}&size=10&label={{label}}" class="nav-link {% if size==10 %}active{% endif %}">10</a>
+                <li class="nav-item"><a href="?job_id={{job.id()}}&page=0&db={{db}}&size=25&label={{label}}" class="nav-link {% if size==25 %}active{% endif %}">25</a>
+                <li class="nav-item"><a href="?job_id={{job.id()}}&page=0&db={{db}}&size=50&label={{label}}" class="nav-link {% if size==50 %}active{% endif %}">50</a>
+                <li class="nav-item"><a href="?job_id={{job.id()}}&page=0&db={{db}}&size=100&label={{label}}" class="nav-link {% if size==100 %}active{% endif %}">100</a>
+            </ul>
+            </div>
+         </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm-12">
+             <div class="card">
+            <ul class="nav nav-pills">
+            <li class="nav-item {% if page == 0 %}disabled{%endif%}">
+              <a class="nav-link" href="?job_id={{job.id()}}&page={{ page - 1 }}&size={{size}}&db={{db}}&label={{label}}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+            {% if pages[0] != 0 %}
+            <li class="nav-item"><a href="?job_id={{job.id()}}&page=0&size={{size}}&db={{db}}&label={{label}}">0</a></li>
+            <li class="nav-item disabled"><a href="#">...</a></li>
+            {% endif %}
+            {% for p in pages %}
+            <li class="nav-item"><a class="nav-link {% if p == page %}active{% endif %}" href="?job_id={{job.id()}}&page={{ p }}&size={{size}}&db={{db}}&label={{label}}">{{p}}</a></li>
+            {% endfor %}
+            {% if pages[-1] != (total_entries-1)//size %}
+            <li class="nav-item disabled"><a href="#">...</a></li>
+            <li class="nav-item"><a class="nav-link" href="?job_id={{job.id()}}&page={{(total_entries-1)//size}}&size={{size}}&db={{db}}&label={{label}}">{{(total_entries-1)//size}}</a></li>
+            {% endif %}
+            {% if page != (total_entries-1)//size %}<li class="nav-item" >
+              <a class="nav-link" href="?job_id={{job.id()}}&page={{ page + 1 }}&size={{size}}&db={{db}}&label={{label}}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>{%endif %}
+            </ul>
+             </div>
+        </div>
+    </div>
+    <div class="row">
+
+    {% for i in imgs %}
+        <div class="card">
+            <div class="card-header">
+                {% if i.label %}<h5>{{ i.label }}</h5>{% endif %}
+            </div>
+            <div class="card-body">
+                <img src="{{ i.b64 }}" class="img-responsive"/>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+{% endblock %}

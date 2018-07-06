@@ -1,0 +1,199 @@
+<!doctype html>
+<head>
+    <!-- For Internet Explorer -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <link rel="icon" href="{{url_for('static', filename='images/favicon.ico')}}" />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/normalize.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/bootstrap.min.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/font-awesome.min.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/themify-icons.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/flag-icon.min.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/cs-skin-elastic.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/scss/style.css', ver=dir_hash) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mlt/css/lib/vector-map/jqvmap.min.css', ver=dir_hash) }}">
+    <title>{% block title %}DNN System{% endblock %}</title>
+
+    <script type="text/javascript">
+        var URL_PREFIX = "{{config['URL_PREFIX']}}";
+    </script>
+    <script src="{{ url_for('static', filename='js/3rdparty/jquery-1.11.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/bootstrap-3.3.6.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/bootbox-4.3.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/digits.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/d3-3.5.5.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/c3-0.4.10.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/jquery.autocomplete-1.2.21.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/file_field.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/underscore-1.8.3.min.js') }}"></script>
+
+    <script src="{{ url_for('static', filename='js/3rdparty/ace-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.mode-python-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.mode-lua-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.theme-chrome-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='js/3rdparty/ace.ext-searchbox-1.2.3.min.js', ver=dir_hash) }}" type="text/javascript" charset="utf-8"></script>
+
+    <script src="{{ url_for('static', filename='mlt/js/3rdparty/jquery-3.3.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/plugins.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/jquery.vmap.sampledata.js') }}"></script>
+    <script src="{{ url_for('static', filename='mlt/js/lib/vector-map/country/jquery.vmap.world.js') }}"></script>
+    {% block head %}
+    {% endblock %}
+    <!--
+    <style>
+        .navbar-header {
+          background-color: #F8F8F8;
+        }
+    </style>
+    -->
+</head>
+<body>
+    <!-- Left Panel -->
+
+    <aside id="left-panel" class="left-panel">
+        <nav class="navbar navbar-expand-sm navbar-default">
+
+            <div class="navbar-header">
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#main-menu" aria-controls="main-menu" aria-expanded="false" aria-label="Toggle navigation">
+                    <i class="fa fa-bars"></i>
+                </button>
+                <a class="navbar-brand" href="./"><img src="{{url_for('static', filename='images/logo.png')}}" height="80" width="80" alt="Logo"></a>
+            </div>
+            <div id="main-menu" class="main-menu collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li>
+                        <a href="{{url_for('digits.views.home')}}"> <i class="menu-icon fa fa-dashboard"></i>Dashboard </a>
+                    </li>
+                    <h3 class="menu-title"></h3><!-- /.menu-title -->
+                    <li>
+                        <a href="{{ url_for('digits.dataset.views.home') }}"><i class="menu-icon fa fa-magic"></i>Datasets</a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('digits.networks.views.summary') }}"> <i class="menu-icon fa fa-random"></i>Networks</a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('digits.model.views.home') }}"> <i class="menu-icon fa fa-flash"></i>Training</a>
+                    </li>
+                    <li>
+                        <a href="#"> <i class="menu-icon fa fa-wrench"></i>Setting</a>
+                    </li>
+                </ul>
+            </div><!-- /.navbar-collapse -->
+        </nav>
+    </aside><!-- /#left-panel -->
+
+    <!-- Left Panel -->
+
+    <!-- Right Panel -->
+
+    <div id="right-panel" class="right-panel">
+
+        <!-- Header-->
+        <header id="header" class="header">
+
+            <div class="header-menu">
+
+                <div class="col-sm-7">
+                    <a id="menuToggle" class="menutoggle pull-left"><i class="fa fa fa-tasks"></i></a>
+                    <div class="header-left">
+
+                        <div class="dropdown for-notification">
+                          <button class="btn btn-secondary dropdown-toggle" type="button" id="notification" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fa fa-bell"></i>
+                          </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-5">
+                    <div class="language-select dropdown" id="language-select">
+                        <a class="dropdown-toggle" href="#" data-toggle="dropdown"  id="language" aria-haspopup="true" aria-expanded="true">
+                            <i class="flag-icon flag-icon-us"></i>
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="language" >
+                            <div class="dropdown-item">
+                                <i class="flag-icon flag-icon-us"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </header><!-- /header -->
+        <!-- Header-->
+
+        <div class="breadcrumbs">
+            <div class="col-sm-4">
+                <div class="page-header float-left">
+                    <div class="page-title">
+                        <h1>
+                            {% block pagetitle %}
+                            Dashboard
+                            {% endblock %}
+                        </h1>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-8">
+                <div class="page-header float-right">
+                    <div class="page-title">
+                        <ol class="breadcrumb text-right">
+                            <li><a href="#">Dashboard</a></li>
+                            {% block pagelist%}
+                            {% endblock %}
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="content mt-3">
+            <div class="animated fadeIn">
+            {% block content %}
+            {% endblock %}
+            </div>
+        </div>
+
+    </div><!-- /#right-panel -->
+
+    <!-- Right Panel -->
+<script>
+$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+
+$(".explanation-tooltip").tooltip();
+
+window.onload = function () {
+    $('.autocomplete_path').autocomplete({
+       serviceUrl: '/autocomplete/path',
+       formatResult: function (suggestion, currentValue)
+       {
+            function baseName(str)
+            {
+               var base = new String(str).substring(str.lastIndexOf('/') + 1);
+               return base;
+            }
+            return baseName(suggestion.value);
+        },
+        minChars: 0
+    });
+    $(".autocomplete_path").removeAttr("autocomplete");
+};
+
+</script>
+
+<style>
+ .about-menu {
+     width: 240px !important;
+ }
+ .brightness {
+     display: inline-block;
+ }
+ .brightness img:hover {
+     opacity: .75;
+ }
+</style>
+
+</body>

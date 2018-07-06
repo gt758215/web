@@ -10,7 +10,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-#import caffe_pb2
+from digits.tools.tensorflow import caffe_tf_pb2
 import flask
 import PIL.Image
 
@@ -149,6 +149,7 @@ def from_folders(job, form):
                 encoding=encoding,
                 compression=compression,
                 labels_file=job.labels_file,
+                prefix='test',
             )
         )
 
@@ -441,7 +442,7 @@ def show(job, related_jobs=None):
     """
     Called from digits.dataset.views.datasets_show()
     """
-    return flask.render_template('datasets/images/classification/mlt_show.html', job=job, related_jobs=related_jobs)
+    return flask.render_template('mlt/datasets/images/classification/show.html', job=job, related_jobs=related_jobs)
 
 
 def summary(job):
@@ -504,40 +505,40 @@ def explore():
     max_page = min((total_entries - 1) / size, page + 5)
     pages = range(min_page, max_page + 1)
     for key, value in reader.entries():
-        # if count >= page * size:
-        #     datum = caffe_pb2.Datum()
-        #     datum.ParseFromString(value)
-        #     if label is None or datum.label == label:
-        #         if datum.encoded:
-        #             s = StringIO()
-        #             s.write(datum.data)
-        #             s.seek(0)
-        #             img = PIL.Image.open(s)
-        #         else:
-        #             import caffe.io
-        #             arr = caffe.io.datum_to_array(datum)
-        #             # CHW -> HWC
-        #             arr = arr.transpose((1, 2, 0))
-        #             if arr.shape[2] == 1:
-        #                 # HWC -> HW
-        #                 arr = arr[:, :, 0]
-        #             elif arr.shape[2] == 3:
-        #                 # BGR -> RGB
-        #                 # XXX see issue #59
-        #                 arr = arr[:, :, [2, 1, 0]]
-        #             img = PIL.Image.fromarray(arr)
-        #         imgs.append({"label": labels[datum.label], "b64": utils.image.embed_image_html(img)})
+        if count >= page * size:
+            datum = caffe_tf_pb2.Datum()
+            datum.ParseFromString(value)
+            if label is None or datum.label == label:
+                if datum.encoded:
+                    s = StringIO()
+                    s.write(datum.data)
+                    s.seek(0)
+                    img = PIL.Image.open(s)
+                else:
+                    import caffe.io
+                    arr = caffe.io.datum_to_array(datum)
+                    # CHW -> HWC
+                    arr = arr.transpose((1, 2, 0))
+                    if arr.shape[2] == 1:
+                        # HWC -> HW
+                        arr = arr[:, :, 0]
+                    elif arr.shape[2] == 3:
+                        # BGR -> RGB
+                        # XXX see issue #59
+                        arr = arr[:, :, [2, 1, 0]]
+                    img = PIL.Image.fromarray(arr)
+                imgs.append({"label": labels[datum.label], "b64": utils.image.embed_image_html(img)})
         if label is None:
             count += 1
-        # else:
-        #     datum = caffe_pb2.Datum()
-        #     datum.ParseFromString(value)
-        #     if datum.label == int(label):
-        #         count += 1
+        else:
+            datum = caffe_tf_pb2.Datum()
+            datum.ParseFromString(value)
+            if datum.label == int(label):
+                count += 1
         if len(imgs) >= size:
             break
 
     return flask.render_template(
-        'datasets/images/explore.html',
+        'mlt/datasets/images/explore.html',
         page=page, size=size, job=job, imgs=imgs, labels=labels,
         pages=pages, label=label, total_entries=total_entries, db=db)
