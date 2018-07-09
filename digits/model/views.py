@@ -500,12 +500,12 @@ def networks_from_request():
     data = {}
     if network_id == 'resnet32':
         data = {
-            'train_epochs': 10,
+            'train_epochs': 20,
             'batch_size': 32,
             'solver_type': 'SGD',
             'rampup_epoch': 3,
             'weight_decay': 0.0001,
-            'lr_piecewise': '0.1;6;0.01',
+            'lr_piecewise': '0.1;6;0.01;12;0.001',
             'small_chunk': 8192/(nr_tower*32),
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID

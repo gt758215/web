@@ -730,12 +730,13 @@ def get_datasets():
 
 def get_standard_networks():
     return [
-        ('lenet', 'LeNet'),
-        ('alexnet', 'AlexNet'),
-        ('googlenet', 'GoogLeNet'),
-        ('vgg16', 'VGGNet'),
-        ('resnet32', 'ResNet32'),
-        ('resnet50', 'ResNet50'),
+        ('resnet50', 'ResNet50(224x224)'),
+        ('resnet32', 'ResNet32(32x32)'),
+        #('lenet', 'LeNet'),
+        #('alexnet', 'AlexNet'),
+        #('googlenet', 'GoogLeNet'),
+        ('vgg16', 'VGGNet16(224x224)'),
+        ('inception_v4', 'InceptionNetv4(299x299)'),
     ]
 
 

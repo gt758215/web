@@ -15,16 +15,6 @@
 {% endif %}
 </p>
 <dl>
-    <dt>Image Size</dt>
-    <dd>{{dataset.image_dims[1]}}x{{dataset.image_dims[0]}}</dd>
-    <dt>Image Type</dt>
-    <dd>
-    {% if dataset.image_dims[2] == 3 %}
-    COLOR
-    {% else %}
-    GRAYSCALE
-    {% endif %}
-    </dd>
     <dt>DB backend</dt>
     <dd>{{dataset.get_backend()}}</dd>
     {% for task in dataset.create_db_tasks() %}
