@@ -1,5 +1,6 @@
 import os
 import tensorflow as tf
+import multiprocessing
 
 from tensorflow.contrib.data.python.ops import batching
 from tensorflow.contrib.data.python.ops import interleave_ops
@@ -29,13 +30,31 @@ def normalized_image(images):
   # Rescale to [-1, 1]
   return tf.subtract(images, 1.0)
 
+class Dataset(object):
+  def __init__(self, data_dir, labels_list, file_pattern):
+    self.data_dir = data_dir
+    self.labels_list = labels_list
+    self.labels = [line for line in open(self.labels_list) if line.strip()]
+    self.num_classes = len(self.labels)
+    self.total_items = 0
+    self.file_pattern = os.path.join(self.data_dir, file_pattern)
+    if os.path.isfile(os.path.join(self.data_dir, "list.txt")):
+      self.total_items = sum(1 for line in open(os.path.join(self.data_dir, "list.txt")))
+    else:
+      files = tf.gfile.Glob(self.file_pattern)
+      for shard_file in files:
+        record_iter = tf.python_io.tf_record_iterator(shard_file)
+        for r in record_iter:
+          self.total_items += 1
 
 class DataLoader(object):
   def __init__(self,
-    height, width, batch_size, num_splits,
+    height, width,
+    batch_size, num_splits,
     cpu_device,
-    gpu_devices, data_type, subset,
-    train_db, val_db, labels_list):
+    gpu_devices, data_type,
+    subset,
+    dataset):
 
     self.height = height
     self.width = width
@@ -43,41 +62,13 @@ class DataLoader(object):
     self.num_splits = num_splits
     self.gpu_devices = gpu_devices
     self.dtype = data_type
-    self.train_db = train_db
-    self.val_db = val_db
-    self.labels_list = labels_list
-    self.total_train = 0
-    print("height: {}".format(height))
-    print("width: {}".format(width))
-    print("batch_size: {}".format(batch_size))
-    print("gpu_devices: {}".format(gpu_devices))
-    print("train_db: {}".format(train_db))
-    print("val_db: {}".format(val_db))
-    print("labels_list: {}".format(labels_list))
-    if os.path.isfile(os.path.join(self.train_db, "list.txt")):
-      self.total_train = sum(1 for line in open(os.path.join(self.train_db, "list.txt")))
-    else:
-      file_pattern = os.path.join(self.train_db, 'train-*-of-*')
-      files = tf.gfile.Glob(file_pattern)
-      for shard_file in files:
-        record_iter = tf.python_io.tf_record_iterator(shard_file)
-        for r in record_iter:
-          self.total_train += 1
-    print("total_train: {}".format(self.total_train))
-    self.total_val = 0
-    if os.path.isfile(os.path.join(self.val_db, "list.txt")):
-      self.total_val = sum(1 for line in open(os.path.join(self.val_db, "list.txt")))
-    else:
-      file_pattern = os.path.join(self.val_db, 'validation-*-of-*')
-      files = tf.gfile.Glob(file_pattern)
-      for shard_file in files:
-        record_iter = tf.python_io.tf_record_iterator(shard_file)
-        for r in record_iter:
-          self.total_val += 1
-    print("total_val: {}".format(self.total_val))
-    self.labels = [line for line in open(self.labels_list) if line.strip()]
-    self.num_classes = len(self.labels)
-    print("num_classes: {}".format(self.num_classes))
+    # calculate num_threads for data read
+    self.per_gpu_thread_count = 2
+    total_gpu_thread_count = self.per_gpu_thread_count * self.num_splits
+    num_monitoring_threads = 2 * self.num_splits
+    cpu_count = multiprocessing.cpu_count()
+    self.num_private_threads = max(
+        cpu_count - total_gpu_thread_count - num_monitoring_threads, 1)
     self.depth = 3
 
     with tf.device(cpu_device):
@@ -88,13 +79,11 @@ class DataLoader(object):
         batch_size=batch_size,
         num_splits=num_splits,
         preprocess_fn=self.parse_and_preprocess,
-        file_pattern = os.path.join(self.train_db, 'train-*-of-*'),
-        #dataset=dataset,
-        subset=subset,
+        file_pattern = dataset.file_pattern,
         train=(subset=='train'),
         cache_data=False,
-        num_threads=1)
-      for device_num in range(len(gpu_devices)):
+        num_threads=self.num_private_threads)
+      for device_num in range(self.num_splits):
         with tf.device(gpu_devices[device_num]):
           buffer_resource_handle = prefetching_ops.function_buffering_resource(
             f=remote_fn,
@@ -130,22 +119,11 @@ class DataLoader(object):
       function_buffer_resource=function_buffering_resource,
       output_types=[data_type, tf.int32])
 
-  def num_examples_per_epoch(self, subset='train'):
-    if subset == 'train':
-      return self.total_train
-    elif subset == 'validation':
-      return self.total_val
-    else:
-      raise ValueError('Invalid data subset "%s"' % subset)
-
-
 def create_iterator(batch_size,
                     num_splits,
                     batch_size_per_split,
                     preprocess_fn,
-                    #dataset,
                     file_pattern,
-                    subset,
                     train,
                     cache_data,
                     num_threads=None):
@@ -153,7 +131,7 @@ def create_iterator(batch_size,
   file_names = gfile.Glob(file_pattern)
   if not file_names:
     raise ValueError('Found no files in --data_dir matching: {}'
-                     .format(glob_pattern))
+                     .format(file_names))
   ds = tf.data.TFRecordDataset.list_files(file_names)
   ds = ds.apply(
       interleave_ops.parallel_interleave(
@@ -186,12 +164,12 @@ def create_iterator(batch_size,
   return ds_iterator
 
 def minibatch_fn(height, width, batch_size, num_splits, preprocess_fn, file_pattern,
-                 subset, train, cache_data, num_threads):
+                 train, cache_data, num_threads):
   """Returns a function and list of args for the fn to create a minibatch."""
   batch_size_per_split = batch_size // num_splits
   with tf.name_scope('batch_processing'):
     ds_iterator = create_iterator(batch_size, num_splits, batch_size_per_split,
-                                  preprocess_fn, file_pattern, subset, train,
+                                  preprocess_fn, file_pattern, train,
                                   cache_data, num_threads)
     ds_iterator_string_handle = ds_iterator.string_handle()
 

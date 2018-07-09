@@ -95,6 +95,7 @@ class TensorflowTrainTask(TrainTask):
         self.val_file = constants.VAL_DB
         self.snapshot_prefix = TENSORFLOW_SNAPSHOT_PREFIX
         self.log_file = self.TENSORFLOW_LOG
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     def __getstate__(self):
         state = super(TensorflowTrainTask, self).__getstate__()
@@ -544,31 +545,32 @@ class TensorflowTrainTask(TrainTask):
         """
         temp_image_handle, temp_image_path = tempfile.mkstemp(suffix='.tfrecords')
         os.close(temp_image_handle)
-        if image.ndim < 3:
-            image = image[..., np.newaxis]
         writer = tf.python_io.TFRecordWriter(temp_image_path)
 
-        image = image.astype('float')
         record = tf.train.Example(features=tf.train.Features(feature={
             #'height': _int64_feature(image.shape[0]),
             #'width': _int64_feature(image.shape[1]),
             #'depth': _int64_feature(image.shape[2]),
-            'image/encoded': _float_array_feature(image.flatten()),
-            'image/class/label': _int64_feature(0),
-            'encoding': _int64_feature(0)}))
+            #'image/encoded': _float_array_feature(image.flatten()),
+            'image/encoded': _bytes_feature(tf.compat.as_bytes(image)),
+            'image/class/label': _int64_feature(0)}))
         writer.write(record.SerializeToString())
         writer.close()
+        self.logger.info('created tfrecord file to %s' % temp_image_path)
 
         file_to_load = self.get_snapshot(snapshot_epoch)
+        path, filename = os.path.split(temp_image_path)
 
         args = [sys.executable,
-                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'trainer.py'),
-                '--validation_db=%s' % temp_image_path,
+                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'infer.py'),
+                '--data_dir=%s' % path,
+                '--filename=%s' % filename,
                 '--network=%s' % self.model_file,
                 '--networkDirectory=%s' % self.job_dir,
-                '--weights=%s' % file_to_load,
-                '--allPredictions=1',
+                #'--weights=%s' % file_to_load,
+                #'--allPredictions=1',
                 '--batch_size=1',
+                '--train_dir=%s' % self.job_dir,
                 ]
         if hasattr(self.dataset, 'labels_file'):
             args.append('--labels_list=%s' % self.dataset.path(self.dataset.labels_file))
@@ -607,6 +609,7 @@ class TensorflowTrainTask(TrainTask):
             # make only the selected GPU visible
             env['CUDA_VISIBLE_DEVICES'] = subprocess_visible_devices([gpu])
 
+        print("args: %s" % args)
         p = subprocess.Popen(args,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT,

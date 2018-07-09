@@ -9,6 +9,7 @@ import numpy as np
 import PIL.Image
 import os
 import sys
+import tensorflow as tf
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -29,6 +30,32 @@ logger = logging.getLogger('digits.tools.inference')
 Perform inference on a list of images using the specified model
 """
 
+def _process_image(filename):
+    """Process a single image file.
+    Args:
+      filename: string, path to an image file e.g., '/path/to/example.JPG'.
+      coder: TensorFlow image coding utils.
+    Returns:
+      image_buffer: string, JPEG encoding of RGB image.
+      height: integer, image height in pixels.
+      width: integer, image width in pixels.
+    """
+    # Read the image file.
+    with tf.gfile.FastGFile(filename, 'rb') as f:
+        image_data = f.read()
+
+    # Convert any PNG to JPEG's for consistency.
+    image_jpeg = None
+    if _is_png(filename):
+        image_jpeg = coder.png_to_jpeg(image_data)
+    else:
+        image_jpeg = image_data
+    image = coder.decode_jpeg(image_jpeg)
+    # Check that image converted to RGB
+    assert len(image.shape) == 3
+    height = image.shape[0]
+    width = image.shape[1]
+    return image_jpeg, height, width
 
 def infer(input_list,
           output_dir,
@@ -60,20 +87,20 @@ def infer(input_list,
         task.dataset = dataset
 
     # retrieve snapshot file
-    task = model.train_task()
-    snapshot_filename = None
-    epoch = float(epoch)
-    if epoch == -1 and len(task.snapshots):
-        # use last epoch
-        epoch = task.snapshots[-1][1]
-        snapshot_filename = task.snapshots[-1][0]
-    else:
-        for f, e in task.snapshots:
-            if e == epoch:
-                snapshot_filename = f
-                break
-    if not snapshot_filename:
-        raise InferenceError("Unable to find snapshot for epoch=%s" % repr(epoch))
+    #task = model.train_task()
+    #snapshot_filename = None
+    #epoch = float(epoch)
+    #if epoch == -1 and len(task.snapshots):
+    #    # use last epoch
+    #    epoch = task.snapshots[-1][1]
+    #    snapshot_filename = task.snapshots[-1][0]
+    #else:
+    #    for f, e in task.snapshots:
+    #        if e == epoch:
+    #            snapshot_filename = f
+    #            break
+    #if not snapshot_filename:
+    #    raise InferenceError("Unable to find snapshot for epoch=%s" % repr(epoch))
 
     # retrieve image dimensions and resize mode
     image_dims = dataset.get_feature_dims()
@@ -98,6 +125,8 @@ def infer(input_list,
         for idx, path in enumerate(paths):
             path = path.strip()
             try:
+                with tf.gfile.FastGFile(path, 'rb') as f:
+                  image_data = f.read()
                 image = utils.image.load_image(path.strip())
                 if resize:
                     image = utils.image.resize_image(
@@ -124,7 +153,7 @@ def infer(input_list,
     elif n_input_samples == 1:
         # single image inference
         outputs, visualizations = model.train_task().infer_one(
-            input_data[0],
+            image_data,
             snapshot_epoch=epoch,
             layers=layers,
             gpu=gpu,
