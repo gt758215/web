@@ -10,7 +10,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-from digits.tools.tensorflow import caffe_tf_pb2
+from digits.tools.tf import caffe_tf_pb2
 import flask
 import PIL.Image
 
