@@ -134,6 +134,14 @@
 </div>
 {% endmacro %}
 
+{% block page_title %} {{job.name()}} {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li><a href="#"> Datasets </a></li>
+<li class="active"> {{ job.name() }} </li>
+{% endblock %}
+
 {% block job_content %}
 <style>
     .distribution-graph g.c3-axis-x g.tick {

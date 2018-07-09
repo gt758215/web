@@ -13,6 +13,15 @@
 <li class="active"><a href="{{ url_for('digits.views.show_job', job_id=job.id()) }}">{{job.job_type()}}</a></li>
 {% endblock %}
 
+{% block page_title %} {{job.name()}} {% endblock %}
+
+{% block page_list %}
+<li><a href="#"> Dashboard </a></li>
+<li><a href="#"> Datasets </a></li>
+<li><a href="#"> {{ job.name() }} </a></li>
+<li class="active"> {{ db }} </li>
+{% endblock %}
+
 {% block content %}
     <div class="row">
         <div class="col-sm-12">
