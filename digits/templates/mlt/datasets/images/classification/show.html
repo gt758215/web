@@ -13,8 +13,11 @@
         <dd>{{ job.dir() }}</dd>
         </dl>
         <dl>
+            {# TODO: hide Image Dimensions for now , think aobut this meaning.
             <dt>Image Dimensions</dt>
             <dd>{{job.image_dims[1]}}x{{job.image_dims[0]}} (Width x Height)</dd>
+            #}
+
             <dt>Image Type</dt>
             <dd>{{'Color' if job.image_dims[2] == 3 else 'Grayscale'}}</dd>
             <dt>Resize Transformation</dt>
@@ -112,7 +115,7 @@
             <b>Image Mean:</b>
             <img class="mean-image" />
         </div>
-        {% if task.status=='D' and task.mean_file %}
+        {% if task.status=='D' and task.mean_file and False %} {# TODO: we disable image mean show for now #}
             <script>
                 displayMeanImage("{{task.html_id()}}",
                     "{{url_for('digits.views.serve_file', path=task.path('mean.jpg', relative=True))}}");
