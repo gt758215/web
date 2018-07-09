@@ -114,8 +114,17 @@ class BenchmarkCNN(object):
         print('Checkpoint not found in %s' % self.train_dir)
         return
       sess.run(local_var_init_op_group)
-      preds = sess.run(fetches)
-      logging.info('Predictions for image ' + str(1) + ': ' + json.dumps(preds[0].tolist()))
+      rtop_1, rtop_5, rlogits, rprediction, rlabels = sess.run([fetches['top_1_op'], 
+                                          fetches['top_5_op'], 
+                                          fetches['logits'], 
+                                          fetches['prediction'], 
+                                          fetches['labels']])
+      #logging.info('Predictions for image ' + str(1) + ': ' + json.dumps(preds[0].tolist()))
+      logging.info('Predictions for top_1: ' + str(rtop_1))
+      logging.info('Predictions for top_5: ' + str(rtop_5))
+      logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
+      logging.info('Predictions for rprediction: ' + json.dumps(rprediction.tolist()))
+      logging.info('Predictions for rlabels: ' + json.dumps(rlabels.tolist()))
 
   def _build_graph(self):
     tf.set_random_seed(1234)
@@ -135,8 +144,8 @@ class BenchmarkCNN(object):
     with tf.variable_scope(current_scope), tf.name_scope(current_scope):
       results = self._add_forward_pass_and_gradients(
         phase_train=False, device_num=0, dataloader=dataloader, batch_size=self.batch_size)
-    fetches = tf.nn.softmax(results['logits'])
-    return fetches
+    #fetches = tf.nn.softmax(results['logits'])
+    return results
 
   def _add_forward_pass_and_gradients(self,
                                       phase_train,
@@ -166,6 +175,8 @@ class BenchmarkCNN(object):
       results['top_1_op'] = top_1_op
       results['top_5_op'] = top_5_op
       results['logits'] = logits
+      results['prediction'] = tf.argmax(logits, 1)
+      results['labels'] = labels
       return results
 
   def get_init_op_group(self):
