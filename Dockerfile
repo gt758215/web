@@ -21,6 +21,8 @@ RUN git clone -b ${BRANCH} https://github.com/myelintek/web.git /build/ && \
 RUN python -m digits.download_data cifar10 /cifar10 && \
     python -m digits.download_data mnist /mnist
 
+RUN bash download_flowers.sh /flowers
+
 RUN pip install tensorflow-gpu
 
 EXPOSE 2500

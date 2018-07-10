@@ -211,8 +211,8 @@ def visualize_network():
         desc=flask.request.form['custom_network'],
         dataset=dataset,
         solver_type=flask.request.form['solver_type'] if 'solver_type' in flask.request.form else None,
-        use_mean=flask.request.form['use_mean'] if 'use_mean' in flask.request.form else None,
-        crop_size=flask.request.form['crop_size'] if 'crop_size' in flask.request.form else None,
+        use_mean=None,
+        crop_size=None,
         num_gpus=flask.request.form['num_gpus'] if 'num_gpus' in flask.request.form else 1,
     )
     return ret

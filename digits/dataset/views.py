@@ -10,6 +10,7 @@ from digits import dataset, extensions
 from digits.utils.routing import job_from_request, request_wants_json
 from digits.webapp import scheduler
 from digits.views import get_job_list
+from digits.log import logger
 
 blueprint = flask.Blueprint(__name__, __name__)
 
