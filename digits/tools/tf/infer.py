@@ -35,17 +35,28 @@ import sklearn as sk
 from sklearn.metrics import confusion_matrix
 
 class image_prediction:
-  def __init__(self, r_id, top_1, top_5, logits, pred, y_batch):
+  def __init__(self, r_id, top_1, top_1_ids, top_5, top_5_ids, logits, pred, y_batch):
     self.r_id = r_id
     self.top_1 = top_1
+    self.top_1_ids = top_1_ids
     self.top_5 = top_5
+    self.top_5_ids = top_5_ids
     self.logits = logits
     self.pred = pred
     self.y_batch = y_batch
 
   @property
-  def dump_to_json(self):
-    return ""
+  def gen_json_data(self):
+    data = {'id': self.r_id,
+            'top_1': self.top_1,
+            'top_1_ids': self.top_1_ids,
+            'top_5': self.top_5,
+            'top_5_ids': self.top_5_ids,
+            'logits': self.logits,
+            'prediction': self.pred,
+            'y_batch_label': self.y_batch
+            }
+    return data
 
 class image_prediction_dict:
   def __init__(self):
@@ -60,19 +71,40 @@ class image_prediction_dict:
       self.pred_list.append(value.pred)
       self.y_batch_list.append(value.y_batch)
 
+  def gen_json_data(self):
+    data = {'id_list': self.id_list,
+            'prediction_list': self.pred_list,
+            'y_batch_list': self.y_batch_list
+           }
+    return data
+
 class confusion_matrix:
-  def __init__(self, pred_list, y_batch_list, label_list):
+  def __init__(self, img_pred_dict, pred_list, y_batch_list, label_list):
     if len(pred_list) != len(y_batch_list):
       raise Exception('Prediction length is different from Label list!')
-    self.matrix_size = len(pred_list)
-    self.matrix = [[0 for x in range(self.matrix_size)] for y in range(self.matrix_size)]
+    self.img_pred_dict = img_pred_dict
+    self.matrix_size = len(label_list)
+    # this matrix are 3 dimensions(y_batch, pred, id_lists)
+    self.matrix = [[[] for x in range(self.matrix_size)] for y in range(self.matrix_size)]
     self.precision = sk.metrics.precision_score(y_batch_list, pred_list, labels=label_list, average='weighted')
     self.recall = sk.metrics.recall_score(y_batch_list, pred_list, labels=label_list, average='weighted')
     self.f1_score = sk.metrics.f1_score(y_batch_list, pred_list, labels=label_list, average='weighted')
     self.confusion_matrix = sk.metrics.confusion_matrix(y_batch_list, pred_list, labels=label_list)
 
   def calculate_ids_in_confusion_matrix(self):
-    return None
+    for key, value in self.img_pred_dict.iteritems():
+	  # dimension => [y_batch, pred, id_lists]
+	  self.matrix[value.y_batch][value.pred].append(value.r_id)
+
+  def gen_json_data(self):
+    data = {'precision': str(self.precision),
+            'recall': str(self.recall),
+            'f1_score': str(self.f1_score),
+            'confusion_matrix': self.confusion_matrix.tolist(),
+            'confusion_matrix with ids': self.matrix
+           }
+    return data
+
 #################################
 
 
@@ -167,18 +199,54 @@ class BenchmarkCNN(object):
         print('Checkpoint not found in %s' % self.train_dir)
         return
       sess.run(local_var_init_op_group)
-      rtop_1, rtop_5, rlogits, rprediction, rlabels, softmax = sess.run([fetches['top_1_op'], 
-                                          fetches['top_5_op'], 
-                                          fetches['logits'], 
-                                          fetches['prediction'], 
+      rtop_1, rtop_5, rlogits, rprediction, rlabels, softmax = sess.run([fetches['top_1_op'],
+                                          fetches['top_5_op'],
+                                          fetches['logits'],
+                                          fetches['prediction'],
                                           fetches['labels'],
                                           fetches['softmax']])
       logging.info('Predictions for image ' + str(1) + ': ' + json.dumps(softmax.tolist()))
-      logging.info('Predictions for top_1: ' + str(rtop_1))
-      logging.info('Predictions for top_5: ' + str(rtop_5))
-      logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
-      logging.info('Predictions for rprediction: ' + json.dumps(rprediction.tolist()))
-      logging.info('Predictions for rlabels: ' + json.dumps(rlabels.tolist()))
+
+      #data cleaning
+      if self.gen_metrics is True:
+        for i in range(self.batch_size):
+          # prepare individul image prediction
+          tmp_img_pred = image_prediction(i, #id
+          rtop_1[0][i], #top_1
+          rtop_1[1][i], #top_1_ids
+          rtop_5[0][i], #top_5
+          rtop_5[1][i], #top_5_ids
+          rlogits[i], #logits
+          rprediction[i], #prediction
+          rlabels[i]) #y_batch
+          # add image prediction to dict for generating total prediction and y_batch list
+          self.image_prediction_dict.img_pred_dict[i] = tmp_img_pred
+
+        self.image_prediction_dict.convert_to_list()
+        logging.info("id_list:" + str(self.image_prediction_dict.id_list))
+        logging.info("pred_list:" + str(self.image_prediction_dict.pred_list))
+        logging.info("y_batch_list:" + str(self.image_prediction_dict.y_batch_list))
+
+        #confusion_matrix
+        self.confusion_matrix = confusion_matrix(self.image_prediction_dict.img_pred_dict,
+                                                 self.image_prediction_dict.pred_list, 
+                                                 self.image_prediction_dict.y_batch_list,
+                                                 range(len(self.labels)))
+        self.confusion_matrix.calculate_ids_in_confusion_matrix()
+
+        logging.info('Predictions for top_1: ' + str(rtop_1))
+        logging.info('Predictions for top_5: ' + str(rtop_5))
+        logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
+        logging.info('Predictions for rprediction: ' + json.dumps(rprediction.tolist()))
+        logging.info('Predictions for rlabels: ' + json.dumps(rlabels.tolist()))
+
+        #logging.info('matrix_size:' + str(self.confusion_matrix.matrix_size))
+        #logging.info('precision:' + str(self.confusion_matrix.precision))
+        #logging.info('recall:' + str(self.confusion_matrix.recall))
+        #logging.info('f1_score:' + str(self.confusion_matrix.f1_score))
+        #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
+        #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
+        logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
 
   def _build_graph(self):
     tf.set_random_seed(1234)
@@ -222,9 +290,7 @@ class BenchmarkCNN(object):
           images, phase_train, nclass, 3, self.data_type,
           self.data_format)
       results = {}  # The return value
-
       top_1_op = tf.nn.top_k(logits, 1)
-
       top_5_op = tf.nn.top_k(logits, 5)
       results['top_1_op'] = top_1_op
       results['top_5_op'] = top_5_op
@@ -265,7 +331,7 @@ def tensorflow_version_tuple():
   v = tf.__version__
   major, minor, patch = v.split('.')
   return (int(major), int(minor), patch)
- 
+
 def main(_):
   bench = BenchmarkCNN()
   tfversion = tensorflow_version_tuple()
@@ -274,3 +340,4 @@ def main(_):
 
 if __name__ == '__main__':
   tf.app.run()
+
