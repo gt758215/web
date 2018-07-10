@@ -114,12 +114,13 @@ class BenchmarkCNN(object):
         print('Checkpoint not found in %s' % self.train_dir)
         return
       sess.run(local_var_init_op_group)
-      rtop_1, rtop_5, rlogits, rprediction, rlabels = sess.run([fetches['top_1_op'], 
+      rtop_1, rtop_5, rlogits, rprediction, rlabels, softmax = sess.run([fetches['top_1_op'], 
                                           fetches['top_5_op'], 
                                           fetches['logits'], 
                                           fetches['prediction'], 
-                                          fetches['labels']])
-      #logging.info('Predictions for image ' + str(1) + ': ' + json.dumps(preds[0].tolist()))
+                                          fetches['labels'],
+                                          fetches['softmax']])
+      logging.info('Predictions for image ' + str(1) + ': ' + json.dumps(softmax.tolist()))
       logging.info('Predictions for top_1: ' + str(rtop_1))
       logging.info('Predictions for top_5: ' + str(rtop_5))
       logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
@@ -177,6 +178,7 @@ class BenchmarkCNN(object):
       results['logits'] = logits
       results['prediction'] = tf.argmax(logits, 1)
       results['labels'] = labels
+      results['softmax'] = tf.nn.softmax(logits)
       return results
 
   def get_init_op_group(self):
