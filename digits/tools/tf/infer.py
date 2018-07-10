@@ -24,9 +24,56 @@ flags.DEFINE_integer('batch_size', 1, 'batch size per compute device')
 flags.DEFINE_string('labels_list', None,'labels_list')
 flags.DEFINE_string('device', 'gpu', 'device [gpu | cpu]')
 flags.DEFINE_string('train_dir', None, 'train_dir')
+flags.DEFINE_bool('gen_metrics', False, 'generate confusion matrix and related info')
 flags.DEFINE_enum('data_format', 'NCHW', ('NHWC', 'NCHW'),
                   'Data layout to use: NHWC (TF native) or NCHW (cuDNN '
                   'native, requires GPU).')
+
+
+######### data cleaning #########
+import sklearn as sk
+from sklearn.metrics import confusion_matrix
+
+class image_prediction:
+  def __init__(self, r_id, top_1, top_5, logits, pred, y_batch):
+    self.r_id = r_id
+    self.top_1 = top_1
+    self.top_5 = top_5
+    self.logits = logits
+    self.pred = pred
+    self.y_batch = y_batch
+
+  @property
+  def dump_to_json(self):
+    return ""
+
+class image_prediction_dict:
+  def __init__(self):
+    self.img_pred_dict = {}
+    self.id_list = []
+    self.pred_list = []
+    self.y_batch_list = []
+
+  def convert_to_list(self):
+    for key, value in self.img_pred_dict.iteritems():
+      self.id_list.append(key)
+      self.pred_list.append(value.pred)
+      self.y_batch_list.append(value.y_batch)
+
+class confusion_matrix:
+  def __init__(self, pred_list, y_batch_list, label_list):
+    if len(pred_list) != len(y_batch_list):
+      raise Exception('Prediction length is different from Label list!')
+    self.matrix_size = len(pred_list)
+    self.matrix = [[0 for x in range(self.matrix_size)] for y in range(self.matrix_size)]
+    self.precision = sk.metrics.precision_score(y_batch_list, pred_list, labels=label_list, average='weighted')
+    self.recall = sk.metrics.recall_score(y_batch_list, pred_list, labels=label_list, average='weighted')
+    self.f1_score = sk.metrics.f1_score(y_batch_list, pred_list, labels=label_list, average='weighted')
+    self.confusion_matrix = sk.metrics.confusion_matrix(y_batch_list, pred_list, labels=label_list)
+
+  def calculate_ids_in_confusion_matrix(self):
+    return None
+#################################
 
 
 def savable_variables():
@@ -94,6 +141,12 @@ class BenchmarkCNN(object):
     self.data_type = tf.float32
     self.data_format = FLAGS.data_format
     self.train_dir = FLAGS.train_dir
+    self.gen_metrics = FLAGS.gen_metrics
+
+    #data cleaning
+    if self.gen_metrics is True:
+      self.image_prediction_dict = image_prediction_dict()
+
 
   def run(self):
     with tf.Graph().as_default():
@@ -169,10 +222,10 @@ class BenchmarkCNN(object):
           images, phase_train, nclass, 3, self.data_type,
           self.data_format)
       results = {}  # The return value
-      top_1_op = tf.reduce_sum(
-          tf.cast(tf.nn.in_top_k(logits, labels, 1), self.data_type))
-      top_5_op = tf.reduce_sum(
-          tf.cast(tf.nn.in_top_k(logits, labels, 5), self.data_type))
+
+      top_1_op = tf.nn.top_k(logits, 1)
+
+      top_5_op = tf.nn.top_k(logits, 5)
       results['top_1_op'] = top_1_op
       results['top_5_op'] = top_5_op
       results['logits'] = logits
