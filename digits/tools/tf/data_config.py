@@ -70,6 +70,94 @@ class DataLoader(object):
     self.num_private_threads = max(
         cpu_count - total_gpu_thread_count - num_monitoring_threads, 1)
     self.depth = 3
+    file_pattern = dataset.file_pattern
+    self.batch_size_per_split = self.batch_size // self.num_splits
+    self.ds_iterator = []
+    with tf.device(cpu_device):
+      with tf.name_scope('batch_processing'):
+        file_names = gfile.Glob(file_pattern)
+        if not file_names:
+          raise ValueError('Found no files in --data_dir matching: {}'
+                     .format(file_names))
+        ds = tf.data.TFRecordDataset.list_files(file_names)
+        ds = ds.apply(tf.contrib.data.parallel_interleave(
+            tf.data.TFRecordDataset, cycle_length=10))
+        if (subset=='train'):
+          ds = ds.shuffle(buffer_size=10000)
+        ds = ds.repeat()
+        ds = ds.apply(
+          tf.contrib.data.map_and_batch(
+            map_func=self.parse_and_preprocess,
+            batch_size=self.batch_size_per_split,
+            num_parallel_batches=self.num_splits))
+        ds = ds.prefetch(buffer_size=batch_size)
+        ds = threadpool.override_threadpool(
+            ds,
+            threadpool.PrivateThreadPool(
+                self.num_private_threads,
+                display_name='input_pipeline_thread_pool'))
+        ds_iterator = ds.make_initializable_iterator()
+        tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS,
+                             ds_iterator.initializer)
+        self.ds_iterator = ds_iterator
+      #for device_num in range(self.num_splits):
+      #  with tf.device(gpu_devices[device_num]):
+      #    iterator = ds.make_initializable_iterator()
+      #    tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS,
+      #                         iterator.initializer)
+      #    self.ds_iterator.append(iterator)
+
+  def get_images_and_labels(self, device_num, data_type):
+    images, labels = self.ds_iterator.get_next()
+    #images, labels = self.ds_iterator[device_num].get_next()
+    labels = tf.reshape(labels, [self.batch_size_per_split])
+    images = tf.reshape(
+      images, shape=[self.batch_size_per_split, self.height, self.width, self.depth])
+    return images, labels
+
+  def parse_and_preprocess(self, value):
+    image_buffer, label_index = parse_example_proto(value)
+    image = self.preprocess(image_buffer)
+    return (image, label_index)
+
+  def preprocess(self, image_buffer):
+    """Preprocessing image_buffer as a function of its batch position."""
+    with tf.name_scope('distort_image'):
+      image = tf.image.decode_jpeg(image_buffer, channels=3,
+                                   dct_method='INTEGER_FAST')
+      distorted_image = tf.image.random_flip_left_right(image)
+      distorted_image = tf.image.resize_images(
+        distorted_image, [self.height, self.width],
+        tf.image.ResizeMethod.BILINEAR,
+        align_corners=False)
+      distorted_image.set_shape([self.height, self.width, 3])
+      normalized = normalized_image(distorted_image)
+    return tf.cast(normalized, self.dtype)
+
+
+class DataLoader2(object):
+  def __init__(self,
+    height, width,
+    batch_size, num_splits,
+    cpu_device,
+    gpu_devices, data_type,
+    subset,
+    dataset):
+
+    self.height = height
+    self.width = width
+    self.batch_size = batch_size
+    self.num_splits = num_splits
+    self.gpu_devices = gpu_devices
+    self.dtype = data_type
+    # calculate num_threads for data read
+    self.per_gpu_thread_count = 2
+    total_gpu_thread_count = self.per_gpu_thread_count * self.num_splits
+    num_monitoring_threads = 2 * self.num_splits
+    cpu_count = multiprocessing.cpu_count()
+    self.num_private_threads = max(
+        cpu_count - total_gpu_thread_count - num_monitoring_threads, 1)
+    self.depth = 3
 
     with tf.device(cpu_device):
       self.function_buffering_resources = []

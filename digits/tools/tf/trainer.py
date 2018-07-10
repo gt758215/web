@@ -356,12 +356,12 @@ class BenchmarkCNN(object):
     # build network per tower
     with tf.device(self.raw_devices[device_num]):
       images, labels = dataloader.get_images_and_labels(device_num, self.data_type)
-      images = tf.reshape(
-          images,
-          shape=[
-              batch_size, image_size, image_size,
-              3
-          ])
+      #images = tf.reshape(
+      #    images,
+      #    shape=[
+      #        batch_size, image_size, image_size,
+      #        3
+      #    ])
       logits, aux_logits = self.model.build_network(
           images, phase_train, nclass, 3, self.data_type,
           self.data_format)
