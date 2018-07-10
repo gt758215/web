@@ -562,7 +562,7 @@ class TensorflowTrainTask(TrainTask):
         path, filename = os.path.split(temp_image_path)
 
         args = [sys.executable,
-                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'infer.py'),
+                os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'infer_one.py'),
                 '--data_dir=%s' % path,
                 '--filename=%s' % filename,
                 '--network=%s' % self.model_file,
