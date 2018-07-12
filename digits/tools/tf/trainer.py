@@ -104,6 +104,7 @@ flags.DEFINE_float('num_learning_rate_warmup_epochs', 0,
                    'Slowly increase to the initial learning rate in the first '
                    'num_learning_rate_warmup_epochs linearly.')
 flags.DEFINE_boolean('eval', False, 'whether use eval or benchmarking')
+flags.DEFINE_integer('small_chunk', 1, 'number of times to accumulate gradents')
 
 
 class CheckpointNotFoundException(Exception):
@@ -229,6 +230,27 @@ def load_checkpoint(saver, sess, ckpt_dir):
   else:
     raise CheckpointNotFoundException('No checkpoint file found.')
 
+#all_model_checkpoint_paths
+def load_all_checkpoints(saver, sess, ckpt_dir):
+  ckpt = tf.train.get_checkpoint_state(ckpt_dir)
+  if ckpt and ckpt.model_checkpoint_path:
+    all_model_checkpoint_paths = ckpt.all_model_checkpoint_paths
+    return all_model_checkpoint_paths
+    # Assuming model_checkpoint_path looks something like:
+    #   /my-favorite-path/imagenet_train/model.ckpt-0,
+    # extract global_step from it.
+    global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+    if not global_step.isdigit():
+      global_step = 0
+    else:
+      global_step = int(global_step)
+    saver.restore(sess, model_checkpoint_path)
+    print('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
+    return global_step
+  else:
+    raise CheckpointNotFoundException('No checkpoint file found.')
+
+
 def strip_data_from_graph_def(graph_def):
     strip_def = tf.GraphDef()
     for n0 in graph_def.node:
@@ -326,6 +348,8 @@ class BenchmarkCNN(object):
       display = self.train_batches // self.num_epochs // 10
       if display == 0:
         display = 1
+      if display > 100:
+        display = 100
       logging.info("adjust display_every: %d" % display)
       self.display_every = display
 
@@ -353,15 +377,11 @@ class BenchmarkCNN(object):
     """Add ops for forward-pass and gradient computations."""
     nclass = self.train_dataset.num_classes
     image_size = self.model.get_image_size()
+    zero_ops = None
+    accum_ops = None
     # build network per tower
     with tf.device(self.raw_devices[device_num]):
       images, labels = dataloader.get_images_and_labels(device_num, self.data_type)
-      #images = tf.reshape(
-      #    images,
-      #    shape=[
-      #        batch_size, image_size, image_size,
-      #        3
-      #    ])
       logits, aux_logits = self.model.build_network(
           images, phase_train, nclass, 3, self.data_type,
           self.data_format)
@@ -386,10 +406,22 @@ class BenchmarkCNN(object):
           total_loss += len(self.raw_devices) * weight_decay * l2_loss
       grads = tf.gradients(total_loss, params,
           aggregation_method=tf.AggregationMethod.DEFAULT)
+      #print("grads: {}".format(grads))
       param_refs = trainable_variables_on_device(device_num)
-      gradvars = list(zip(grads, param_refs))
+      #if FLAGS.small_chunk > 1:
+      if False:
+        # accumulate gradients
+        accum_grads = [tf.Variable(tf.zeros_like(tv.initialized_value()),
+                                 trainable=False) for tv in params]
+        zero_ops = [tv.assign(tf.zeros_like(tv)) for tv in accum_grads]
+        accum_ops = [accum_grads[i].assign_add(tf.divide(gv, FLAGS.small_chunk)) for i, gv in enumerate(grads)]
+        gradvars = list(zip(accum_grads, param_refs))
+      else:
+        gradvars = list(zip(grads, param_refs))
       results['loss'] = total_loss
       results['gradvars'] = gradvars
+      results['zero_ops'] = zero_ops
+      results['accum_ops'] = accum_ops
       return results
 
   def allreduce_algorithm(self):
@@ -432,12 +464,15 @@ class BenchmarkCNN(object):
                      phase_train):
     """Complete construction of model graph, populating the fetches map."""
     fetches = {}
+    fetches_forward = {}
     if all_top_1_ops:
       fetches['top_1_accuracy'] = tf.reduce_sum(all_top_1_ops) / self.batch_size
+      fetches_forward['top_1_accuracy'] = fetches['top_1_accuracy']
       if FLAGS.summary_verbosity >= 1:
         tf.summary.scalar('top_1_accuracy', fetches['top_1_accuracy'])
     if all_top_5_ops:
       fetches['top_5_accuracy'] = tf.reduce_sum(all_top_5_ops) / self.batch_size
+      fetches_forward['top_5_accuracy'] = fetches['top_5_accuracy']
       if FLAGS.summary_verbosity >= 1:
         tf.summary.scalar('top_5_accuracy', fetches['top_5_accuracy'])
     # validation
@@ -481,16 +516,23 @@ class BenchmarkCNN(object):
               tf.summary.histogram(var.op.name + '/gradients', grad)
           for var in tf.trainable_variables():
             tf.summary.histogram(var.op.name, var)
-    fetches['learning_rate'] = learning_rate
     fetches['train_op'] = train_op
     fetches['average_loss'] = average_loss
-    return fetches
+    fetches['learning_rate'] = learning_rate
+    fetches_forward['average_loss'] = average_loss
+    fetches_forward['learning_rate'] = learning_rate
+    fetches_forward['device_grads'] = device_grads
+    return fetches, fetches_forward
 
   GraphInfo = namedtuple(  # pylint: disable=invalid-name
       'GraphInfo',
       [
           # Fetches of sess.run()
           'fetches',
+          'fetches_forward',
+          #'assign_ops',
+          'accum_ops',
+          'zero_ops',
           # The global step variable
           'global_step',
       ])
@@ -507,6 +549,9 @@ class BenchmarkCNN(object):
     all_logits = []
     all_top_1_ops = []
     all_top_5_ops = []
+    zero_ops = []
+    accum_ops = []
+    #assign_ops = []
     # get global step
     with tf.device(self.cpu_device):
       global_step = tf.train.get_or_create_global_step()
@@ -529,11 +574,19 @@ class BenchmarkCNN(object):
           device_grads.append(results['gradvars'])
           all_top_1_ops.append(results['top_1_op'])
           all_top_5_ops.append(results['top_5_op'])
+          if results['zero_ops']:
+            zero_ops.append(results['zero_ops'])
+          if results['accum_ops']:
+            accum_ops.append(results['accum_ops'])
+          #assign_ops.append(results['assign_ops'])
           if device_num == 0:
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, current_scope)
-      fetches = self._build_fetches(global_step, all_logits, losses, device_grads,
+      fetches, fetches_forward = self._build_fetches(global_step, all_logits,
+                                  losses, device_grads,
                                   update_ops, all_top_1_ops,
                                   all_top_5_ops, phase_train)
+      #fetches['zero_ops'] = zero_ops
+      #fetches['accum_ops'] = accum_ops
     else:
       dataloader = data_config.DataLoader(
         self.model.get_image_size(), self.model.get_image_size(),
@@ -568,9 +621,19 @@ class BenchmarkCNN(object):
     with tf.device(self.cpu_device):
       with tf.control_dependencies([main_fetch_group]):
         fetches['inc_global_step'] = global_step.assign_add(1)
+    # forward only
+    fetches_forward_list = nest.flatten(list(fetches_forward.values()))
+    main_fetch_forward_group = tf.group(*fetches_forward_list)
+    with tf.device(self.cpu_device):
+      with tf.control_dependencies([main_fetch_forward_group]):
+        fetches_forward['inc_global_step'] = global_step.assign_add(1)
     # return GraphInfo
     return BenchmarkCNN.GraphInfo(
         fetches=fetches,
+        fetches_forward=fetches_forward,
+        #assign_ops=assign_ops,
+        accum_ops=accum_ops,
+        zero_ops=zero_ops,
         global_step=global_step)
 
   def benchmark_one_step(self,
@@ -579,13 +642,24 @@ class BenchmarkCNN(object):
                          step,
                          batch_size,
                          step_train_times,
-                         summary_op):
+                         summary_op,
+                         accum_ops=None,
+                         zero_ops=None):
     summary_str = None
     start_time = time.time()
-    if summary_op is None:
-      results = sess.run(fetches)
+    if zero_ops and accum_ops:
+      # clean grads and accumulate grads
+      _, _, results = sess.run([zero_ops, accum_ops,
+                               fetches])
+    elif accum_ops:
+      # accumulate grads
+      _, results = sess.run([accum_ops,
+                             fetches])
     else:
-      (results, summary_str) = sess.run([fetches, summary_op])
+      if summary_op is None:
+        results = sess.run(fetches)
+      else:
+        (results, summary_str) = sess.run([fetches, summary_op])
     lossval = results['average_loss']
     train_time = time.time() - start_time
     step_train_times.append(train_time)
@@ -658,6 +732,9 @@ class BenchmarkCNN(object):
       local_step = -10
       end_local_step = self.train_batches - self.init_global_step
       loop_start_time = time.time()
+      zero_ops = graph_info.zero_ops
+      accum_ops = graph_info.accum_ops
+      #assign_ops = graph_info.assign_ops
       while local_step < end_local_step:
         if local_step == 0:
           print('Done warm up')
@@ -671,24 +748,47 @@ class BenchmarkCNN(object):
           fetch_summary = summary_op
         else:
           fetch_summary = None
-        summary_str = self.benchmark_one_step(
-            sess, graph_info.fetches, local_step,
-            self.batch_size, step_train_times, fetch_summary)
+        #if FLAGS.small_chunk <= 1:
+        if True:
+          summary_str = self.benchmark_one_step(
+              sess, graph_info.fetches, local_step,
+              self.batch_size, step_train_times, fetch_summary)
+        else:
+          if local_step % FLAGS.small_chunk == 0:
+            summary_str = self.benchmark_one_step(
+                sess, graph_info.fetches_forward, local_step,
+                self.batch_size, step_train_times, fetch_summary,
+                accum_ops, zero_ops)
+          elif (local_step+1) % FLAGS.small_chunk == 0:
+            summary_str = self.benchmark_one_step(
+                sess, graph_info.fetches, local_step,
+                self.batch_size, step_train_times, fetch_summary,
+                accum_ops)
+          else:
+            summary_str = self.benchmark_one_step(
+                sess, graph_info.fetches_forward, local_step,
+                self.batch_size, step_train_times, fetch_summary,
+                accum_ops)
         if summary_str is not None:
           sv.summary_computed(sess, summary_str)
         local_step += 1
         #validation per epoch end
         num_batches_per_epoch = (float(self.train_dataset.total_items) // self.batch_size)
-        if val_fetches and local_step % num_batches_per_epoch == 0:
-          self.eval_one_epoch(sess, local_step, val_fetches)
+        #if val_fetches and local_step % num_batches_per_epoch == 0:
+        #  self.eval_one_epoch(sess, local_step, val_fetches)
+        if self.train_dir and local_step > 0 and local_step % num_batches_per_epoch == 0:
+          checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
+          if not gfile.Exists(self.train_dir):
+            gfile.MakeDirs(self.train_dir)
+          sv.saver.save(sess, checkpoint_path, graph_info.global_step)
       # loop End
       loop_end_time = time.time()
       elapsed_time = loop_end_time - loop_start_time
       images_per_sec = (local_step * self.batch_size /
                         elapsed_time)
-      print('-' * 64)
-      print('total images/sec: %.2f' % images_per_sec)
-      print('-' * 64)
+      #print('-' * 64)
+      #print('total images/sec: %.2f' % images_per_sec)
+      #print('-' * 64)
       # Save the model checkpoint.
       if self.train_dir is not None:
         checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
@@ -702,6 +802,7 @@ class BenchmarkCNN(object):
             f.write(sess.graph_def.SerializeToString())
             logging.info('Saved graph to %s', filename_graph)
     sv.stop()
+    return local_step
 
   def _eval_cnn(self):
     fetches = self._build_graph(phase_train=False)
@@ -714,24 +815,33 @@ class BenchmarkCNN(object):
     with tf.Session(
         config=create_config_proto()) as sess:
       try:
-        global_step = load_checkpoint(saver, sess, self.train_dir)
+        #global_step = load_checkpoint(saver, sess, self.train_dir)
+        checkpoint_paths = load_all_checkpoints(saver, sess, self.train_dir)
       except CheckpointNotFoundException:
         print('Checkpoint not found in %s' % self.train_dir)
         return
       sess.run(local_var_init_op_group)
-      local_step = 0
-      top_1_accuracy_sum = 0.0
-      top_5_accuracy_sum = 0.0
-      total_eval_count = self.val_batches * self.batch_size
-      while local_step < self.val_batches:
-        results = sess.run(fetches)
-        top_1_accuracy_sum += results['top_1_accuracy']
-        top_5_accuracy_sum += results['top_5_accuracy']
-        local_step += 1
-      accuracy_at_1 = top_1_accuracy_sum / int(self.val_batches)
-      accuracy_at_5 = top_5_accuracy_sum / int(self.val_batches)
-      print('Accuracy @ 1 = %.4f Accuracy @ 5 = %.4f [%d examples]' %
-             (accuracy_at_1, accuracy_at_5, total_eval_count))
+      for checkpoint in checkpoint_paths:
+        global_step = checkpoint.split('/')[-1].split('-')[-1]
+        global_step = int(global_step)
+        saver.restore(sess, checkpoint)
+        local_step = 0
+        top_1_accuracy_sum = 0.0
+        top_5_accuracy_sum = 0.0
+        total_eval_count = self.val_batches * self.batch_size
+        while local_step < self.val_batches:
+          results = sess.run(fetches)
+          top_1_accuracy_sum += results['top_1_accuracy']
+          top_5_accuracy_sum += results['top_5_accuracy']
+          local_step += 1
+        accuracy_at_1 = top_1_accuracy_sum / int(self.val_batches)
+        accuracy_at_5 = top_5_accuracy_sum / int(self.val_batches)
+        num_batches_per_epoch = (float(self.train_dataset.total_items) / self.batch_size)
+        logging.info('Validation (epoch %.*f): accuracy = %.4f, top5_accuracy = %.4f' %
+                   (2, float(global_step - 10)/num_batches_per_epoch,
+                    accuracy_at_1, accuracy_at_5))
+      #print('Accuracy @ 1 = %.4f Accuracy @ 5 = %.4f [%d examples]' %
+      #       (accuracy_at_1, accuracy_at_5, total_eval_count))
 
   def run(self):
     if FLAGS.eval:
@@ -743,11 +853,20 @@ class BenchmarkCNN(object):
       #with tf.name_scope('train'):
     train_result = self._build_graph()
       #with tf.name_scope('val'):
-    val_fetches = self._build_graph(phase_train=False)
+    #val_fetches = self._build_graph(phase_train=False)
+    val_fetches = None
     local_var_init_op_group = self.get_init_op_group()
     #with graph.as_default():
-    self._benchmark_graph(train_result, val_fetches,
+    step = self._benchmark_graph(train_result, val_fetches,
                           local_var_init_op_group)
+    with tf.Graph().as_default():
+      self._eval_cnn()
+    #saver = tf.train.Saver(savable_variables(), save_relative_paths=True)
+    #local_var_init_op_group = self.get_init_op_group()
+    #with tf.Session(config=create_config_proto()) as sess:
+    #  global_step = load_checkpoint(saver, sess, self.train_dir)
+    #  sess.run(local_var_init_op_group)
+    #  self.eval_one_epoch(sess, step, val_fetches)
 
   def get_init_op_group(self):
     local_var_init_op = tf.local_variables_initializer()
@@ -762,7 +881,8 @@ class BenchmarkCNN(object):
 
   def get_post_init_ops(self):
     # Copy initialized values for variables on GPU 0 to other GPUs.
-    global_vars = tf.global_variables()
+    global_vars = tf.trainable_variables()
+    #global_vars = tf.global_variables()
     var_by_name = dict([(v.name, v) for v in global_vars])
     post_init_ops = []
     for v in global_vars:
