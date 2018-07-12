@@ -19,4 +19,5 @@ scikit-fmm
 scikit-image
 python-magic
 boto
+sklearn
 #tensorflow-gpu # install tensorflow on MacOSX

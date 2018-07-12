@@ -97,13 +97,17 @@ class confusion_matrix:
 	  self.matrix[value.y_batch][value.pred].append(value.r_id)
 
   def gen_json_data(self):
-    data = {'precision': str(self.precision),
+    data = {'precision': str(self.precision.tolist()),
             'recall': str(self.recall),
             'f1_score': str(self.f1_score),
             'confusion_matrix': self.confusion_matrix.tolist(),
             'confusion_matrix with ids': self.matrix
            }
     return data
+
+  def dump_data_to_file(self, path):
+    with open(os.path.join(path, 'confusion_matrix.json'), 'w') as outfile:
+      json.dump(self.gen_json_data(), outfile, sort_keys=True, indent=4)
 
 #################################
 
@@ -247,6 +251,7 @@ class BenchmarkCNN(object):
         #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
         #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
         logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
+        self.confusion_matrix.dump_data_to_file(self.networkDirectory)
 
   def _build_graph(self):
     tf.set_random_seed(1234)
