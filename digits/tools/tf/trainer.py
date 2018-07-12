@@ -230,6 +230,27 @@ def load_checkpoint(saver, sess, ckpt_dir):
   else:
     raise CheckpointNotFoundException('No checkpoint file found.')
 
+#all_model_checkpoint_paths
+def load_all_checkpoints(saver, sess, ckpt_dir):
+  ckpt = tf.train.get_checkpoint_state(ckpt_dir)
+  if ckpt and ckpt.model_checkpoint_path:
+    all_model_checkpoint_paths = ckpt.all_model_checkpoint_paths
+    return all_model_checkpoint_paths
+    # Assuming model_checkpoint_path looks something like:
+    #   /my-favorite-path/imagenet_train/model.ckpt-0,
+    # extract global_step from it.
+    global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+    if not global_step.isdigit():
+      global_step = 0
+    else:
+      global_step = int(global_step)
+    saver.restore(sess, model_checkpoint_path)
+    print('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
+    return global_step
+  else:
+    raise CheckpointNotFoundException('No checkpoint file found.')
+
+
 def strip_data_from_graph_def(graph_def):
     strip_def = tf.GraphDef()
     for n0 in graph_def.node:
@@ -753,16 +774,21 @@ class BenchmarkCNN(object):
         local_step += 1
         #validation per epoch end
         num_batches_per_epoch = (float(self.train_dataset.total_items) // self.batch_size)
-        if val_fetches and local_step % num_batches_per_epoch == 0:
-          self.eval_one_epoch(sess, local_step, val_fetches)
+        #if val_fetches and local_step % num_batches_per_epoch == 0:
+        #  self.eval_one_epoch(sess, local_step, val_fetches)
+        if self.train_dir and local_step > 0 and local_step % num_batches_per_epoch == 0:
+          checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
+          if not gfile.Exists(self.train_dir):
+            gfile.MakeDirs(self.train_dir)
+          sv.saver.save(sess, checkpoint_path, graph_info.global_step)
       # loop End
       loop_end_time = time.time()
       elapsed_time = loop_end_time - loop_start_time
       images_per_sec = (local_step * self.batch_size /
                         elapsed_time)
-      print('-' * 64)
-      print('total images/sec: %.2f' % images_per_sec)
-      print('-' * 64)
+      #print('-' * 64)
+      #print('total images/sec: %.2f' % images_per_sec)
+      #print('-' * 64)
       # Save the model checkpoint.
       if self.train_dir is not None:
         checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
@@ -776,6 +802,7 @@ class BenchmarkCNN(object):
             f.write(sess.graph_def.SerializeToString())
             logging.info('Saved graph to %s', filename_graph)
     sv.stop()
+    return local_step
 
   def _eval_cnn(self):
     fetches = self._build_graph(phase_train=False)
@@ -788,24 +815,33 @@ class BenchmarkCNN(object):
     with tf.Session(
         config=create_config_proto()) as sess:
       try:
-        global_step = load_checkpoint(saver, sess, self.train_dir)
+        #global_step = load_checkpoint(saver, sess, self.train_dir)
+        checkpoint_paths = load_all_checkpoints(saver, sess, self.train_dir)
       except CheckpointNotFoundException:
         print('Checkpoint not found in %s' % self.train_dir)
         return
       sess.run(local_var_init_op_group)
-      local_step = 0
-      top_1_accuracy_sum = 0.0
-      top_5_accuracy_sum = 0.0
-      total_eval_count = self.val_batches * self.batch_size
-      while local_step < self.val_batches:
-        results = sess.run(fetches)
-        top_1_accuracy_sum += results['top_1_accuracy']
-        top_5_accuracy_sum += results['top_5_accuracy']
-        local_step += 1
-      accuracy_at_1 = top_1_accuracy_sum / int(self.val_batches)
-      accuracy_at_5 = top_5_accuracy_sum / int(self.val_batches)
-      print('Accuracy @ 1 = %.4f Accuracy @ 5 = %.4f [%d examples]' %
-             (accuracy_at_1, accuracy_at_5, total_eval_count))
+      for checkpoint in checkpoint_paths:
+        global_step = checkpoint.split('/')[-1].split('-')[-1]
+        global_step = int(global_step)
+        saver.restore(sess, checkpoint)
+        local_step = 0
+        top_1_accuracy_sum = 0.0
+        top_5_accuracy_sum = 0.0
+        total_eval_count = self.val_batches * self.batch_size
+        while local_step < self.val_batches:
+          results = sess.run(fetches)
+          top_1_accuracy_sum += results['top_1_accuracy']
+          top_5_accuracy_sum += results['top_5_accuracy']
+          local_step += 1
+        accuracy_at_1 = top_1_accuracy_sum / int(self.val_batches)
+        accuracy_at_5 = top_5_accuracy_sum / int(self.val_batches)
+        num_batches_per_epoch = (float(self.train_dataset.total_items) / self.batch_size)
+        logging.info('Validation (epoch %.*f): accuracy = %.4f, top5_accuracy = %.4f' %
+                   (2, float(global_step - 10)/num_batches_per_epoch,
+                    accuracy_at_1, accuracy_at_5))
+      #print('Accuracy @ 1 = %.4f Accuracy @ 5 = %.4f [%d examples]' %
+      #       (accuracy_at_1, accuracy_at_5, total_eval_count))
 
   def run(self):
     if FLAGS.eval:
@@ -821,8 +857,16 @@ class BenchmarkCNN(object):
     val_fetches = None
     local_var_init_op_group = self.get_init_op_group()
     #with graph.as_default():
-    self._benchmark_graph(train_result, val_fetches,
+    step = self._benchmark_graph(train_result, val_fetches,
                           local_var_init_op_group)
+    with tf.Graph().as_default():
+      self._eval_cnn()
+    #saver = tf.train.Saver(savable_variables(), save_relative_paths=True)
+    #local_var_init_op_group = self.get_init_op_group()
+    #with tf.Session(config=create_config_proto()) as sess:
+    #  global_step = load_checkpoint(saver, sess, self.train_dir)
+    #  sess.run(local_var_init_op_group)
+    #  self.eval_one_epoch(sess, step, val_fetches)
 
   def get_init_op_group(self):
     local_var_init_op = tf.local_variables_initializer()
