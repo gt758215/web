@@ -23,7 +23,7 @@ class TFRecordReader(DataReader):
         Arguments:
         location -- where is the database
         """
-        tf_file_path = '%s/train-*' % location
+        tf_file_path = ['%s/train-*' % location, '%s/validation-*' % location]
         self.tf_shard_files = tf.gfile.Glob(tf_file_path)
         self.total_entries = 0
         for shard_path in self.tf_shard_files:
