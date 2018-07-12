@@ -513,13 +513,13 @@ def networks_from_request():
     elif network_id == 'resnet50':
         data = {
             'train_epochs': 30,
-            'batch_size': 32,
+            'batch_size': 64,
             'solver_type': 'SGD',
             'rampup_lr': 0.1,
             'rampup_epoch': 3,
             'weight_decay': 0.0001,
             'lr_piecewise': '0.1;10;0.01;20;0.001',
-            'small_chunk': 8192/(nr_tower*32),
+            'small_chunk': 8192/(nr_tower*64),
             'select_gpu_count': nr_tower,
             'model_name': network_id + "-" + UID
         }

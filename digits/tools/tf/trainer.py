@@ -327,6 +327,8 @@ class BenchmarkCNN(object):
       display = self.train_batches // self.num_epochs // 10
       if display == 0:
         display = 1
+      if display > 100:
+        display = 100
       logging.info("adjust display_every: %d" % display)
       self.display_every = display
 
@@ -385,7 +387,8 @@ class BenchmarkCNN(object):
           aggregation_method=tf.AggregationMethod.DEFAULT)
       #print("grads: {}".format(grads))
       param_refs = trainable_variables_on_device(device_num)
-      if FLAGS.small_chunk > 1:
+      #if FLAGS.small_chunk > 1:
+      if False:
         # accumulate gradients
         accum_grads = [tf.Variable(tf.zeros_like(tv.initialized_value()),
                                  trainable=False) for tv in params]
@@ -724,7 +727,8 @@ class BenchmarkCNN(object):
           fetch_summary = summary_op
         else:
           fetch_summary = None
-        if FLAGS.small_chunk <= 1:
+        #if FLAGS.small_chunk <= 1:
+        if True:
           summary_str = self.benchmark_one_step(
               sess, graph_info.fetches, local_step,
               self.batch_size, step_train_times, fetch_summary)
@@ -813,7 +817,8 @@ class BenchmarkCNN(object):
       #with tf.name_scope('train'):
     train_result = self._build_graph()
       #with tf.name_scope('val'):
-    val_fetches = self._build_graph(phase_train=False)
+    #val_fetches = self._build_graph(phase_train=False)
+    val_fetches = None
     local_var_init_op_group = self.get_init_op_group()
     #with graph.as_default():
     self._benchmark_graph(train_result, val_fetches,
