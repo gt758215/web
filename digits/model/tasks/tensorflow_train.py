@@ -185,7 +185,7 @@ class TensorflowTrainTask(TrainTask):
                 '--snapshotInterval=%s' % self.snapshot_interval,
                 '--piecewise_learning_rate_schedule=%s' % self.learning_rate,
                 '--allow_growth=True',
-                '--num_gpus=%d' % self.gpu_count
+                '--num_gpus=%d' % (self.gpu_count if self.gpu_count else len(self.selected_gpus))
                 ]
         # python trainer.py --networkDirectory=/network --save=/trainer_logs --batch_size=32 --labels_list=//data/20180703-025306-ced5/labels.txt --train_db=/data/20180703-025306-ced5/train_db --validation_db=/data/20180703-025306-ced5/val_db --optimizor=sgd --piecewise_learning_rate_schedule='0.1;10;0.1' --num_gpus=2 --epoch=10
 

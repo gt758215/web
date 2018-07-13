@@ -80,8 +80,10 @@ class DataLoader(object):
           raise ValueError('Found no files in --data_dir matching: {}'
                      .format(file_names))
         ds = tf.data.TFRecordDataset.list_files(file_names)
-        ds = ds.apply(tf.contrib.data.parallel_interleave(
-            tf.data.TFRecordDataset, cycle_length=10))
+        ds = ds.apply(
+            tf.contrib.data.parallel_interleave(
+                tf.data.TFRecordDataset, cycle_length=10))
+        ds = ds.prefetch(buffer_size=batch_size)
         if (subset=='train'):
           ds = ds.shuffle(buffer_size=10000)
         ds = ds.repeat()
@@ -90,7 +92,7 @@ class DataLoader(object):
             map_func=self.parse_and_preprocess,
             batch_size=self.batch_size_per_split,
             num_parallel_batches=self.num_splits))
-        ds = ds.prefetch(buffer_size=batch_size)
+        ds = ds.prefetch(buffer_size=num_splits)
         ds = threadpool.override_threadpool(
             ds,
             threadpool.PrivateThreadPool(
