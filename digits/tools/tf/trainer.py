@@ -131,8 +131,8 @@ def create_config_proto():
   config.allow_soft_placement = True
   config.intra_op_parallelism_threads = FLAGS.num_intra_threads
   config.inter_op_parallelism_threads = FLAGS.num_inter_threads
-  print("intra_threads: {}".format(FLAGS.num_intra_threads))
-  print("inter_threads: {}".format(FLAGS.num_inter_threads))
+  logging.info("intra_threads: {}".format(FLAGS.num_intra_threads))
+  logging.info("inter_threads: {}".format(FLAGS.num_inter_threads))
   config.gpu_options.force_gpu_compatible = FLAGS.force_gpu_compatible
   if FLAGS.allow_growth is not None:
     config.gpu_options.allow_growth = FLAGS.allow_growth
@@ -225,7 +225,7 @@ def load_checkpoint(saver, sess, ckpt_dir):
     else:
       global_step = int(global_step)
     saver.restore(sess, model_checkpoint_path)
-    print('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
+    logging.info('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
     return global_step
   else:
     raise CheckpointNotFoundException('No checkpoint file found.')
@@ -245,7 +245,7 @@ def load_all_checkpoints(saver, sess, ckpt_dir):
     else:
       global_step = int(global_step)
     saver.restore(sess, model_checkpoint_path)
-    print('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
+    logging.info('Successfully loaded model from %s.' % ckpt.model_checkpoint_path)
     return global_step
   else:
     raise CheckpointNotFoundException('No checkpoint file found.')
@@ -355,19 +355,19 @@ class BenchmarkCNN(object):
 
   def print_info(self):
     """Print basic information."""
-    print('Batch size:  %s global' % (self.batch_size))
-    print('             %s per device' % (self.batch_size /
+    logging.info('Batch size:  %s global' % (self.batch_size))
+    logging.info('             %s per device' % (self.batch_size /
                                            len(self.raw_devices)))
-    print('Num train batches: %d' % self.train_batches)
-    print('Num val batches: %d' % self.val_batches)
-    print('Num epochs:  %.2f' % self.num_epochs)
-    print('Devices:     %s' % self.raw_devices)
-    print('Data format: %s' % self.data_format)
-    print('Layout optimizer: %s' % FLAGS.enable_layout_optimizer)
-    print('Optimizer:   %s' % FLAGS.optimizer)
-    print('Variables:   %s' % self.variable_update)
-    print('Lr:   %s' % FLAGS.piecewise_learning_rate_schedule)
-    print('==========')
+    logging.info('Num train batches: %d' % self.train_batches)
+    logging.info('Num val batches: %d' % self.val_batches)
+    logging.info('Num epochs:  %.2f' % self.num_epochs)
+    logging.info('Devices:     %s' % self.raw_devices)
+    logging.info('Data format: %s' % self.data_format)
+    logging.info('Layout optimizer: %s' % FLAGS.enable_layout_optimizer)
+    logging.info('Optimizer:   %s' % FLAGS.optimizer)
+    logging.info('Variables:   %s' % self.variable_update)
+    logging.info('Lr:   %s' % FLAGS.piecewise_learning_rate_schedule)
+    logging.info('==========')
 
   def add_forward_pass_and_gradients(self,
                                       phase_train,
@@ -541,9 +541,9 @@ class BenchmarkCNN(object):
     tf.set_random_seed(1234)
     np.random.seed(4321)
     if phase_train:
-      print('Generating train model')
+      logging.info('Generating train model')
     else:
-      print('Generating validation model')
+      logging.info('Generating validation model')
     losses = []
     device_grads = []
     all_logits = []
@@ -727,8 +727,8 @@ class BenchmarkCNN(object):
         visualize_graph(sess.graph_def, FLAGS.visualizeModelPath)
         exit(0)
       self.init_global_step, = sess.run([graph_info.global_step])
-      print('Running warm up')
-      print('init_global_step: {}'.format(self.init_global_step))
+      logging.info('Running warm up')
+      logging.info('init_global_step: {}'.format(self.init_global_step))
       local_step = -10
       end_local_step = self.train_batches - self.init_global_step
       loop_start_time = time.time()
@@ -737,7 +737,7 @@ class BenchmarkCNN(object):
       #assign_ops = graph_info.assign_ops
       while local_step < end_local_step:
         if local_step == 0:
-          print('Done warm up')
+          logging.info('Done warm up')
           #header_str = ('Step\ttotal_loss')
           #header_str += '\ttop_1_accuracy\ttop_5_accuracy'
           #print(header_str)
@@ -774,13 +774,13 @@ class BenchmarkCNN(object):
         local_step += 1
         #validation per epoch end
         num_batches_per_epoch = (float(self.train_dataset.total_items) // self.batch_size)
-        #if val_fetches and local_step % num_batches_per_epoch == 0:
-        #  self.eval_one_epoch(sess, local_step, val_fetches)
-        if self.train_dir and local_step > 0 and local_step % num_batches_per_epoch == 0:
-          checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
-          if not gfile.Exists(self.train_dir):
-            gfile.MakeDirs(self.train_dir)
-          sv.saver.save(sess, checkpoint_path, graph_info.global_step)
+        if val_fetches and local_step % num_batches_per_epoch == 0:
+          self.eval_one_epoch(sess, local_step, val_fetches)
+        #if self.train_dir and local_step > 0 and local_step % num_batches_per_epoch == 0:
+        #  checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
+        #  if not gfile.Exists(self.train_dir):
+        #    gfile.MakeDirs(self.train_dir)
+        #  sv.saver.save(sess, checkpoint_path, graph_info.global_step)
       # loop End
       loop_end_time = time.time()
       elapsed_time = loop_end_time - loop_start_time
@@ -818,7 +818,7 @@ class BenchmarkCNN(object):
         #global_step = load_checkpoint(saver, sess, self.train_dir)
         checkpoint_paths = load_all_checkpoints(saver, sess, self.train_dir)
       except CheckpointNotFoundException:
-        print('Checkpoint not found in %s' % self.train_dir)
+        logging.warning('Checkpoint not found in %s' % self.train_dir)
         return
       sess.run(local_var_init_op_group)
       for checkpoint in checkpoint_paths:
@@ -853,14 +853,14 @@ class BenchmarkCNN(object):
       #with tf.name_scope('train'):
     train_result = self._build_graph()
       #with tf.name_scope('val'):
-    #val_fetches = self._build_graph(phase_train=False)
-    val_fetches = None
+    val_fetches = self._build_graph(phase_train=False)
+    #val_fetches = None
     local_var_init_op_group = self.get_init_op_group()
     #with graph.as_default():
     step = self._benchmark_graph(train_result, val_fetches,
                           local_var_init_op_group)
-    with tf.Graph().as_default():
-      self._eval_cnn()
+    #with tf.Graph().as_default():
+    #  self._eval_cnn()
     #saver = tf.train.Saver(savable_variables(), save_relative_paths=True)
     #local_var_init_op_group = self.get_init_op_group()
     #with tf.Session(config=create_config_proto()) as sess:
@@ -897,14 +897,19 @@ class BenchmarkCNN(object):
     return post_init_ops
 
   def setup(self):
-    os.environ['TF_USE_CUDNN_BATCHNORM_SPATIAL_PERSISTENT'] = '1'
+    # NOTE TF set it to 0 by default, because:
+    # this mode may use scaled atomic integer reduction that may cause a numerical
+    # overflow for certain input data range.
+    # os.environ['TF_USE_CUDNN_BATCHNORM_SPATIAL_PERSISTENT'] = '1'
     os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
     os.environ['TF_SYNC_ON_FINISH'] = '0'
-    os.environ['TF_GPU_THREAD_MODE'] = 'gpu_shared'
+    # 'gpu_shared' on benchmark, 'gpu_private' on tensorpack
+    os.environ['TF_GPU_THREAD_MODE'] = 'gpu_private'
     total_gpu_thread_count = 2 * self.num_gpus
     os.environ['TF_GPU_THREAD_COUNT'] = str(total_gpu_thread_count)
-    cpu_count = multiprocessing.cpu_count()
-    FLAGS.num_inter_threads = max(cpu_count - total_gpu_thread_count, 1)
+    #cpu_count = multiprocessing.cpu_count()
+    #FLAGS.num_inter_threads = max(cpu_count - total_gpu_thread_count, 1)
+    os.environ['TF_AUTOTUNE_THRESHOLD'] = '2'   # use more warm-up
 
 def tensorflow_version_tuple():
   v = tf.__version__
