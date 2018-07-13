@@ -10,19 +10,15 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-from digits.tools.tf import caffe_tf_pb2
 import flask
-import PIL.Image
 
 from .forms import ImageClassificationDatasetForm
 from .job import ImageClassificationDatasetJob
 from digits import utils
 from digits.dataset import tasks
 from digits.utils.forms import fill_form_if_cloned, save_form_to_job
-from digits.utils.lmdbreader import DbReader
 from digits.utils.routing import request_wants_json, job_from_request
 from digits.webapp import scheduler
-
 
 blueprint = flask.Blueprint(__name__, __name__)
 
@@ -471,8 +467,8 @@ def explore():
         raise ValueError('No create_db task for {0}'.format(db))
     if task.status != 'D':
         raise ValueError("This create_db task's status should be 'D' but is '{0}'".format(task.status))
-    if task.backend != 'lmdb':
-        raise ValueError("Backend is {0} while expected backend is lmdb".format(task.backend))
+    if task.backend not in  ['lmdb', 'tfrecords']:
+        raise ValueError("Backend is {0} while expected backend is lmdb or tfrecords".format(task.backend))
     db_path = job.path(task.db_name)
     labels = task.get_labels()
 
@@ -486,7 +482,13 @@ def explore():
         except ValueError:
             label = None
 
-    reader = DbReader(db_path)
+    if task.backend == 'lmdb':
+        from digits.utils.lmdbreader import DbReader
+        reader = DbReader(db_path)
+    elif task.backend == 'tfrecords':
+        from digits.utils.tfrecordreader import TFRecordReader
+        reader = TFRecordReader(db_path)
+
     count = 0
     imgs = []
 
@@ -504,36 +506,21 @@ def explore():
 
     max_page = min((total_entries - 1) / size, page + 5)
     pages = range(min_page, max_page + 1)
-    for key, value in reader.entries():
+
+    # item.label
+    # item.img
+
+    for item in reader.parsed_entries():
         if count >= page * size:
-            datum = caffe_tf_pb2.Datum()
-            datum.ParseFromString(value)
-            if label is None or datum.label == label:
-                if datum.encoded:
-                    s = StringIO()
-                    s.write(datum.data)
-                    s.seek(0)
-                    img = PIL.Image.open(s)
-                else:
-                    import caffe.io
-                    arr = caffe.io.datum_to_array(datum)
-                    # CHW -> HWC
-                    arr = arr.transpose((1, 2, 0))
-                    if arr.shape[2] == 1:
-                        # HWC -> HW
-                        arr = arr[:, :, 0]
-                    elif arr.shape[2] == 3:
-                        # BGR -> RGB
-                        # XXX see issue #59
-                        arr = arr[:, :, [2, 1, 0]]
-                    img = PIL.Image.fromarray(arr)
-                imgs.append({"label": labels[datum.label], "b64": utils.image.embed_image_html(img)})
+            if label is None or item["label"] == label:
+                imgs.append({
+                    "label": labels[item["label"]],
+                    "b64": utils.image.embed_image_html(item["img"])
+                })
         if label is None:
             count += 1
         else:
-            datum = caffe_tf_pb2.Datum()
-            datum.ParseFromString(value)
-            if datum.label == int(label):
+            if item["label"] == int(label):
                 count += 1
         if len(imgs) >= size:
             break
