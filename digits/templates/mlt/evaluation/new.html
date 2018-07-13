@@ -1,0 +1,61 @@
+{# Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved. #}
+
+{% from "helper.html" import print_flashes %}
+{% from "helper.html" import print_errors %}
+{% from "helper.html" import mark_errors %}
+
+{% extends "mlt/layout.html" %}
+
+{% block title %}
+New Evaluation
+{% endblock %}
+
+{% block nav %}
+<li class="active"><a href="{{url_for('digits.evaluations.views.new')}}">New Evaluations</a></li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>New Evaluation</h1>
+</div>
+
+<script>
+function syncAceEditor(){
+    // Syncs (copies) the ace editor's contents to the custom_network flask container
+    $("textarea#custom_network").val(editor.getValue());
+}
+</script>
+
+<form onsubmit="syncAceEditor();" id="model-form" action="{{url_for('digits.evaluation.views.create')}}" enctype="multipart/form-data" method="post">
+    {{ form.hidden_tag() }}
+
+    {{ print_errors(form) }}
+
+    <div class="row">
+        <div class="col-sm-4">
+            <div class="well">
+                <h4>Solver Options</h4>
+                <div class="form-group{{mark_errors([form.selected_model])}}" id="model-data" >
+                    <label for={{form.selected_model.name}}>
+                        {{form.selected_model.label}}
+                        {{form.selected_model}}
+                        {{form.selected_model.tooltip}}
+                    </label>
+
+
+                </div>
+
+                <div class="form-group{{mark_errors([form.selected_dataset])}}">
+                    <label for={{form.selected_dataset.name}}>
+                    {{form.selected_dataset.label}}
+                    {{form.selected_dataset}}
+                    {{form.selected_dataset.tooltip}}
+                     </label>
+                </div>
+                <input type="submit" name="create-model" class="btn btn-primary" value="Create">
+            </div>
+
+        </div>
+    </div>
+
+{% endblock %}

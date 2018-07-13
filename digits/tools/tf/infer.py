@@ -20,6 +20,7 @@ flags.DEFINE_string('data_dir', None,'data_dir')
 flags.DEFINE_string('filename', None,'filename')
 flags.DEFINE_string('network', None,'network')
 flags.DEFINE_string('networkDirectory', None,'networkDirectory')
+flags.DEFINE_string('result_dir', None,'result_dir')
 flags.DEFINE_integer('batch_size', 1, 'batch size per compute device')
 flags.DEFINE_string('labels_list', None,'labels_list')
 flags.DEFINE_string('device', 'gpu', 'device [gpu | cpu]')
@@ -32,6 +33,7 @@ flags.DEFINE_enum('data_format', 'NCHW', ('NHWC', 'NCHW'),
 
 ######### data cleaning #########
 import sklearn as sk
+
 from sklearn.metrics import confusion_matrix
 
 class image_prediction:
@@ -161,6 +163,7 @@ class BenchmarkCNN(object):
     self.filename = FLAGS.filename
     self.network = FLAGS.network
     self.networkDirectory = FLAGS.networkDirectory
+    self.result_dir = FLAGS.result_dir
     self.batch_size = FLAGS.batch_size
     self.labels_list = FLAGS.labels_list
     self.labels = [line for line in open(self.labels_list) if line.strip()]
@@ -251,7 +254,7 @@ class BenchmarkCNN(object):
         #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
         #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
         logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
-        self.confusion_matrix.dump_data_to_file(self.networkDirectory)
+        self.confusion_matrix.dump_data_to_file(self.result_dir)
 
   def _build_graph(self):
     tf.set_random_seed(1234)

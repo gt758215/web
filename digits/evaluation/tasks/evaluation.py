@@ -21,19 +21,40 @@ class EvaluationTask(Task):
     A task for inference jobs
     """
 
-    def __init__(self, model, dataset, dataset_dbs, epoch=None, **kwargs):
+    def __init__(self, model, dataset, dataset_db, batch_size=100, epoch=None, **kwargs):
         """
         Arguments:
         model  -- trained model to perform inference on
         images -- list of images to perform inference on, or path to a database
         """
+        self.EVALUATION_RESULT_FILENAME = 'confusion_matrix.json'
         # memorize parameters
         self.model = model
-        self.dataset = dataset
-        self.dataset_dbs = dataset_dbs
         self.epoch = epoch
 
 
+        # infr.py parameters
+        if  'test' in dataset_db.to_lower():
+            self.data_dir = dataset.train_db_task().path('test')
+            self.filename_pattern = "test-*"
+        elif 'train' in dataset_db.to_lower():
+            self.data_dir = dataset.train_db_task().path('train')
+            self.filename_pattern = "train-*"
+        elif 'val' in dataset_db.to_lower():
+            self.data_dir = dataset.train_db_task().path('val')
+            self.filename_pattern = "validation-*"
+
+        self.network = "network.py"
+        self.networkDirectory = model.dir()
+        self.batch_size = batch_size
+        self.label_list = '%s/lables.txt' % model.dir()
+        self.result_dir = self.job_dir
+        self.device = None
+        self.train_dir = model.dir()
+        self.gen_metrics = True
+        self.data_format = None
+
+        # process log
         self.evaluation_log_file = "evaluation.log"
         self.evaluation_log = None
 
@@ -100,64 +121,8 @@ class EvaluationTask(Task):
     def after_run(self):
         super(EvaluationTask, self).after_run()
 
-        # retrieve inference data
-        visualizations = []
-        outputs = OrderedDict()
-        if self.inference_data_filename is not None:
-            # the HDF5 database contains:
-            # - input images, in a dataset "/inputs"
-            # - all network outputs, in a group "/outputs/"
-            # - layer activations and weights, if requested, in a group "/layers/"
-            db = h5py.File(self.inference_data_filename, 'r')
-
-            # collect paths and data
-            input_ids = db['input_ids'][...]
-            input_data = db['input_data'][...]
-
-            # collect outputs
-            o = []
-            for output_key, output_data in db['outputs'].items():
-                output_name = base64.urlsafe_b64decode(str(output_key))
-                o.append({'id': output_data.attrs['id'], 'name': output_name, 'data': output_data[...]})
-            # sort outputs by ID
-            o = sorted(o, key=lambda x: x['id'])
-            # retain only data (using name as key)
-            for output in o:
-                outputs[output['name']] = output['data']
-
-            # collect layer data, if applicable
-            if 'layers' in db.keys():
-                for layer_id, layer in db['layers'].items():
-                    visualization = {
-                        'id': int(layer_id),
-                        'name': layer.attrs['name'],
-                        'vis_type': layer.attrs['vis_type'],
-                        'data_stats': {
-                            'shape': layer.attrs['shape'],
-                            'mean': layer.attrs['mean'],
-                            'stddev': layer.attrs['stddev'],
-                            'histogram': [
-                                layer.attrs['histogram_y'].tolist(),
-                                layer.attrs['histogram_x'].tolist(),
-                                layer.attrs['histogram_ticks'].tolist(),
-                            ]
-                        }
-                    }
-                    if 'param_count' in layer.attrs:
-                        visualization['param_count'] = layer.attrs['param_count']
-                    if 'layer_type' in layer.attrs:
-                        visualization['layer_type'] = layer.attrs['layer_type']
-                    vis = layer[...]
-                    if vis.shape[0] > 0:
-                        visualization['image_html'] = embed_image_html(vis)
-                    visualizations.append(visualization)
-                # sort by layer ID (as HDF5 ASCII sorts)
-                visualizations = sorted(visualizations, key=lambda x: x['id'])
-            db.close()
-            # save inference data for further use
-            self.inference_inputs = {'ids': input_ids, 'data': input_data}
-            self.inference_outputs = outputs
-            self.inference_layers = visualizations
+        confusion_matrix_filepath = '%s/%s' %(self.result_dir, self.EVALUATION_RESULT_FILENAME)
+        self.evaluation_log.write("Confusion Matrix generated %s" % confusion_matrix_filepath )
         self.evaluation_log.close()
 
     @override
@@ -198,10 +163,40 @@ class EvaluationTask(Task):
         if self.gpu is not None:
             args.append('--gpu=%d' % self.gpu)
 
-        if self.image_list_path is None:
-            args.append('--db')
+        if self.data_dir is not None:
+            args.append('--data_dir=%s' % self.data_dir)
 
-        if not self.resize:
-            args.append('--no-resize')
+        if self.filename_pattern is not None:
+            args.append('--filename=%s' % self.filename_pattern)
+
+        if self.network is not None:
+            args.append('--network=%s' % self.network)
+
+        if self.networkDirectory is not None:
+            args.append('--networkDirectory=%s' % self.networkDirectory)
+
+        if self.result_dir is not None:
+            args.append('--result_dir=%s' % self.result_dir)
+
+        if self.batch_size is not None:
+            args.append('--batch_size=%s' % self.batch_size)
+
+        if self.labels_list is not None:
+            args.append('--labels_list=%s' % self.labels_list)
+
+        if self.device is not None:
+            args.append('--device=%s' % self.device)
+
+        if self.train_dir is not None:
+            args.append('--train_dir=%s' % self.train_dir)
+
+        if self.gen_metrics is not None:
+            args.append('--gen_metrics=%s' % self.gen_metrics)
+
+        if self.gen_metrics is not None:
+            args.append('--gen_metrics=%s' % self.gen_metrics)
+
+
+
 
         return args

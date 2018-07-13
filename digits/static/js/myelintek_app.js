@@ -22,6 +22,17 @@ try {
         };
     });
 
+    app.controller('evaluations_controller', function($scope, $controller){
+        $controller('job_controller', {$scope: $scope});
+        $scope.title = 'Evaluations';
+        $scope.fields = [{name: 'Name', show: true, min_width: 100},
+            {name: 'Model', show: true, min_width: 100},
+            {name: 'Dataset', show: true, min_width: 100},
+            {name: 'Status', show: true, min_width: 100},
+            {name: 'Elapsed', show: true, min_width: 100},
+            {name: 'Submitted', show: true, min_width: 100},
+        ];
+    });
     app.controller("ds_controller", function($scope, $controller) {
         $scope.title = 'Datasets';
         $scope.fields = [{name: 'Name', show: true, min_width: 150},
@@ -70,6 +81,9 @@ try {
 
         $scope.is_model = function(job) {
             return (job.type == 'model');
+        };
+        $scope.is_evaluation = function(job) {
+            return (job.type == 'evaluation');
         };
     });
 

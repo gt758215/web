@@ -86,7 +86,9 @@ app.register_blueprint(digits.store.views.blueprint,
 import digits.networks.views
 app.register_blueprint(digits.networks.views.blueprint,
                        url_prefix=url_prefix+'/networks')
-
+import digits.evaluation.views
+app.register_blueprint(digits.evaluation.views.blueprint,
+                       url_prefix=url_prefix+'/evaluations')
 
 def username_decorator(f):
     from functools import wraps
