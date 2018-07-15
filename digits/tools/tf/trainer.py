@@ -711,7 +711,7 @@ class BenchmarkCNN(object):
       self.init_global_step, = sess.run([graph_info.global_step])
       logging.info('Running warm up')
       logging.info('init_global_step: {}'.format(self.init_global_step))
-      local_step = -10
+      local_step = 0
       end_local_step = self.train_batches - self.init_global_step
       loop_start_time = time.time()
       while local_step < end_local_step:
@@ -731,7 +731,7 @@ class BenchmarkCNN(object):
               self.batch_size, step_train_times, fetch_summary)
         else:
           # last step of small chunk, do backward
-          if (graph_info.global_step+1) % FLAGS.small_chunk == 0:
+          if (local_step+1) % FLAGS.small_chunk == 0:
             summary_str = self.benchmark_one_step(
                 sess, graph_info.fetches, local_step,
                 self.batch_size, step_train_times, fetch_summary)
