@@ -159,9 +159,6 @@ class EvaluationTask(Task):
 
         args = [sys.executable,
                 os.path.join(os.path.dirname(os.path.abspath(digits.__file__)), 'tools', 'tf', 'infer.py'),
-                self.image_list_path if self.image_list_path is not None else self.images,
-                self.job_dir,
-                self.model.id(),
                 '--jobs_dir=%s' % digits.config.config_value('jobs_dir'),
                 ]
 
