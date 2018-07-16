@@ -62,7 +62,7 @@ class EvaluationJob(Job):
     def __setstate__(self, state):
         super(EvaluationJob, self).__setstate__(state)
 
-    def load_datset(self):
+    def load_dataset(self):
         from digits.webapp import scheduler
         job = scheduler.get_job(self.dataset)
         assert job is not None, 'Cannot find dataset'
