@@ -42,10 +42,11 @@ class EvaluationJob(Job):
 
     @override
     def __getstate__(self):
-        fields_to_save = ['_id', '_name', 'dataset', 'model', 'tasks']
+
         full_state = super(EvaluationJob, self).__getstate__()
         state_to_save = {}
-        for field in fields_to_save:
+
+        for field in full_state:
             if field in ['dataset', 'model']:
                 id = full_state[field].id()
                 del full_state[field]
