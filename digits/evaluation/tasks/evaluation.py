@@ -35,20 +35,20 @@ class EvaluationTask(Task):
         # infer.py parameters
         if dataset_db is None:
             # default use training set
-            self.data_dir = dataset.train_db_task().path('train')
+            self.data_dir = dataset.train_db_task().path('train_db')
             self.filename_pattern = "train-*"
         elif 'test' in dataset_db.to_lower():
-            self.data_dir = dataset.train_db_task().path('test')
+            self.data_dir = dataset.train_db_task().path('test_db')
             self.filename_pattern = "test-*"
         elif 'train' in dataset_db.to_lower():
-            self.data_dir = dataset.train_db_task().path('train')
+            self.data_dir = dataset.train_db_task().path('train_db')
             self.filename_pattern = "train-*"
         elif 'val' in dataset_db.to_lower():
-            self.data_dir = dataset.train_db_task().path('val')
+            self.data_dir = dataset.train_db_task().path('val_db')
             self.filename_pattern = "validation-*"
         else:
             # default use training set
-            self.data_dir = dataset.train_db_task().path('train')
+            self.data_dir = dataset.train_db_task().path('train_db')
             self.filename_pattern = "train-*"
 
         self.network = "network.py"
