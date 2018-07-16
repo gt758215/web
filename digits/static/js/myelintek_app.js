@@ -123,7 +123,7 @@ try {
                         '        {[ job.model.name ]}' +
                         '    </a>'),
         };
-    });;
+    });
     app.directive('datasetName', function () {
         return {
             restrict: 'AE',
@@ -133,7 +133,7 @@ try {
                         '        {[ job.dataset.name ]}' +
                         '    </a>'),
         };
-    });;
+    });
 
     // Because jinja uses {{ and }}, tell angular to use {[ and ]}
     app.config(['$interpolateProvider', function($interpolateProvider) {

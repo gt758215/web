@@ -129,7 +129,7 @@ class EvaluationTask(Task):
     def after_run(self):
         super(EvaluationTask, self).after_run()
 
-        confusion_matrix_filepath = '%s/%s' %(self.result_dir, self.EVALUATION_RESULT_FILENAME)
+        confusion_matrix_filepath = '%s/%s' %(self.job_dir, self.EVALUATION_RESULT_FILENAME)
         self.evaluation_log.write("Confusion Matrix generated %s" % confusion_matrix_filepath )
         self.evaluation_log.close()
 
