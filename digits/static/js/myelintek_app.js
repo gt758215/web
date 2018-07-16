@@ -32,6 +32,7 @@ try {
             {name: 'Elapsed', show: true, min_width: 100},
             {name: 'Submitted', show: true, min_width: 100},
         ];
+
     });
     app.controller("ds_controller", function($scope, $controller) {
         $scope.title = 'Datasets';
@@ -82,6 +83,7 @@ try {
         $scope.is_model = function(job) {
             return (job.type == 'model');
         };
+
         $scope.is_evaluation = function(job) {
             return (job.type == 'evaluation');
         };

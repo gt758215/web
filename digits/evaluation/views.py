@@ -98,7 +98,9 @@ def create():
         if request_wants_json():
             return flask.jsonify(job.json_dict())
         else:
-            return flask.redirect(flask.url_for('digits.model.views.show', job_id=job.id()))
+            return flask.redirect(flask.url_for('digits.evaluation.views.home'))
+
+            #return flask.redirect(flask.url_for('digits.evaluation.views.show', job_id=job.id()))
 
     except Exception:
         if job:

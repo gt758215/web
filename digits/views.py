@@ -15,7 +15,7 @@ import werkzeug.exceptions
 from .config import config_value
 from .webapp import app, socketio, scheduler
 import digits
-from digits import dataset, extensions, model, utils, pretrained_model
+from digits import dataset, extensions, model, evaluation, utils, pretrained_model
 from digits.log import logger
 from digits.utils.routing import request_wants_json
 
@@ -228,17 +228,20 @@ def completed_jobs():
             models:   [{id, name, group, status, status_css, submitted, elapsed, badge}],
         }
     """
+    completed_evaluations = get_job_list(evaluation.EvaluationJob, False)
     completed_datasets = get_job_list(dataset.DatasetJob, False)
     completed_models = get_job_list(model.ModelJob, False)
+    running_evaluations = get_job_list(evaluation.EvaluationJob, False)
     running_datasets = get_job_list(dataset.DatasetJob, True)
     running_models = get_job_list(model.ModelJob, True)
     pretrained_models = get_job_list(pretrained_model.PretrainedModelJob, False)
 
     model_output_fields = set()
     data = {
-        'running': [json_dict(j, model_output_fields) for j in running_datasets + running_models],
+        'running': [json_dict(j, model_output_fields) for j in running_datasets + running_models + running_evaluations],
         'datasets': [json_dict(j, model_output_fields) for j in completed_datasets],
         'models': [json_dict(j, model_output_fields) for j in completed_models],
+        'evaluations': [json_dict(j, model_output_fields) for j in completed_evaluations],
         'pretrained_models': [json_dict(j, model_output_fields) for j in pretrained_models],
         'model_output_fields': sorted(list(model_output_fields)),
     }

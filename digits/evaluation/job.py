@@ -60,4 +60,4 @@ class EvaluationJob(Job):
         return task.inference_inputs, task.inference_outputs, task.inference_layers
 
     def job_type(self):
-        return 'Evaluation Job'
+        return 'evaluation'
