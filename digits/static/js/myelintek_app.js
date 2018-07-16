@@ -29,7 +29,8 @@ try {
             {name: 'Model', show: true, min_width: 100},
             {name: 'Dataset', show: true, min_width: 100},
             {name: 'Status', show: true, min_width: 100},
-            {name: 'Elapsed', show: true, min_width: 100},
+            {name: 'Progress', show: true, min_width: 100},
+            {name: 'Elapsed', show: false, min_width: 100},
             {name: 'Submitted', show: true, min_width: 100},
         ];
 
@@ -112,6 +113,27 @@ try {
                         '    </a>'),
         };
     });
+
+    app.directive('modelName', function () {
+        return {
+            restrict: 'AE',
+            replace: true,
+            template: (
+                        '    <a href="' + URL_PREFIX + '/jobs/{[ job.model.id ]}" title="{[job.model.name]}">' +
+                        '        {[ job.name ]}' +
+                        '    </a>'),
+        };
+    });;
+    app.directive('datasetName', function () {
+        return {
+            restrict: 'AE',
+            replace: true,
+            template: (
+                        '    <a href="' + URL_PREFIX + '/jobs/{[ job.dataset.id ]}" title="{[job.dataset.name]}">' +
+                        '        {[ job.name ]}' +
+                        '    </a>'),
+        };
+    });;
 
     // Because jinja uses {{ and }}, tell angular to use {[ and ]}
     app.config(['$interpolateProvider', function($interpolateProvider) {

@@ -40,6 +40,13 @@
                   <td>
                     <dg-name></dg-name>
                   </td>
+                  <td>
+                    <model-name> </model-name>
+                  </td>
+                  <td>
+                    <dataset-name> </dataset-name>
+                  </td>
+
                   <td>{[ job.status ]}</td>
                   <td ng-if="job.progress != 0">
                     {[ (job['accuracy (val) last'] * 100).toFixed(2) ]}

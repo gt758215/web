@@ -61,3 +61,13 @@ class EvaluationJob(Job):
 
     def job_type(self):
         return 'evaluation'
+
+    @override
+    def json_dict(self, detailed=False):
+        val = super(EvaluationJob, self).json_dict(detailed=detailed)
+        if detailed:
+            val.update({
+                'dataset': {'name': self.dataset.name(), 'id': self.dataset.id()},
+                'model': {'name': self.model.name(), 'id': self.model.id()},
+            })
+        return val

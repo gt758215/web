@@ -209,7 +209,7 @@ def json_dict(job, model_output_fields):
 
     if isinstance(job, evaluation.EvaluationJob):
         d.update({'type': 'evaluation'})
-        
+
     if isinstance(job, pretrained_model.PretrainedModelJob):
         model_output_fields.add("has_labels")
         model_output_fields.add("username")
