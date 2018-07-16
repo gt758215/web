@@ -91,11 +91,16 @@ class EvaluationTask(Task):
     @override
     def __getstate__(self):
         state = super(EvaluationTask, self).__getstate__()
+        if 'dataset' in state:
+            del state['dataset']
+        if 'model' in state:
+            del state['model']
         return state
 
     @override
     def __setstate__(self, state):
         super(EvaluationTask, self).__setstate__(state)
+
 
     @override
     def before_run(self):

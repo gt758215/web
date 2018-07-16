@@ -161,6 +161,16 @@ class Scheduler:
                 except Exception as e:
                     failed_jobs.append((dir_name, e))
 
+        # add EvaluationJobs
+        for job in loaded_jobs:
+            if isinstance(job, EvaluationJob):
+                try:
+                    job.load_dataset()
+                    job.load_model()
+                    self.jobs[job.id()] = job
+                except Exception as e:
+                    failed_jobs.append((dir_name, e))
+
         logger.info('Loaded %d jobs.' % len(self.jobs))
 
         if len(failed_jobs):

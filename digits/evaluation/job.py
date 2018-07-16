@@ -42,10 +42,14 @@ class EvaluationJob(Job):
 
     @override
     def __getstate__(self):
-        fields_to_save = ['_id', '_name']
+        fields_to_save = ['_id', '_name', 'dataset', 'model', 'tasks']
         full_state = super(EvaluationJob, self).__getstate__()
         state_to_save = {}
         for field in fields_to_save:
+            if field in ['dataset', 'model']:
+                id = full_state[field].id()
+                del full_state[field]
+                full_state[field] = id
             state_to_save[field] = full_state[field]
         return state_to_save
 
@@ -56,6 +60,26 @@ class EvaluationJob(Job):
     @override
     def __setstate__(self, state):
         super(EvaluationJob, self).__setstate__(state)
+
+    def load_datset(self):
+        from digits.webapp import scheduler
+        job = scheduler.get_job(self.dataset)
+        assert job is not None, 'Cannot find dataset'
+        self.dataset = job
+
+        for task in self.tasks:
+            task.dataset = job
+
+
+    def load_model(self):
+        from digits.webapp import scheduler
+        job = scheduler.get_job(self.model)
+        assert job is not None, 'Cannot find dataset'
+        self.model = job
+
+        for task in self.tasks:
+            task.model = job
+
 
     def get_data(self):
         """Return evaluation data"""
