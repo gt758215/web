@@ -76,9 +76,6 @@ class EvaluationTask(Task):
         self.evaluation_result_filename = None
 
         self.inference_data_filename = None
-        self.inference_inputs = None
-        self.inference_outputs = None
-        self.inference_layers = []
 
 
 
@@ -95,6 +92,8 @@ class EvaluationTask(Task):
             del state['dataset']
         if 'model' in state:
             del state['model']
+        if 'evaluation_log' in state:
+            del state['evaluation_log']
         return state
 
     @override
