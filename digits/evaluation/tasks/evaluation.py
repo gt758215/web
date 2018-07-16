@@ -54,7 +54,7 @@ class EvaluationTask(Task):
         self.network = "network.py"
         self.networkDirectory = model.dir()
         self.batch_size = batch_size
-        self.label_list = '%s/lables.txt' % model.dir()
+        self.labels_list = '%s/lables.txt' % model.dir()
 
         self.device = None
         self.train_dir = model.dir()
