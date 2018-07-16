@@ -47,7 +47,7 @@ class EvaluationJob(Job):
         state_to_save = {}
 
         for field in full_state:
-            if field in ['dataset', 'model']:
+            if field in ['dataset', 'model'] and isinstance(full_state[field], Job):
                 id = full_state[field].id()
                 del full_state[field]
                 full_state[field] = id
