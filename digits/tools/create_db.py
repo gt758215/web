@@ -364,7 +364,7 @@ def _convert_to_example(filename, image_buffer, height, width, label, text):
       'image/class/label': _int64_feature(label),
       'image/class/text': _bytes_feature(tf.compat.as_bytes(text)),
       'image/format': _bytes_feature(tf.compat.as_bytes(image_format)),
-      'image/filename': _bytes_feature(tf.compat.as_bytes(os.path.basename(filename))),
+      'image/filename': _bytes_feature(tf.compat.as_bytes(filename)),
       'image/encoded': _bytes_feature(tf.compat.as_bytes(image_buffer))}))
     return example
 
