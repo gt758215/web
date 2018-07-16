@@ -43,6 +43,10 @@ class EvaluationTask(Task):
         elif 'val' in dataset_db.to_lower():
             self.data_dir = dataset.train_db_task().path('val')
             self.filename_pattern = "validation-*"
+        else:
+            # default use training set
+            self.data_dir = dataset.train_db_task().path('train')
+            self.filename_pattern = "train-*"
 
         self.network = "network.py"
         self.networkDirectory = model.dir()

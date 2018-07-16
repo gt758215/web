@@ -9,6 +9,7 @@ import werkzeug.exceptions
 
 from . import images as model_images
 from . import EvaluationJob
+from .tasks import EvaluationTask
 from .forms import EvaluationForm
 from digits.utils.routing import request_wants_json
 from digits.webapp import scheduler
@@ -16,7 +17,7 @@ from digits.views import get_job_list
 from digits.model import ImageClassificationModelJob
 from digits.dataset import ImageClassificationDatasetJob
 from digits.status import Status
-
+from digits.utils.forms import fill_form_if_cloned, save_form_to_job
 
 blueprint = flask.Blueprint(__name__, __name__)
 
@@ -65,9 +66,39 @@ def new():
     );
     pass
 
-@blueprint.route('/create', methods=['POST'])
+
+@blueprint.route('.json', methods=['POST'])
+@blueprint.route('', methods=['POST'])
 def create():
-    pass
+    form = EvaluationForm()
+    form.selected_model.choices = get_models()
+    form.selected_dataset.choices = get_datasets()
+
+    dataset_id = form.selected_dataset.data
+    model_id = form.selected_model.data
+
+    dataset = scheduler.get_job(dataset_id)
+    model = scheduler.get_job(model_id)
+
+    # we should add db in dataset choice later
+    try:
+        job = EvaluationJob(model=model, dataset=dataset)
+            # Save form data with the job so we can easily clone it later.
+
+        save_form_to_job(job, form)
+
+        scheduler.add_job(job)
+
+        if request_wants_json():
+            return flask.jsonify(job.json_dict())
+        else:
+            return flask.redirect(flask.url_for('digits.model.views.show', job_id=job.id()))
+
+    except Exception:
+        if job:
+            scheduler.delete_job(job)
+        raise
+
 
 @blueprint.route('/<job_id>.json', methods=['GET'])
 @blueprint.route('/<job_id>', methods=['GET'])
