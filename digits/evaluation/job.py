@@ -19,7 +19,7 @@ class EvaluationJob(Job):
         :param images: list of image path to perform evaluation on
         """
 
-        fw_id = model.train_task.framework_id
+        fw_id = model.train_task().framework_id
         fw = digits.frameworks.get_framework_by_id(fw_id)
 
         if fw is None:
