@@ -55,7 +55,7 @@ class EvaluationTask(Task):
         self.networkDirectory = model.dir()
         self.batch_size = batch_size
         self.label_list = '%s/lables.txt' % model.dir()
-        self.result_dir = self.job_dir
+
         self.device = None
         self.train_dir = model.dir()
         self.gen_metrics = True
@@ -78,6 +78,7 @@ class EvaluationTask(Task):
 
 
         super(EvaluationTask, self).__init__(**kwargs)
+
 
     @override
     def name(self):
@@ -182,8 +183,8 @@ class EvaluationTask(Task):
         if self.networkDirectory is not None:
             args.append('--networkDirectory=%s' % self.networkDirectory)
 
-        if self.result_dir is not None:
-            args.append('--result_dir=%s' % self.result_dir)
+        if self.job_dir is not None:
+            args.append('--result_dir=%s' % self.job_dir)
 
         if self.batch_size is not None:
             args.append('--batch_size=%s' % self.batch_size)
