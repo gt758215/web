@@ -21,7 +21,6 @@ flags.DEFINE_string('filename', None,'filename')
 flags.DEFINE_string('network', None,'network')
 flags.DEFINE_string('networkDirectory', None,'networkDirectory')
 flags.DEFINE_integer('batch_size', 1, 'batch size in test dataset')
-flags.DEFINE_integer('total_size', 1, 'total size in test dataset')
 flags.DEFINE_string('labels_list', None,'labels_list')
 flags.DEFINE_string('device', 'gpu', 'device [gpu | cpu]')
 flags.DEFINE_string('train_dir', None, 'train_dir')
@@ -172,7 +171,6 @@ class BenchmarkCNN(object):
     self.network = FLAGS.network
     self.networkDirectory = FLAGS.networkDirectory
     self.batch_size = FLAGS.batch_size
-    self.total_size = FLAGS.total_size
     self.labels_list = FLAGS.labels_list
     self.labels = [line for line in open(self.labels_list) if line.strip()]
     self.num_classes = len(self.labels)
@@ -180,6 +178,7 @@ class BenchmarkCNN(object):
     self.dataset = data_config.Dataset(self.data_dir,
                                        FLAGS.labels_list,
                                        self.filename)
+    self.total_size = self.dataset.total_items
     print("dataset.file_pattern: %s" % self.dataset.file_pattern)
     self.model = model_config.get_model_config(
         FLAGS.networkDirectory,
