@@ -37,7 +37,6 @@
               <tbody ng-if="jc.evaluation_jobs.length">
                 <tr ng-repeat-start="job in jc.evaluation_jobs|orderBy:column:reverse" ng-hide="true"></tr>
                 <tr ng-attr-id="{[ job.id ]}">
-                  <td>{[jc.evaluation_jobs.length]}</td>
                   <td>
                     <dg-name></dg-name>
                   </td>
