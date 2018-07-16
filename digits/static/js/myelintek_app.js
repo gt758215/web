@@ -30,7 +30,7 @@ try {
             {name: 'Dataset', show: true, min_width: 100},
             {name: 'Status', show: true, min_width: 100},
             {name: 'Progress', show: true, min_width: 100},
-            {name: 'Elapsed', show: false, min_width: 100},
+            {name: 'Elapsed', show: true, min_width: 100},
             {name: 'Submitted', show: true, min_width: 100},
         ];
 
