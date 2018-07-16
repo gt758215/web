@@ -237,7 +237,8 @@ def completed_jobs():
     completed_evaluations = get_job_list(evaluation.EvaluationJob, False)
     completed_datasets = get_job_list(dataset.DatasetJob, False)
     completed_models = get_job_list(model.ModelJob, False)
-    running_evaluations = get_job_list(evaluation.EvaluationJob, False)
+
+    running_evaluations = get_job_list(evaluation.EvaluationJob, True)
     running_datasets = get_job_list(dataset.DatasetJob, True)
     running_models = get_job_list(model.ModelJob, True)
     pretrained_models = get_job_list(pretrained_model.PretrainedModelJob, False)

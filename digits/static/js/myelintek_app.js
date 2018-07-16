@@ -55,7 +55,7 @@ try {
                 url: '/completed_jobs.json',
             }).then(function success(response) {
                 var r = response.data;
-                $scope.jobs = [].concat(r.running, r.datasets, r.models,r.evaluations);
+                $scope.jobs = [].concat(r.running, r.datasets, r.models, r.evaluations);
             }, function error(response) {
                 console.log(response.statusText);
             });
