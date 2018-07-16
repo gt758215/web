@@ -9,6 +9,13 @@ from digits import utils
 class EvaluationForm(FlaskForm):
 
     # Fields
+    name = utils.forms.TextField(
+        'name',
+        validators=[
+            validators.DataRequired()
+        ],
+        tooltip='Please input evaluation task name'
+    )
     selected_model = utils.forms.SelectField(
         'Select Model',
         choices=[],

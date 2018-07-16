@@ -74,16 +74,21 @@ def create():
     form.selected_model.choices = get_models()
     form.selected_dataset.choices = get_datasets()
 
+    name = form.name.data
     dataset_id = form.selected_dataset.data
     model_id = form.selected_model.data
 
     dataset = scheduler.get_job(dataset_id)
     model = scheduler.get_job(model_id)
 
-    # we should add db in dataset choice later
+    # TODO: we should add db in dataset choice later
     job = None
     try:
-        job = EvaluationJob(model=model, dataset=dataset)
+        # TODO: weshould change username backto authorized user name
+        job = EvaluationJob(username='demo',
+                            name=name,
+                            model=model,
+                            dataset=dataset)
             # Save form data with the job so we can easily clone it later.
 
         save_form_to_job(job, form)
