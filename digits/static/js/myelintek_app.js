@@ -120,7 +120,7 @@ try {
             replace: true,
             template: (
                         '    <a href="' + URL_PREFIX + '/jobs/{[ job.model.id ]}" title="{[job.model.name]}">' +
-                        '        {[ job.name ]}' +
+                        '        {[ job.model.name ]}' +
                         '    </a>'),
         };
     });;
@@ -130,7 +130,7 @@ try {
             replace: true,
             template: (
                         '    <a href="' + URL_PREFIX + '/jobs/{[ job.dataset.id ]}" title="{[job.dataset.name]}">' +
-                        '        {[ job.name ]}' +
+                        '        {[ job.dataset.name ]}' +
                         '    </a>'),
         };
     });;
