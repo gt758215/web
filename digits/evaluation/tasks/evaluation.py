@@ -34,7 +34,11 @@ class EvaluationTask(Task):
 
 
         # infr.py parameters
-        if  'test' in dataset_db.to_lower():
+        if dataset_db is None:
+            # default use training set
+            self.data_dir = dataset.train_db_task().path('train')
+            self.filename_pattern = "train-*"
+        elif 'test' in dataset_db.to_lower():
             self.data_dir = dataset.train_db_task().path('test')
             self.filename_pattern = "test-*"
         elif 'train' in dataset_db.to_lower():
