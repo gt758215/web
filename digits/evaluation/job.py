@@ -12,7 +12,7 @@ class EvaluationJob(Job):
     """
     A Job that exercises the forward pass of a neural network
     """
-    def __init__(self, model, dataset, dataset_dbs=None, specific_epoch=None, **kwargs):
+    def __init__(self, model, dataset, dataset_db=None, **kwargs):
         """
 
         :param model: job object associated with model to perform evaluation on
@@ -31,8 +31,7 @@ class EvaluationJob(Job):
             job_dir=self.dir(),
             model=model,
             dataset=dataset,
-            dataset_dbs=dataset_dbs,
-            epoch=specific_epoch
+            dataset_db=dataset_db,
         ))
 
     @override

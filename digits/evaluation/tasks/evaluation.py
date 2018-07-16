@@ -21,7 +21,7 @@ class EvaluationTask(Task):
     A task for inference jobs
     """
 
-    def __init__(self, model, dataset, dataset_db, batch_size=100, epoch=None, **kwargs):
+    def __init__(self, model, dataset, dataset_db=None, batch_size=100, **kwargs):
         """
         Arguments:
         model  -- trained model to perform inference on
@@ -30,10 +30,9 @@ class EvaluationTask(Task):
         self.EVALUATION_RESULT_FILENAME = 'confusion_matrix.json'
         # memorize parameters
         self.model = model
-        self.epoch = epoch
+        self.epoch = None
 
-
-        # infr.py parameters
+        # infer.py parameters
         if dataset_db is None:
             # default use training set
             self.data_dir = dataset.train_db_task().path('train')
