@@ -81,6 +81,7 @@ def create():
     model = scheduler.get_job(model_id)
 
     # we should add db in dataset choice later
+    job = None
     try:
         job = EvaluationJob(model=model, dataset=dataset)
             # Save form data with the job so we can easily clone it later.
