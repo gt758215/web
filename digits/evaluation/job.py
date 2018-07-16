@@ -18,7 +18,7 @@ class EvaluationJob(Job):
         :param model: job object associated with model to perform evaluation on
         :param images: list of image path to perform evaluation on
         """
-
+        super(EvaluationJob, self).__init__(**kwargs)
         fw_id = model.train_task().framework_id
         fw = digits.frameworks.get_framework_by_id(fw_id)
 
