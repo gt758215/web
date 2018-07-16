@@ -22,6 +22,9 @@ class EvaluationJob(Job):
         fw_id = model.train_task().framework_id
         fw = digits.frameworks.get_framework_by_id(fw_id)
 
+        self.dataset = dataset
+        self.model = model
+
         if fw is None:
             raise RuntimeError(
                 'The "%s" framework cannot be found. Check your server configuration.'
@@ -55,3 +58,6 @@ class EvaluationJob(Job):
         """Return evaluation data"""
         task = self.evaluation_task()
         return task.inference_inputs, task.inference_outputs, task.inference_layers
+
+    def job_type(self):
+        return 'Evaluation Job'

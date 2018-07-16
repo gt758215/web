@@ -21,6 +21,8 @@ from .model import ModelJob
 from .pretrained_model import PretrainedModelJob
 from .status import Status
 from digits.utils import errors
+from .evaluation import EvaluationJob
+
 
 """
 This constant configures how long to wait before automatically
@@ -218,6 +220,10 @@ class Scheduler:
             related_jobs.append(datajob)
         elif isinstance(job, DatasetJob):
             datajob = job
+        elif  isinstance(job, EvaluationJob):
+            datajob = job.dataset
+            related_jobs.append(datajob)
+            related_jobs.append(job.model)
         else:
             raise ValueError("Unhandled job type %s" % job.job_type())
 
