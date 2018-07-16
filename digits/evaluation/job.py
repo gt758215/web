@@ -6,6 +6,7 @@ import digits.frameworks
 from digits.job import Job
 from digits.utils import subclass, override
 
+PICKLE_VERSION=1
 
 @subclass
 class EvaluationJob(Job):
@@ -19,6 +20,8 @@ class EvaluationJob(Job):
         :param images: list of image path to perform evaluation on
         """
         super(EvaluationJob, self).__init__(**kwargs)
+        self.pickver_job_evaluation = PICKLE_VERSION
+
         fw_id = model.train_task().framework_id
         fw = digits.frameworks.get_framework_by_id(fw_id)
 

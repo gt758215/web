@@ -15,6 +15,8 @@ from digits.utils import subclass, override
 from digits.utils.image import embed_image_html
 
 
+PICKLE_VERSION = 1
+
 @subclass
 class EvaluationTask(Task):
     """
@@ -27,6 +29,8 @@ class EvaluationTask(Task):
         model  -- trained model to perform inference on
         images -- list of images to perform inference on, or path to a database
         """
+        super(EvaluationTask, self).__init__(**kwargs)
+        self.pickver_task_evaluation = PICKLE_VERSION
         self.EVALUATION_RESULT_FILENAME = 'confusion_matrix.json'
         # memorize parameters
         self.model = model
@@ -77,7 +81,7 @@ class EvaluationTask(Task):
         self.inference_layers = []
 
 
-        super(EvaluationTask, self).__init__(**kwargs)
+
 
 
     @override
