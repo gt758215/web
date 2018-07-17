@@ -103,18 +103,43 @@ class confusion_matrix:
     self.recall = sk.metrics.recall_score(y_batch_list, pred_list, labels=label_list, average='weighted')
     self.f1_score = sk.metrics.f1_score(y_batch_list, pred_list, labels=label_list, average='weighted')
     self.confusion_matrix = sk.metrics.confusion_matrix(y_batch_list, pred_list, labels=label_list)
+    self.precision_list = [x*0 for x in range(self.matrix_size)]
+    self.recall_list = [x*0 for x in range(self.matrix_size)]
+    self.accuracy = sk.metrics.accuracy_score(y_batch_list, pred_list) 
 
   def calculate_ids_in_confusion_matrix(self):
     for key, value in self.img_pred_dict.iteritems():
-	  # dimension => [y_batch, pred, id_lists]
-	  self.matrix[value.y_batch][value.pred].append(value.r_id)
+      # dimension => [y_batch, pred, id_lists]
+      self.matrix[value.y_batch][value.pred].append(value.r_id)
+
+  def calculate_recall_precision_list(self):
+    self.tmp_confusion_matrix = self.confusion_matrix.tolist()
+    # calculate recall
+    for i in range(self.matrix_size):
+      tmp_value = 0
+      for j in range(self.matrix_size):
+        tmp_value += self.tmp_confusion_matrix[i][j]
+        if tmp_value is not 0:
+          self.recall_list[i] = float(self.confusion_matrix[i][i]) / tmp_value
+
+    # calculate precision
+    for j in range(self.matrix_size):
+      tmp_value = 0
+      for i in range(self.matrix_size):
+        tmp_value += self.tmp_confusion_matrix[i][j]
+        if tmp_value is not 0:
+          self.precision_list[j] = float(self.confusion_matrix[j][j]) / tmp_value
+
 
   def gen_json_data(self):
-    data = {'precision': str(self.precision.tolist()),
+    data = {'precision': str(self.precision),
             'recall': str(self.recall),
             'f1_score': str(self.f1_score),
             'confusion_matrix': self.confusion_matrix.tolist(),
-            'confusion_matrix with ids': self.matrix
+            'confusion_matrix with ids': self.matrix,
+            'precision_list': self.precision_list,
+            'recall_list': self.recall_list,
+            'accuracy': str(self.accuracy)
            }
     return data
 
@@ -264,6 +289,7 @@ class BenchmarkCNN(object):
                                                  self.image_prediction_dict.pred_list, 
                                                  self.image_prediction_dict.y_batch_list,
                                                  range(len(self.labels)))
+      self.confusion_matrix.calculate_recall_precision_list()
       self.confusion_matrix.calculate_ids_in_confusion_matrix()
 
       confusion_matrix_path = os.path.join(self.result_dir, CONFUSION_MATRIX_FILENAME)
