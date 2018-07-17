@@ -1,0 +1,87 @@
+{# Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved. #}
+
+{% from "helper.html" import print_flashes %}
+{% from "helper.html" import print_errors %}
+{% from "helper.html" import mark_errors %}
+
+{% extends "mlt/layout.html" %}
+
+{% block page_title %}
+Evaluation Result {{ job.name() }}
+{% endblock %}
+
+{% block nav %}
+<li class="active"><a href="{{url_for('digits.evaluation.views.new')}}">Evaluation Result {{ job.name() }} </a></li>
+{% endblock %}
+
+{% block page_list %}
+<li><a href="{{url_for('digits.views.home')}}"> Dashboard </a></li>
+<li><a href="{{url_for('digits.evaluation.views.home')}}"> Evaluations </a></li>
+<li><a href="#"> Evalution {{ job.name() }} </a></li>
+{% endblock %}
+
+
+{% block content %}
+
+<div calss="row">
+
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-header">Target Dataset</div>
+            <div class="card-body">
+                {{ job.dataset.name() }}
+            </div>
+        </div>
+
+    </div>
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-header">Evaluate Model</div>
+            <div class="card-body">
+                {{ job.model.name() }}
+            </div>
+        </div>
+
+    </div>
+</div>
+<div calss="row">
+
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">Confusion Matrix</div>
+            <div class="card-body">
+            <table class="table table-bordered" id="confusion_matrix">
+                <thead>
+                    <th></th>
+                    {% for label in labels %}
+                    <th>{{ label }}</th>
+                    {% endfor %}
+                </thead>
+                <tbody>
+                {% for list in confusion_matrix %}
+                <tr>
+                    {% set label_id_x=loop.index-1 %}
+                    <th>{{labels[label_id_x]}}</th>
+                    {% for count in list %}
+                    {% set label_id_y=loop.index-1 %}
+
+                    <td>
+                        {% if count != 0 %}
+                        <a href="{{ url_for('digits.evaluation.views.edit_dataset', job_id=job_id, label_x=label_id_x, label_y=label_id_y) }}">{{ count }}</a>
+                        {% else %}
+                        {{ count }}
+                        {% endif %}
+                    </td>
+
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

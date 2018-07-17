@@ -6,7 +6,7 @@ import logging
 
 import flask
 import werkzeug.exceptions
-
+import pprint
 from . import images as model_images
 from . import EvaluationJob
 from .tasks import EvaluationTask
@@ -121,18 +121,38 @@ def show(job_id):
     if job is None:
         raise werkzeug.exceptions.NotFound('Job not found')
 
-    related_jobs = scheduler.get_related_jobs(job)
+    #related_jobs = scheduler.get_related_jobs(job)
 
+    job_id = job.id()
+    confusion_matrix = {}
+    image_prediction_list = {}
+    #with open(job.evaluation_task().confusion_matrix_path, 'r') as cm_file:
+    with open('/home/weiru/PycharmProjects/web/digits/jobs/%s/confusion_matrix.json' % job.id(), 'r') as cm_file:
+        try:
+            confusion_matrix = flask.json.load(cm_file)
+        except Exception as e:
+            raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
+    '''
+    with open(job.evaluation_task().image_prediction_list_path, 'r') as ipl_file:
+        try:
+            image_prediction_list = flask.json.load(ipl_file)
+        except Exception as e:
+            raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
+    '''
     if request_wants_json():
         return flask.jsonify(job.json_dict(True))
     else:
-        if isinstance(job, model_images.ImageClassificationModelJob):
-            return model_images.classification.views.show(job, related_jobs=related_jobs)
-        elif isinstance(job, model_images.GenericImageModelJob):
-            return model_images.generic.views.show(job, related_jobs=related_jobs)
-        else:
-            raise werkzeug.exceptions.BadRequest(
-                'Invalid job type')
+        return flask.render_template('mlt/evaluation/show.html',
+                                     job=job,
+                                     job_id='test32',
+                                     labels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                                     confusion_matrix=confusion_matrix['confusion_matrix'],
+                                     )
+
+
+@blueprint.route('/<job_id>/editdataset/<label_x>/<label_y>')
+def edit_dataset(job_id, label_x, label_y):
+    pass
 
 
 def get_models():

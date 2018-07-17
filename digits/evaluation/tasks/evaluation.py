@@ -75,7 +75,8 @@ class EvaluationTask(Task):
         # generated data
         self.evaluation_result_filename = None
 
-        self.inference_data_filename = None
+        self.confusion_matrix_path = None
+        self.image_prediction_list_path = None
 
 
 
@@ -125,10 +126,16 @@ class EvaluationTask(Task):
             self.progress = float(match.group(1)) / int(match.group(2))
             return True
 
-        # path to inference data
-        match = re.match(r'Saved data to (.*)', message)
+        # path to confusion_matrix
+        match = re.match(r'Saved confusion_matrix to (.*)', message)
         if match:
-            self.inference_data_filename = match.group(1).strip()
+            self.confusion_matrix_path = match.group(1).strip()
+            return True
+
+        # path to image_prediction_list
+        match = re.match(r'Saved image_prediction_list to (.*)', message)
+        if match:
+            self.image_prediction_list_path = match.group(1).strip()
             return True
 
         return False

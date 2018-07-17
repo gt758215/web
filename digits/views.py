@@ -389,6 +389,8 @@ def show_job(job_id):
         return flask.redirect(flask.url_for('digits.model.views.show', job_id=job_id))
     if isinstance(job, pretrained_model.PretrainedModelJob):
         return flask.redirect(flask.url_for('digits.pretrained_model.views.show', job_id=job_id))
+    if isinstance(job, evaluation.EvaluationJob):
+        return flask.redirect(flask.url_for('digits.evaluation.views.show', job_id=job_id))
     else:
         raise werkzeug.exceptions.BadRequest('Invalid job type')
 

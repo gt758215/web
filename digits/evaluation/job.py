@@ -40,6 +40,9 @@ class EvaluationJob(Job):
             dataset_db=dataset_db,
         ))
 
+    def evaluation_task(self):
+        return self.tasks[0]
+
     @override
     def __getstate__(self):
 
