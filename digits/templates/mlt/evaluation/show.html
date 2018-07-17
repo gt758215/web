@@ -6,6 +6,12 @@
 
 {% extends "mlt/layout.html" %}
 
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/color_stat_table.js') }}"></script>
+{% endblock%}
+
+
 {% block page_title %}
 Evaluation Result {{ job.name() }}
 {% endblock %}
@@ -19,6 +25,7 @@ Evaluation Result {{ job.name() }}
 <li><a href="{{url_for('digits.evaluation.views.home')}}"> Evaluations </a></li>
 <li><a href="#"> Evalution {{ job.name() }} </a></li>
 {% endblock %}
+
 
 
 {% block content %}
@@ -50,7 +57,7 @@ Evaluation Result {{ job.name() }}
         <div class="card">
             <div class="card-header">Confusion Matrix</div>
             <div class="card-body">
-            <table class="table table-bordered" id="confusion_matrix">
+            <table class="table table-bordered color_state_table" id="confusion_matrix">
                 <thead>
                     <th></th>
                     {% for label in labels %}
@@ -65,7 +72,7 @@ Evaluation Result {{ job.name() }}
                     {% for count in list %}
                     {% set label_id_y=loop.index-1 %}
 
-                    <td>
+                    <td class="color_value">
                         {% if count != 0 %}
                         <a href="{{ url_for('digits.evaluation.views.edit_dataset', job_id=job_id, label_x=label_id_x, label_y=label_id_y) }}">{{ count }}</a>
                         {% else %}
@@ -84,4 +91,9 @@ Evaluation Result {{ job.name() }}
 
     </div>
 </div>
+<script type="text/javascript">
+    $(document).ready(function(){
+        colorStatTable({color:'#0000ff'}).draw();
+    });
+</script>
 {% endblock %}
