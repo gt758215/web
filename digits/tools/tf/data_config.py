@@ -13,6 +13,8 @@ from tensorflow.python.platform import gfile
 def parse_example_proto(example_serialized):
   # Dense features in Example proto.
   feature_map = {
+      'image/filename': tf.FixedLenFeature([], dtype=tf.string,
+                                          default_value=''),
       'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
                                           default_value=''),
       'image/class/label': tf.FixedLenFeature([1], dtype=tf.int64,
@@ -22,7 +24,7 @@ def parse_example_proto(example_serialized):
   }
   features = tf.parse_single_example(example_serialized, feature_map)
   label = tf.cast(features['image/class/label'], dtype=tf.int32)
-  return features['image/encoded'], label
+  return features['image/encoded'], label, features['image/filename']
 
 def normalized_image(images):
   # Rescale from [0, 255] to [0, 2]
@@ -80,8 +82,10 @@ class DataLoader(object):
           raise ValueError('Found no files in --data_dir matching: {}'
                      .format(file_names))
         ds = tf.data.TFRecordDataset.list_files(file_names)
-        ds = ds.apply(tf.contrib.data.parallel_interleave(
-            tf.data.TFRecordDataset, cycle_length=10))
+        ds = ds.apply(
+            tf.contrib.data.parallel_interleave(
+                tf.data.TFRecordDataset, cycle_length=10))
+        ds = ds.prefetch(buffer_size=batch_size)
         if (subset=='train'):
           ds = ds.shuffle(buffer_size=10000)
         ds = ds.repeat()
@@ -90,7 +94,7 @@ class DataLoader(object):
             map_func=self.parse_and_preprocess,
             batch_size=self.batch_size_per_split,
             num_parallel_batches=self.num_splits))
-        ds = ds.prefetch(buffer_size=batch_size)
+        ds = ds.prefetch(buffer_size=num_splits)
         ds = threadpool.override_threadpool(
             ds,
             threadpool.PrivateThreadPool(
@@ -108,17 +112,18 @@ class DataLoader(object):
       #    self.ds_iterator.append(iterator)
 
   def get_images_and_labels(self, device_num, data_type):
-    images, labels = self.ds_iterator.get_next()
+    images, labels, filenames = self.ds_iterator.get_next()
     #images, labels = self.ds_iterator[device_num].get_next()
+    filenames = tf.reshape(filenames, [self.batch_size_per_split])
     labels = tf.reshape(labels, [self.batch_size_per_split])
     images = tf.reshape(
       images, shape=[self.batch_size_per_split, self.height, self.width, self.depth])
-    return images, labels
+    return images, labels, filenames
 
   def parse_and_preprocess(self, value):
-    image_buffer, label_index = parse_example_proto(value)
+    image_buffer, label_index, filename = parse_example_proto(value)
     image = self.preprocess(image_buffer)
-    return (image, label_index)
+    return (image, label_index, filename)
 
   def preprocess(self, image_buffer):
     """Preprocessing image_buffer as a function of its batch position."""

@@ -21,7 +21,7 @@ flags.DEFINE_string('filename', None,'filename')
 flags.DEFINE_string('network', None,'network')
 flags.DEFINE_string('networkDirectory', None,'networkDirectory')
 flags.DEFINE_string('result_dir', None,'result_dir')
-flags.DEFINE_integer('batch_size', 1, 'batch size per compute device')
+flags.DEFINE_integer('batch_size', 1, 'batch size in test dataset')
 flags.DEFINE_string('labels_list', None,'labels_list')
 flags.DEFINE_string('device', 'gpu', 'device [gpu | cpu]')
 flags.DEFINE_string('train_dir', None, 'train_dir')
@@ -33,11 +33,10 @@ flags.DEFINE_enum('data_format', 'NCHW', ('NHWC', 'NCHW'),
 
 ######### data cleaning #########
 import sklearn as sk
-
 from sklearn.metrics import confusion_matrix
 
 class image_prediction:
-  def __init__(self, r_id, top_1, top_1_ids, top_5, top_5_ids, logits, pred, y_batch):
+  def __init__(self, r_id, top_1, top_1_ids, top_5, top_5_ids, logits, pred, y_batch, filename):
     self.r_id = r_id
     self.top_1 = top_1
     self.top_1_ids = top_1_ids
@@ -46,6 +45,7 @@ class image_prediction:
     self.logits = logits
     self.pred = pred
     self.y_batch = y_batch
+    self.filename = filename
 
   @property
   def gen_json_data(self):
@@ -56,7 +56,8 @@ class image_prediction:
             'top_5_ids': self.top_5_ids,
             'logits': self.logits,
             'prediction': self.pred,
-            'y_batch_label': self.y_batch
+            'y_batch_label': self.y_batch,
+            'filename': self.filename
             }
     return data
 
@@ -66,19 +67,27 @@ class image_prediction_dict:
     self.id_list = []
     self.pred_list = []
     self.y_batch_list = []
+    self.filename_list = []
 
   def convert_to_list(self):
     for key, value in self.img_pred_dict.iteritems():
       self.id_list.append(key)
       self.pred_list.append(value.pred)
       self.y_batch_list.append(value.y_batch)
+      self.filename_list.append(value.filename)
 
   def gen_json_data(self):
-    data = {'id_list': self.id_list,
-            'prediction_list': self.pred_list,
-            'y_batch_list': self.y_batch_list
+    data = {'id_list': str(self.id_list),
+            'prediction_list': str(self.pred_list),
+            'y_batch_list': str(self.y_batch_list),
+            'filename_list': str(self.filename_list)
            }
     return data
+
+  def dump_data_to_file(self, path):
+    with open(os.path.join(path, 'image_prediction_list.json'), 'w') as outfile:
+      json.dump(self.gen_json_data(), outfile)
+
 
 class confusion_matrix:
   def __init__(self, img_pred_dict, pred_list, y_batch_list, label_list):
@@ -172,6 +181,7 @@ class BenchmarkCNN(object):
     self.dataset = data_config.Dataset(self.data_dir,
                                        FLAGS.labels_list,
                                        self.filename)
+    self.total_size = self.dataset.total_items
     print("dataset.file_pattern: %s" % self.dataset.file_pattern)
     self.model = model_config.get_model_config(
         FLAGS.networkDirectory,
@@ -205,56 +215,72 @@ class BenchmarkCNN(object):
       except CheckpointNotFoundException:
         print('Checkpoint not found in %s' % self.train_dir)
         return
-      sess.run(local_var_init_op_group)
-      rtop_1, rtop_5, rlogits, rprediction, rlabels, softmax = sess.run([fetches['top_1_op'],
+
+      if self.batch_size > self.total_size:
+        raise Exception("total size of dataset is small than batch size!")
+
+      iterations = self.total_size // self.batch_size
+      act_idx = 0
+
+      for _iter in range(iterations):
+        sess.run(local_var_init_op_group)
+        rtop_1, rtop_5, rlogits, rprediction, rlabels, softmax, filenames = sess.run([fetches['top_1_op'],
                                           fetches['top_5_op'],
                                           fetches['logits'],
                                           fetches['prediction'],
                                           fetches['labels'],
-                                          fetches['softmax']])
-      logging.info('Predictions for image ' + str(1) + ': ' + json.dumps(softmax.tolist()))
+                                          fetches['softmax'],
+                                          fetches['filenames']])
+        logging.info('Processed %d/%d' % (_iter, iterations))
 
-      #data cleaning
-      if self.gen_metrics is True:
-        for i in range(self.batch_size):
-          # prepare individul image prediction
-          tmp_img_pred = image_prediction(i, #id
-          rtop_1[0][i], #top_1
-          rtop_1[1][i], #top_1_ids
-          rtop_5[0][i], #top_5
-          rtop_5[1][i], #top_5_ids
-          rlogits[i], #logits
-          rprediction[i], #prediction
-          rlabels[i]) #y_batch
-          # add image prediction to dict for generating total prediction and y_batch list
-          self.image_prediction_dict.img_pred_dict[i] = tmp_img_pred
+        #data cleaning
+        if self.gen_metrics is True:
+          for j in range(self.batch_size):
+            # prepare individul image prediction
+            tmp_img_pred = image_prediction(act_idx, #id
+            rtop_1[0][j], #top_1
+            rtop_1[1][j], #top_1_ids
+            rtop_5[0][j], #top_5
+            rtop_5[1][j], #top_5_ids
+            rlogits[j], #logits
+            rprediction[j], #prediction
+            rlabels[j], #y_batch
+            filenames[j]) #filename
+            # add image prediction to dict for generating total prediction and y_batch list
+            self.image_prediction_dict.img_pred_dict[act_idx] = tmp_img_pred
+            # maintain index
+            act_idx += 1
 
-        self.image_prediction_dict.convert_to_list()
-        logging.info("id_list:" + str(self.image_prediction_dict.id_list))
-        logging.info("pred_list:" + str(self.image_prediction_dict.pred_list))
-        logging.info("y_batch_list:" + str(self.image_prediction_dict.y_batch_list))
+      self.image_prediction_dict.convert_to_list()
+      #logging.info("id_list:" + str(self.image_prediction_dict.id_list))
+      #logging.info("pred_list:" + str(self.image_prediction_dict.pred_list))
+      #logging.info("y_batch_list:" + str(self.image_prediction_dict.y_batch_list))
+      #logging.info("filename_list:" + str(self.image_prediction_dict.filename_list))
 
-        #confusion_matrix
-        self.confusion_matrix = confusion_matrix(self.image_prediction_dict.img_pred_dict,
+      #confusion_matrix
+      self.confusion_matrix = confusion_matrix(self.image_prediction_dict.img_pred_dict,
                                                  self.image_prediction_dict.pred_list, 
                                                  self.image_prediction_dict.y_batch_list,
                                                  range(len(self.labels)))
-        self.confusion_matrix.calculate_ids_in_confusion_matrix()
+      self.confusion_matrix.calculate_ids_in_confusion_matrix()
 
-        logging.info('Predictions for top_1: ' + str(rtop_1))
-        logging.info('Predictions for top_5: ' + str(rtop_5))
-        logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
-        logging.info('Predictions for rprediction: ' + json.dumps(rprediction.tolist()))
-        logging.info('Predictions for rlabels: ' + json.dumps(rlabels.tolist()))
+      #logging.info('Predictions for top_1: ' + str(rtop_1))
+      #logging.info('Predictions for top_5: ' + str(rtop_5))
+      #logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
+      #logging.info('Predictions for rprediction: ' + json.dumps(rprediction.tolist()))
+      #logging.info('Predictions for rlabels: ' + json.dumps(rlabels.tolist()))
 
-        #logging.info('matrix_size:' + str(self.confusion_matrix.matrix_size))
-        #logging.info('precision:' + str(self.confusion_matrix.precision))
-        #logging.info('recall:' + str(self.confusion_matrix.recall))
-        #logging.info('f1_score:' + str(self.confusion_matrix.f1_score))
-        #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
-        #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
-        logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
-        self.confusion_matrix.dump_data_to_file(self.result_dir)
+      #logging.info('matrix_size:' + str(self.confusion_matrix.matrix_size))
+      #logging.info('precision:' + str(self.confusion_matrix.precision))
+      #logging.info('recall:' + str(self.confusion_matrix.recall))
+      #logging.info('f1_score:' + str(self.confusion_matrix.f1_score))
+      #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
+      #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
+      logging.info('Print image_prediction_dict:' + str(self.image_prediction_dict.gen_json_data()))
+      logging.info('json dump to image_prediction_dict:' + json.dumps(self.image_prediction_dict.gen_json_data()))
+      self.image_prediction_dict.dump_data_to_file(self.networkDirectory)
+      logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
+      self.confusion_matrix.dump_data_to_file(self.result_dir)
 
   def _build_graph(self):
     tf.set_random_seed(1234)
@@ -287,7 +313,7 @@ class BenchmarkCNN(object):
     image_size = self.model.get_image_size()
     # build network per tower
     with tf.device(self.raw_devices[device_num]):
-      images, labels = dataloader.get_images_and_labels(device_num, self.data_type)
+      images, labels, filenames = dataloader.get_images_and_labels(device_num, self.data_type)
       images = tf.reshape(
           images,
           shape=[
@@ -306,6 +332,7 @@ class BenchmarkCNN(object):
       results['prediction'] = tf.argmax(logits, 1)
       results['labels'] = labels
       results['softmax'] = tf.nn.softmax(logits)
+      results['filenames'] = filenames
       return results
 
   def get_init_op_group(self):

@@ -123,7 +123,7 @@
         {% endif %}
 
         {# Exploration #}
-        {% if task.backend=='lmdb' %}
+        {% if task.backend=='lmdb' or task.backend=='tfrecords' %}
             <div class="exploration" style="display:none;">
                 <a href="{{url_for('digits.dataset.images.classification.views.explore', job_id=job.id(), db=task.db_name.lower())}}" class="btn btn-primary">Explore the db</a>
             </div>

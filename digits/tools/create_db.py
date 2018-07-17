@@ -228,6 +228,7 @@ def _find_datadir_labels(input_file, labels_file):
     filenames = []
     labels = []
     texts = []
+    category_counters = {}
     with open(input_file) as infile:
         for line in infile:
             match = re.match(r'(.+)\s+(\d+)\s*$', line)
@@ -240,6 +241,13 @@ def _find_datadir_labels(input_file, labels_file):
             filenames.append(filepath)
             labels.append(int(label))
             texts.append(labelfile[int(label)])
+            if label in category_counters:
+                category_counters[label] += 1
+            else:
+                category_counters[label] = 1
+
+    for key in category_counters:
+        logger.debug('Category {} has {} images.'.format(key, category_counters[key]))
 
     # Shuffle the ordering of all image files in order to guarantee
     # random ordering of the images with respect to label in the
@@ -356,7 +364,7 @@ def _convert_to_example(filename, image_buffer, height, width, label, text):
       'image/class/label': _int64_feature(label),
       'image/class/text': _bytes_feature(tf.compat.as_bytes(text)),
       'image/format': _bytes_feature(tf.compat.as_bytes(image_format)),
-      'image/filename': _bytes_feature(tf.compat.as_bytes(os.path.basename(filename))),
+      'image/filename': _bytes_feature(tf.compat.as_bytes(filename)),
       'image/encoded': _bytes_feature(tf.compat.as_bytes(image_buffer))}))
     return example
 

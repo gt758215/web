@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     python-tk \
     vim \
     git \
+    wget \
     libcudnn7=7.0.5.15-1+cuda9.0 \
     libcudnn7-dev=7.0.5.15-1+cuda9.0 \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
