@@ -88,6 +88,15 @@ try {
         $scope.is_evaluation = function(job) {
             return (job.type == 'evaluation');
         };
+        $scope.set_attribute = function (job_id, name, value) {
+            for (var i = 0; i < $scope.jobs.length; i ++) {
+                if ($scope.jobs[i].id == job_id) {
+                    $scope.jobs[i][name] = value;
+                    return true;
+                }
+            }
+            return false;
+        }
     });
 
     app.controller('job_controller', function($scope, $controller) {
@@ -101,6 +110,23 @@ try {
                 $scope.reverse = true;
             }
         };
+
+        $scope.print_time_diff_ago = function(start) {
+            return print_time_diff_ago(start, 'minute');
+        };
+
+        $scope.print_time_diff_simple = function(diff) {
+            return print_time_diff_simple(diff);
+        };
+
+        $scope.print_time_diff_terse = function(diff) {
+            return print_time_diff_terse(diff);
+        };
+
+        $scope.print_time_diff = function(diff) {
+            return print_time_diff(diff);
+    };
+
     });
 
     app.directive('dgName', function() {
@@ -145,3 +171,34 @@ try {
 catch (ex) {
     console.log(ex);
 }
+
+$(document).ready(function(){
+    if (typeof(socket) !== 'undefined') {
+        socket.on('task update', function(msg) {
+             console.log('socketio task update' + msg);
+        });
+        socket.on('job update', function(msg) {
+            console.log('socketio job update' + msg);
+            var scope = angular.element(document.getElementById('all-jobs')).scope();
+            if (msg.update == 'status') {
+                if (scope.set_attribute(msg.job_id, 'status', msg.status)
+                    && scope.set_attribute(msg.job_id, 'status_css', msg.css)) {
+                    scope.$apply()
+                }
+
+            } else if (msg.update == 'progress') {
+                if (scope.set_attribute(msg.job_id, 'progress', msg.percentage)) {
+                    scope.$apply();
+                }
+            } else if (msg.update == 'added') {
+            } else if (msg.update == 'deleted') {
+            } else if (msg.update == 'attribute') {
+                if (scope.set_attribute(msg.job_id, msg.attribute, msg.value)) {
+                    scope.$apply();
+                }
+            }
+
+        });
+    }
+
+});
