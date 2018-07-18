@@ -119,8 +119,8 @@ Evaluation Result {{ job.name() }}
 </div>
 <script type="text/javascript">
     $(document).ready(function(){
-        colorStatTable(".color_group_cm_m", {color:"#ff0000"}).draw();
-        colorStatTable(".color_group_cm", {color:"#00ff00"}).draw();
+        colorStatTable(".color_group_cm_m", {color:"#ff0000", max_opacity: 0.8, min_value: 0}).draw();
+        colorStatTable(".color_group_cm", {color:"#00ff00", max_opacity: 0.8, min_value: 0}).draw();
         colorStatTable(".color_group_r",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
         colorStatTable(".color_group_p",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
     });
