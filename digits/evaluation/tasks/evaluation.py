@@ -37,6 +37,7 @@ class EvaluationTask(Task):
 
         # memorize parameters
         self.model = model
+        self.dataset = dataset
         self.epoch = None
 
         # infer.py parameters
