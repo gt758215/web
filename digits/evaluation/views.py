@@ -120,7 +120,7 @@ def show(job_id):
     job = scheduler.get_job(job_id)
     if job is None:
         raise werkzeug.exceptions.NotFound('Job not found')
-    
+
     confusion_matrix = {}
 
     #with open(job.evaluation_task().confusion_matrix_path, 'r') as cm_file:
