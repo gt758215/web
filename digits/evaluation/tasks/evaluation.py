@@ -150,7 +150,7 @@ class EvaluationTask(Task):
     def after_run(self):
         super(EvaluationTask, self).after_run()
 
-        self.evaluation_log.write("Confusion Matrix generated %s" % self.cconfusion_matrix_path())
+        self.evaluation_log.write("Confusion Matrix generated %s" % self.confusion_matrix_path())
         self.evaluation_log.write("Image Prediction List generated %s" % self.image_prediction_list_path())
         self.evaluation_log.close()
 
