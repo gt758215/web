@@ -1,6 +1,10 @@
 {% extends "mlt/layout.html" %}
 
 {% block head %}
+{% with namespace = "/jobs" %}
+    {% set room = "job_management" %}
+    {% include 'socketio.html' %}
+{% endwith %}
 {% endblock %}
 
 {% block page_title %} Evaluation {% endblock %}
