@@ -76,8 +76,8 @@ class EvaluationTask(Task):
         # resources
         self.gpu = None
 
-        self.confusion_matrix_path = None
-        self.image_prediction_list_path = None
+        self._confusion_matrix_path = None
+        self._image_prediction_list_path = None
 
     def confusion_matrix_path(self):
         return os.path.join(self.job_dir, CONFUSION_MATRIX_FILENAME)
@@ -135,13 +135,13 @@ class EvaluationTask(Task):
         # path to confusion_matrix
         match = re.match(r'Saved confusion_matrix to (.*)', message)
         if match:
-            self.confusion_matrix_path = match.group(1).strip()
+            self._confusion_matrix_path = match.group(1).strip()
             return True
 
         # path to image_prediction_list
         match = re.match(r'Saved image_prediction_list to (.*)', message)
         if match:
-            self.image_prediction_list_path = match.group(1).strip()
+            self._image_prediction_list_path = match.group(1).strip()
             return True
 
         return False
