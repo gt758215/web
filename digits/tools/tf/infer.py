@@ -120,7 +120,7 @@ class confusion_matrix:
       for j in range(self.matrix_size):
         tmp_value += self.tmp_confusion_matrix[i][j]
         if tmp_value is not 0:
-          self.recall_list[i] = float(self.confusion_matrix[i][i]) / tmp_value
+          self.recall_list[i] = float(self.tmp_confusion_matrix[i][i]) / tmp_value
 
     # calculate precision
     for j in range(self.matrix_size):
@@ -128,7 +128,7 @@ class confusion_matrix:
       for i in range(self.matrix_size):
         tmp_value += self.tmp_confusion_matrix[i][j]
         if tmp_value is not 0:
-          self.precision_list[j] = float(self.confusion_matrix[j][j]) / tmp_value
+          self.precision_list[j] = float(self.tmp_confusion_matrix[j][j]) / tmp_value
 
 
   def gen_json_data(self):
