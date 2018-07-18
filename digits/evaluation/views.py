@@ -121,9 +121,6 @@ def show(job_id):
     if job is None:
         raise werkzeug.exceptions.NotFound('Job not found')
 
-    #related_jobs = scheduler.get_related_jobs(job)
-
-    job_id = job.id()
     confusion_matrix = {}
     image_prediction_list = {}
     #with open(job.evaluation_task().confusion_matrix_path, 'r') as cm_file:
@@ -139,14 +136,21 @@ def show(job_id):
         except Exception as e:
             raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
     '''
+    precisions = [98, 99, 97, 93, 80, 75, 90, 98, 75, 90]
+    recalls = [98, 99, 97, 93, 80, 75, 90, 98, 75, 90]
+    accuracy = 89
+
     if request_wants_json():
         return flask.jsonify(job.json_dict(True))
     else:
         return flask.render_template('mlt/evaluation/show.html',
                                      job=job,
-                                     job_id='test32',
+                                     job_id=job.id(),
                                      labels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                                      confusion_matrix=confusion_matrix['confusion_matrix'],
+                                     precisions=precisions,
+                                     recalls=recalls,
+                                     accuracy=accuracy,
                                      )
 
 
