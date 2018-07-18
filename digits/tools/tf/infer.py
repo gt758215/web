@@ -120,7 +120,7 @@ class confusion_matrix:
       for j in range(self.matrix_size):
         tmp_value += self.tmp_confusion_matrix[i][j]
         if tmp_value is not 0:
-          self.recall_list[i] = float(self.tmp_confusion_matrix[i][i]) / tmp_value
+          self.recall_list[i] = float(self.confusion_matrix[i][i]) / tmp_value
 
     # calculate precision
     for j in range(self.matrix_size):
@@ -128,7 +128,7 @@ class confusion_matrix:
       for i in range(self.matrix_size):
         tmp_value += self.tmp_confusion_matrix[i][j]
         if tmp_value is not 0:
-          self.precision_list[j] = float(self.tmp_confusion_matrix[j][j]) / tmp_value
+          self.precision_list[j] = float(self.confusion_matrix[j][j]) / tmp_value
 
 
   def gen_json_data(self):
@@ -310,12 +310,12 @@ class BenchmarkCNN(object):
       logging.info('Print image_prediction_dict:' + str(self.image_prediction_dict.gen_json_data()))
 
       logging.info('json dump to image_prediction_dict:' + json.dumps(self.image_prediction_dict.gen_json_data()))
-      self.image_prediction_dict.dump_data_to_file(confusion_matrix_path)
-      logging.info('Saved confusion_matrix to %s' % confusion_matrix_path)
+      self.image_prediction_dict.dump_data_to_file(image_prediction_path)
+      logging.info('Saved image_prediction_list to %s' % image_prediction_path)
 
       logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
-      self.confusion_matrix.dump_data_to_file(image_prediction_path)
-      logging.info('Saved image_prediction_list to %s' % image_prediction_path)
+      self.confusion_matrix.dump_data_to_file(confusion_matrix_path)
+      logging.info('Saved confusion_matrix to %s' % confusion_matrix_path)
 
   def _build_graph(self):
     tf.set_random_seed(1234)
