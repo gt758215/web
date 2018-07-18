@@ -122,13 +122,22 @@ def show(job_id):
         raise werkzeug.exceptions.NotFound('Job not found')
 
     confusion_matrix = {}
+    labels = []
 
-    #with open(job.evaluation_task().confusion_matrix_path, 'r') as cm_file:
-    with open('/home/weiru/PycharmProjects/web/digits/jobs/%s/confusion_matrix.json' % job.id(), 'r') as cm_file:
+    with open(job.evaluation_task().confusion_matrix_path(), 'r') as cm_file:
         try:
             confusion_matrix = flask.json.load(cm_file)
         except Exception as e:
             raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
+
+    with open(job.evaluation_task().labels_path(), 'r') as label_file:
+        try:
+
+            labels = label_file.readlines()
+            labels = [x.strip() for x in labels]
+        except Exception as e:
+            raise werkzeug.exceptions.NotFound('label file not found', e)
+
     '''
     with open(job.evaluation_task().image_prediction_list_path, 'r') as ipl_file:
         try:
@@ -136,9 +145,11 @@ def show(job_id):
         except Exception as e:
             raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
     '''
-    precisions = [98, 99, 97, 93, 80, 75, 90, 98, 75, 90]
-    recalls = [98, 99, 97, 93, 80, 75, 90, 98, 75, 90]
-    accuracy = 89
+    precisions = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['precision_list']]
+    recalls = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['recall_list']]
+    precision = '%.2f%%' % (float(confusion_matrix['precision']) * 100)
+    recall = '%.2f%%' % (float(confusion_matrix['recall']) * 100)
+    accuracy = '%.2f%%' % (float(confusion_matrix['accuracy']) * 100)
 
     if request_wants_json():
         return flask.jsonify(job.json_dict(True))
@@ -146,12 +157,13 @@ def show(job_id):
         return flask.render_template('mlt/evaluation/show.html',
                                      job=job,
                                      job_id=job.id(),
-                                     labels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                                     labels=labels,
                                      confusion_matrix=confusion_matrix['confusion_matrix'],
                                      precisions=precisions,
                                      recalls=recalls,
-                                     accuracy=accuracy,
-                                     )
+                                     precision=precision,
+                                     recall=recall,
+                                     accuracy=accuracy)
 
 
 @blueprint.route('/<job_id>/editdataset/<label_x>/<label_y>')

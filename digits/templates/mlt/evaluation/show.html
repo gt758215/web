@@ -58,23 +58,39 @@ Evaluation Result {{ job.name() }}
             <div class="card-header">Confusion Matrix</div>
             <div class="card-body">
                 <div calss="row">
-                    <div class="col-sm-10">
-                        <table class="table table-bordered table_fixed_layout" id="confusion_matrix" >
+                <div class="col-sm-4">
+                    <table class="table table-bordered " id="accuracy">
+                        <tbody>
+                        <tr>
+                            <th>Accuracy</td>
+                            <td> {{ accuracy }}</td>
+                            <th>Precision</td>
+                            <td> {{ precision }}</td>
+                            <th>Recall</td>
+                            <td> {{ recall }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                    <div class="col-sm-12">
+                        <table class="table table-bordered " id="confusion_matrix" >
                             <thead>
                                 <th></th>
                                 {% for label in labels %}
                                 <th>{{ label }}</th>
                                 {% endfor %}
+                                <th> Recall </th>
                             </thead>
                             <tbody>
+                            {% set recall_index = 0 %}
                             {% for list in confusion_matrix %}
                             <tr>
                                 {% set label_id_x=loop.index-1 %}
                                 <th>{{labels[label_id_x]}}</th>
                                 {% for count in list %}
                                 {% set label_id_y=loop.index-1 %}
-
-                                <td class="color_value">
+                                {% set color_group = 'color_group_cm' if label_id_x == label_id_y else 'color_group_cm_m' %}
+                                <td class="{{ color_group }}">
                                     {% if count != 0 %}
                                     <a href="{{ url_for('digits.evaluation.views.edit_dataset', job_id=job_id, label_x=label_id_x, label_y=label_id_y) }}">{{ count }}</a>
                                     {% else %}
@@ -83,49 +99,19 @@ Evaluation Result {{ job.name() }}
                                 </td>
 
                                 {% endfor %}
+
+                                <td class="color_group_r"> {{ recalls[loop.index-1] }}</td>
                             </tr>
                             {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="col-sm-1">
-                        <table class="table table-bordered table_fixed_layout" id="recall">
-                            <thead>
-                                <tr><th>Recall</th></tr>
-                            </thead>
-                            <tbody>
-                                {% for r in recalls %}
-                                <tr>
-                                <td class="color_value"> {{ r }}</td>
-                                </tr>
+                            <tr>
+                                <th>Precision</th>
+                                {% for p in precisions %}
+                                <td class="color_group_p"> {{ p }}</td>
                                 {% endfor %}
+                            </tr>
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                <div class="col-sm-10">
-                    <table class="table table-bordered table_fixed_layout" id="precision">
-                        <tbody>
-                        <tr>
-                            <th>Precision</th>
-                            {% for p in precisions %}
-                            <td class="color_value"> {{ p }}</td>
-                            {% endfor %}
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="col-sm-2">
-                    <table class="table table-bordered table_fixed_layout" id="accuracy">
-                        <tbody>
-                        <tr>
-                            <th>Accuracy</td>
-                            <td class="color_value"> {{ accuracy }}</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
 
@@ -133,9 +119,10 @@ Evaluation Result {{ job.name() }}
 </div>
 <script type="text/javascript">
     $(document).ready(function(){
-        colorStatTable("#confusion_matrix", {main_diagonal_color:"#00ff00"}).draw();
-        colorStatTable("#recall",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
-        colorStatTable("#precision",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
+        colorStatTable(".color_group_cm_m", {color:"#ff0000"}).draw();
+        colorStatTable(".color_group_cm", {color:"#00ff00"}).draw();
+        colorStatTable(".color_group_r",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
+        colorStatTable(".color_group_p",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
     });
 </script>
 <style type="text/css">

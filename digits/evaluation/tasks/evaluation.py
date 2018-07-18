@@ -16,6 +16,9 @@ from digits.utils.image import embed_image_html
 
 
 PICKLE_VERSION = 1
+CONFUSION_MATRIX_FILENAME = 'confusion_matrix.json'
+IMAGE_PREDICTION_LIST_FILENAME = 'image_prediction_list.json'
+LABELS_FILENAME = 'labels.txt'
 
 @subclass
 class EvaluationTask(Task):
@@ -31,7 +34,7 @@ class EvaluationTask(Task):
         """
         super(EvaluationTask, self).__init__(**kwargs)
         self.pickver_task_evaluation = PICKLE_VERSION
-        self.EVALUATION_RESULT_FILENAME = 'confusion_matrix.json'
+
         # memorize parameters
         self.model = model
         self.epoch = None
@@ -72,15 +75,17 @@ class EvaluationTask(Task):
         # resources
         self.gpu = None
 
-        # generated data
-        self.evaluation_result_filename = None
-
         self.confusion_matrix_path = None
         self.image_prediction_list_path = None
 
+    def confusion_matrix_path(self):
+        return os.path.join(self.job_dir, CONFUSION_MATRIX_FILENAME)
 
+    def image_prediction_list_path(self):
+        return os.path.join(self.job_dir, IMAGE_PREDICTION_LIST_FILENAME)
 
-
+    def labels_path(self):
+        return os.path.join(self.dataset.dir(), LABELS_FILENAME)
 
     @override
     def name(self):
@@ -144,8 +149,8 @@ class EvaluationTask(Task):
     def after_run(self):
         super(EvaluationTask, self).after_run()
 
-        confusion_matrix_filepath = '%s/%s' %(self.job_dir, self.EVALUATION_RESULT_FILENAME)
-        self.evaluation_log.write("Confusion Matrix generated %s" % confusion_matrix_filepath )
+        self.evaluation_log.write("Confusion Matrix generated %s" % self.cconfusion_matrix_path())
+        self.evaluation_log.write("Image Prediction List generated %s" % self.image_prediction_list_path())
         self.evaluation_log.close()
 
     @override
@@ -201,8 +206,8 @@ class EvaluationTask(Task):
         if self.batch_size is not None:
             args.append('--batch_size=%s' % self.batch_size)
 
-        if self.labels_list is not None:
-            args.append('--labels_list=%s' % self.labels_list)
+        if self.dataset is not None:
+            args.append('--labels_list=%s' % self.labels_path())
 
         if self.device is not None:
             args.append('--device=%s' % self.device)
