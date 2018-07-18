@@ -118,6 +118,17 @@ var colorStatTable = function(selector=null, setting={}) {
             }
         );
     }
+
+    var get_max_value = function () {
+        return max_value
+    }
+
+    var get_min_value = function() {
+        return min_value
+    }
+
     _init()
-    return {draw: draw}
+    return {draw: draw,
+            get_max_value: get_max_value,
+            get_min_value: get_min_value }
 };

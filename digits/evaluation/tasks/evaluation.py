@@ -130,6 +130,7 @@ class EvaluationTask(Task):
         match = re.match(r'Processed (\d+)\/(\d+)', message)
         if match:
             self.progress = float(match.group(1)) / int(match.group(2))
+            self.emit_progress_update()
             return True
 
         # path to confusion_matrix

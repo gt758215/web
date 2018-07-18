@@ -98,9 +98,7 @@ def create():
         if request_wants_json():
             return flask.jsonify(job.json_dict())
         else:
-            return flask.redirect(flask.url_for('digits.evaluation.views.home'))
-
-            #return flask.redirect(flask.url_for('digits.evaluation.views.show', job_id=job.id()))
+            return flask.redirect(flask.url_for('digits.evaluation.views.show', job_id=job.id()))
 
     except Exception:
         if job:
@@ -123,33 +121,39 @@ def show(job_id):
 
     confusion_matrix = {}
     labels = []
+    precisions = []
+    recalls = []
+    precision = None
+    recall = None
+    accuracy = None
 
-    with open(job.evaluation_task().confusion_matrix_path(), 'r') as cm_file:
-        try:
-            confusion_matrix = flask.json.load(cm_file)
-        except Exception as e:
-            raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
+    if job.status_of_tasks() == Status.DONE:
+        with open(job.evaluation_task().confusion_matrix_path(), 'r') as cm_file:
+            try:
+                confusion_matrix = flask.json.load(cm_file)
+            except Exception as e:
+                raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
 
-    with open(job.evaluation_task().labels_path(), 'r') as label_file:
-        try:
+        with open(job.evaluation_task().labels_path(), 'r') as label_file:
+            try:
 
-            labels = label_file.readlines()
-            labels = [x.strip() for x in labels]
-        except Exception as e:
-            raise werkzeug.exceptions.NotFound('label file not found', e)
+                labels = label_file.readlines()
+                labels = [x.strip() for x in labels]
+            except Exception as e:
+                raise werkzeug.exceptions.NotFound('label file not found', e)
 
-    '''
-    with open(job.evaluation_task().image_prediction_list_path, 'r') as ipl_file:
-        try:
-            image_prediction_list = flask.json.load(ipl_file)
-        except Exception as e:
-            raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
-    '''
-    precisions = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['precision_list']]
-    recalls = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['recall_list']]
-    precision = '%.2f%%' % (float(confusion_matrix['precision']) * 100)
-    recall = '%.2f%%' % (float(confusion_matrix['recall']) * 100)
-    accuracy = '%.2f%%' % (float(confusion_matrix['accuracy']) * 100)
+        '''
+        with open(job.evaluation_task().image_prediction_list_path, 'r') as ipl_file:
+            try:
+                image_prediction_list = flask.json.load(ipl_file)
+            except Exception as e:
+                raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
+        '''
+        precisions = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['precision_list']]
+        recalls = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['recall_list']]
+        precision = '%.2f%%' % (float(confusion_matrix['precision']) * 100)
+        recall = '%.2f%%' % (float(confusion_matrix['recall']) * 100)
+        accuracy = '%.2f%%' % (float(confusion_matrix['accuracy']) * 100)
 
     if request_wants_json():
         return flask.jsonify(job.json_dict(True))

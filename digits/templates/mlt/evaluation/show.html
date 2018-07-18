@@ -55,8 +55,10 @@ Evaluation Result {{ job.name() }}
 
     <div class="col-sm-12">
         <div class="card">
+
             <div class="card-header">Confusion Matrix</div>
             <div class="card-body">
+                {% if confusion_matrix %}
                 <div calss="row">
                 <div class="col-sm-4">
                     <table class="table table-bordered " id="accuracy">
@@ -113,6 +115,7 @@ Evaluation Result {{ job.name() }}
                         </table>
                     </div>
             </div>
+                {% endif %}
         </div>
 
     </div>
