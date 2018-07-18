@@ -119,7 +119,8 @@ def show(job_id):
     if job is None:
         raise werkzeug.exceptions.NotFound('Job not found')
 
-    confusion_matrix = {}
+    confusion_matrix_result = {}
+    confusion_matrix = []
     labels = []
     precisions = []
     recalls = []
@@ -130,7 +131,7 @@ def show(job_id):
     if job.status_of_tasks() == Status.DONE:
         with open(job.evaluation_task().confusion_matrix_path(), 'r') as cm_file:
             try:
-                confusion_matrix = flask.json.load(cm_file)
+                confusion_matrix_result = flask.json.load(cm_file)
             except Exception as e:
                 raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
 
@@ -149,11 +150,12 @@ def show(job_id):
             except Exception as e:
                 raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
         '''
-        precisions = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['precision_list']]
-        recalls = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix['recall_list']]
-        precision = '%.2f%%' % (float(confusion_matrix['precision']) * 100)
-        recall = '%.2f%%' % (float(confusion_matrix['recall']) * 100)
-        accuracy = '%.2f%%' % (float(confusion_matrix['accuracy']) * 100)
+        confusion_matrix = confusion_matrix_result['confusion_matrix']
+        precisions = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix_result['precision_list']]
+        recalls = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix_result['recall_list']]
+        precision = '%.2f%%' % (float(confusion_matrix_result['precision']) * 100)
+        recall = '%.2f%%' % (float(confusion_matrix_result['recall']) * 100)
+        accuracy = '%.2f%%' % (float(confusion_matrix_result['accuracy']) * 100)
 
     if request_wants_json():
         return flask.jsonify(job.json_dict(True))
@@ -162,7 +164,7 @@ def show(job_id):
                                      job=job,
                                      job_id=job.id(),
                                      labels=labels,
-                                     confusion_matrix=confusion_matrix['confusion_matrix'],
+                                     confusion_matrix=confusion_matrix,
                                      precisions=precisions,
                                      recalls=recalls,
                                      precision=precision,
