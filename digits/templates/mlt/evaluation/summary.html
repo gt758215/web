@@ -16,7 +16,7 @@
 
 {% block content %}
 
-<div class="row" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
+<div class="row" id="all-jobs" ng-app="mlt_app" ng-controller="all_jobs_controller as jc" ng-cloak>
   {[ jc.evaluation_jobs = (jobs | filter:is_evaluation);'' ]}
   <div ng-controller="evaluations_controller">
     <div class="animated fadeIn">
