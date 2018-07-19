@@ -49,7 +49,6 @@ class image_prediction:
     self.y_batch = y_batch
     self.filename = filename
 
-  @property
   def gen_json_data(self):
     data = {'id': self.r_id,
             'top_1': self.top_1,
@@ -75,14 +74,14 @@ class image_prediction_dict:
     for key, value in self.img_pred_dict.iteritems():
       self.id_list.append(key)
       self.pred_list.append(value.pred)
-      self.y_batch_list.append(value.y_batch)
+      self.y_batch_list.append(int(value.y_batch))
       self.filename_list.append(value.filename)
 
   def gen_json_data(self):
-    data = {'id_list': str(self.id_list),
-            'prediction_list': str(self.pred_list),
-            'y_batch_list': str(self.y_batch_list),
-            'filename_list': str(self.filename_list)
+    data = {'id_list': self.id_list,
+            'prediction_list': self.pred_list,
+            'y_batch_list': self.y_batch_list,
+            'filename_list': self.filename_list
            }
     return data
 
