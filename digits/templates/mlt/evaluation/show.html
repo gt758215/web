@@ -47,10 +47,8 @@ Evaluation Result {{ job.name() }}
     </div>
 </div>
 <div calss="row">
-
     <div class="col-sm-12">
         <div class="card">
-
             <div class="card-header">Confusion Matrix</div>
             <div class="card-body">
                 {% if confusion_matrix %}
@@ -71,17 +69,26 @@ Evaluation Result {{ job.name() }}
                 </div>
                     <div class="col-sm-12">
                         <table class="table table-bordered " id="confusion_matrix" >
-                            <thead>
-                                <th></th>
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <th colspan="{{ labels|length + 2 }}"><span ="center">Predictions</span></th>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td></td>
                                 {% for label in labels %}
                                 <th>{{ label }}</th>
                                 {% endfor %}
-                                <th> Recall </th>
-                            </thead>
-                            <tbody>
+                                <td rowspan="{{ labels|length + 1 }}"></td>
+                                <td> Recall </td>
+                            </tr>
                             {% set recall_index = 0 %}
                             {% for list in confusion_matrix %}
                             <tr>
+                                {% if loop.index == 1 %}
+                                    <th rowspan="{{ labels|length + 3 }}"><span align="center">Ground Truth</span></th>
+                                {% endif %}
                                 {% set label_id_x=loop.index-1 %}
                                 <th>{{labels[label_id_x]}}</th>
                                 {% for count in list %}
@@ -89,24 +96,26 @@ Evaluation Result {{ job.name() }}
                                 {% set color_group = 'color_group_cm' if label_id_x == label_id_y else 'color_group_cm_m' %}
                                 <td class="{{ color_group }}">
                                     {% if count != 0 %}
-                                    <a href="{{ url_for('digits.evaluation.views.explore', job_id=job_id, label_x=label_id_x, label_y=label_id_y) }}">{{ count }}</a>
+                                    <a href="{{ url_for('digits.evaluation.views.explore', job_id=job_id, label_fact=label_id_x, label_pred=label_id_y) }}">{{ count }}</a>
                                     {% else %}
                                     {{ count }}
                                     {% endif %}
                                 </td>
-
                                 {% endfor %}
 
                                 <td class="color_group_r"> {{ recalls[loop.index-1] }}</td>
                             </tr>
                             {% endfor %}
                             <tr>
+
+                                <td colspan="{{ labels|length + 1 }}"></td>
+                            </tr>
+                            <tr>
                                 <th>Precision</th>
                                 {% for p in precisions %}
                                 <td class="color_group_p"> {{ p }}</td>
                                 {% endfor %}
                             </tr>
-                            </tbody>
                         </table>
                     </div>
             </div>

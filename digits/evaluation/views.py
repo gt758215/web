@@ -156,10 +156,10 @@ def show(job_id):
                                      accuracy=accuracy)
 
 
-@blueprint.route('/<job_id>/explore/<label_x>/<label_y>')
-def explore(job_id, label_x, label_y):
-    label_x = int(label_x)
-    label_y = int(label_y)
+@blueprint.route('/<job_id>/explore/<label_fact>/<label_pred>')
+def explore(job_id, label_fact, label_pred):
+    label_fact = int(label_fact)
+    label_pred = int(label_pred)
     job = scheduler.get_job(job_id)
     if job is None:
         raise werkzeug.exceptions.NotFound('Job not found')
@@ -168,8 +168,8 @@ def explore(job_id, label_x, label_y):
         confusion_matrix_result = load_confusion_matrix(job)
         image_prediction_list = load_image_prediction_list(job)
         labels = load_labels(job)
-        image_ids = confusion_matrix_result["confusion_matrix with ids"][label_x][label_y]
-        image_count = confusion_matrix_result["confusion_matrix"][label_x][label_y]
+        image_ids = confusion_matrix_result["confusion_matrix with ids"][label_fact][label_pred]
+        image_count = confusion_matrix_result["confusion_matrix"][label_fact][label_pred]
 
         page = int(flask.request.args.get('page', 0))
         size = int(flask.request.args.get('size', 25))
@@ -190,7 +190,7 @@ def explore(job_id, label_x, label_y):
             image_file_name = file_list[img_id]
 
             images.append({
-                "label": labels[label_y],
+                "label": labels[label_fact],
                 "tf_img_id": img_id,
                 "b64": embed_image_html(PIL.Image.open(image_file_name)),
             })
@@ -204,8 +204,8 @@ def explore(job_id, label_x, label_y):
                                  first_page=0,
                                  last_page=page_count - 1,
                                  size_ops=[25, 50, 100],
-                                 label_x=labels[label_x],
-                                 label_y=labels[label_y],
+                                 label_fact=labels[label_fact],
+                                 label_pred=labels[label_pred],
                                  total_entries=image_count,
                                  images=images)
 

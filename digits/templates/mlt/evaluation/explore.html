@@ -25,8 +25,9 @@
     <div class="row">
         <div class="col-sm-12">
          <div class="card">
-             <div class="card-header"><h2>Exploring {{job.name()}} images</h2></div>
+             <div class="card-header"><h4>Exploring {{job.name()}} images that label is {{ label_fact }} but evaluate result is {{ label_pred }}  </h4></div>
              <div class="card-body"></div>
+
             <ul class="nav nav-pills">
                 <li class="nav-item">Items per page:</li>
                 {% for size_op in size_ops %}
