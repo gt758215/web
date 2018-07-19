@@ -11,6 +11,7 @@ import time
 import json
 import os
 
+
 flags = tf.app.flags
 FLAGS = tf.app.flags.FLAGS
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
@@ -71,14 +72,14 @@ class image_prediction_dict:
     for key, value in self.img_pred_dict.iteritems():
       self.id_list.append(key)
       self.pred_list.append(value.pred)
-      self.y_batch_list.append(value.y_batch)
+      self.y_batch_list.append(int(value.y_batch))
       self.filename_list.append(value.filename)
 
   def gen_json_data(self):
-    data = {'id_list': str(self.id_list),
-            'prediction_list': str(self.pred_list),
-            'y_batch_list': str(self.y_batch_list),
-            'filename_list': str(self.filename_list)
+    data = {'id_list': self.id_list,
+            'prediction_list': self.pred_list,
+            'y_batch_list': self.y_batch_list,
+            'filename_list': self.filename_list
            }
     return data
 
@@ -299,10 +300,9 @@ class BenchmarkCNN(object):
       #logging.info('f1_score:' + str(self.confusion_matrix.f1_score))
       #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
       #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
-      logging.info('Print image_prediction_dict:' + str(self.image_prediction_dict.gen_json_data()))
-      logging.info('json dump to image_prediction_dict:' + json.dumps(self.image_prediction_dict.gen_json_data()))
+      #logging.info('Print image_prediction_dict:' + str(self.image_prediction_dict.gen_json_data()))
+      #logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
       self.image_prediction_dict.dump_data_to_file(self.networkDirectory)
-      logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
       self.confusion_matrix.dump_data_to_file(self.networkDirectory)
 
   def _build_graph(self):
