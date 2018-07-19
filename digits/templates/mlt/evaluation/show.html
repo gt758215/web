@@ -131,6 +131,16 @@ Evaluation Result {{ job.name() }}
         colorStatTable(".color_group_cm", {color:"#00ff00", max_opacity: 0.8, min_value: 0}).draw();
         colorStatTable(".color_group_r",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
         colorStatTable(".color_group_p",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
+        if (typeof(socket) != 'undefined') {
+            socket.on('task update', function (msg) {
+                var status_selector = "#"+msg['task']+"-status";
+                if (msg['update'] == 'status') {
+                    if (msg['status'] == 'Done') {
+                        window.location = '{{ url_for('digits.evaluation.views.show',job_id=job.id()) }}';
+                    }
+                }
+            });
+        }
     });
 </script>
 <style type="text/css">

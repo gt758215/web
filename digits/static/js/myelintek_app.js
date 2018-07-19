@@ -179,11 +179,15 @@ $(document).ready(function(){
         });
         socket.on('job update', function(msg) {
             console.log('socketio job update' + msg);
-            var scope = angular.element(document.getElementById('all-jobs')).scope();
+            var all_job_elm = document.getElementById('all-jobs');
+            if (all_job_elm == null) {
+                return;
+            }
+            var scope = angular.element(all_job_elm).scope();
             if (msg.update == 'status') {
                 if (scope.set_attribute(msg.job_id, 'status', msg.status)
                     && scope.set_attribute(msg.job_id, 'status_css', msg.css)) {
-                    scope.$apply()
+                    scope.$apply();
                 }
 
             } else if (msg.update == 'progress') {
