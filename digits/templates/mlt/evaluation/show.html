@@ -7,11 +7,6 @@
 {% extends "mlt/job.html" %}
 
 
-{% block head %}
-<script src="{{ url_for('static', filename='js/color_stat_table.js') }}"></script>
-{% endblock%}
-
-
 {% block page_title %}
 Evaluation Result {{ job.name() }}
 {% endblock %}
@@ -27,9 +22,9 @@ Evaluation Result {{ job.name() }}
 {% endblock %}
 
 
-
+{% block after_delete_url %}{{url_for('digits.evaluation.views.home')}}{% endblock %}
 {% block job_content %}
-
+<script src="{{ url_for('static', filename='js/color_stat_table.js') }}"></script>
 <div calss="row">
 
     <div class="col-sm-6">
