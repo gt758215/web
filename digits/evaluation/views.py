@@ -6,10 +6,9 @@ import logging
 
 import flask
 import werkzeug.exceptions
-import pprint
-from . import images as model_images
+import PIL
+import math
 from . import EvaluationJob
-from .tasks import EvaluationTask
 from .forms import EvaluationForm
 from digits.utils.routing import request_wants_json
 from digits.webapp import scheduler
@@ -17,7 +16,9 @@ from digits.views import get_job_list
 from digits.model import ImageClassificationModelJob
 from digits.dataset import ImageClassificationDatasetJob
 from digits.status import Status
-from digits.utils.forms import fill_form_if_cloned, save_form_to_job
+from digits.utils.forms import save_form_to_job
+from digits.utils.image import embed_image_html
+
 
 blueprint = flask.Blueprint(__name__, __name__)
 
@@ -129,27 +130,10 @@ def show(job_id):
     accuracy = None
 
     if job.status_of_tasks() == Status.DONE:
-        with open(job.evaluation_task().confusion_matrix_path(), 'r') as cm_file:
-            try:
-                confusion_matrix_result = flask.json.load(cm_file)
-            except Exception as e:
-                raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
 
-        with open(job.evaluation_task().labels_path(), 'r') as label_file:
-            try:
+        confusion_matrix_result = load_confusion_matrix(job)
+        labels = load_labels(job)
 
-                labels = label_file.readlines()
-                labels = [x.strip() for x in labels]
-            except Exception as e:
-                raise werkzeug.exceptions.NotFound('label file not found', e)
-
-        '''
-        with open(job.evaluation_task().image_prediction_list_path, 'r') as ipl_file:
-            try:
-                image_prediction_list = flask.json.load(ipl_file)
-            except Exception as e:
-                raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
-        '''
         confusion_matrix = confusion_matrix_result['confusion_matrix']
         precisions = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix_result['precision_list']]
         recalls = ['%.2f%%' % (float(x) * 100) for x in confusion_matrix_result['recall_list']]
@@ -172,9 +156,95 @@ def show(job_id):
                                      accuracy=accuracy)
 
 
-@blueprint.route('/<job_id>/editdataset/<label_x>/<label_y>')
-def edit_dataset(job_id, label_x, label_y):
-    pass
+@blueprint.route('/<job_id>/explore/<label_x>/<label_y>')
+def explore(job_id, label_x, label_y):
+    label_x = int(label_x)
+    label_y = int(label_y)
+    job = scheduler.get_job(job_id)
+    if job is None:
+        raise werkzeug.exceptions.NotFound('Job not found')
+
+    if job.status_of_tasks() == Status.DONE:
+        confusion_matrix_result = load_confusion_matrix(job)
+        image_prediction_list = load_image_prediction_list(job)
+        labels = load_labels(job)
+        image_ids = confusion_matrix_result["confusion_matrix with ids"][label_x][label_y]
+        image_count = confusion_matrix_result["confusion_matrix"][label_x][label_y]
+
+        page = int(flask.request.args.get('page', 0))
+        size = int(flask.request.args.get('size', 25))
+
+        page_count = int(math.ceil(image_count / size))
+        min_page = max(0, page - 5)
+        max_page = min(page_count, page + 5)
+
+        start = size * page
+        end = start + size - 1
+        end = end if (end < image_count) else (image_count - 1)
+
+        images = []
+        file_list = parse_array_string(image_prediction_list["filename_list"])
+
+        logger.info("show image from %d to %d, pid %d" % (start, end, page_count))
+        for img_id in image_ids[start:end]:
+            image_file_name = file_list[img_id]
+
+            images.append({
+                "label": labels[label_y],
+                "tf_img_id": img_id,
+                "b64": embed_image_html(PIL.Image.open(image_file_name)),
+            })
+
+    return flask.render_template('mlt/evaluation/explore.html',
+                                 job=job,
+                                 job_id=job.id(),
+                                 page=page,
+                                 size=size,
+                                 pages=range(min_page, max_page),
+                                 first_page=0,
+                                 last_page=page_count - 1,
+                                 size_ops=[25, 50, 100],
+                                 label_x=labels[label_x],
+                                 label_y=labels[label_y],
+                                 total_entries=image_count,
+                                 images=images)
+
+def parse_array_string(string):
+    substring = string[1:-1]
+    items = substring.split(',')
+    return [item.strip()[1:-1].replace('/cifar10', '/home/weiru/PycharmProjects/web/digits/data') for item in items]
+
+def load_confusion_matrix(job):
+    confusion_matrix_result = {}
+    with open(job.evaluation_task().confusion_matrix_path(), 'r') as cm_file:
+        try:
+            confusion_matrix_result = flask.json.load(cm_file)
+        except Exception as e:
+            raise werkzeug.exceptions.NotFound('Confusion_matrix file not found', e)
+
+    return confusion_matrix_result
+
+
+def load_image_prediction_list(job):
+    image_prediction_list = {}
+    with open(job.evaluation_task().image_prediction_list_path(), 'r') as ipl_file:
+        try:
+            image_prediction_list = flask.json.load(ipl_file)
+        except Exception as e:
+            raise werkzeug.exceptions.NotFound('Confusion_matrix file not foun', e)
+    return image_prediction_list
+
+
+def load_labels(job):
+    labels = []
+    with open(job.evaluation_task().labels_path(), 'r') as label_file:
+        try:
+
+            labels = label_file.readlines()
+            labels = [x.strip() for x in labels]
+        except Exception as e:
+            raise werkzeug.exceptions.NotFound('label file not found', e)
+    return labels
 
 
 def get_models():

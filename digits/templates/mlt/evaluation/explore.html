@@ -1,0 +1,103 @@
+{# Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved. #}
+
+{% extends "mlt/layout.html" %}
+
+{% block title %}
+{{job.name()}} - Explorer
+{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block nav %}
+<li class="active"><a href="{{url_for('digits.evaluation.views.new')}}">Evaluated Data  {{ job.name() }} </a></li>
+{% endblock %}
+
+{% block page_list %}
+<li><a href="{{url_for('digits.views.home')}}"> Dashboard </a></li>
+<li><a href="{{url_for('digits.evaluation.views.home')}}"> Evaluations </a></li>
+<li><a href="{{url_for('digits.evaluation.views.show', job_id=job.id() )}}"> Evalution {{ job.name() }} </a></li>
+<li><a href="#"> Evaluated Data </a></li>
+{% endblock %}
+
+
+{% block content %}
+    <div class="row">
+        <div class="col-sm-12">
+         <div class="card">
+             <div class="card-header"><h2>Exploring {{job.name()}} images</h2></div>
+             <div class="card-body"></div>
+            <ul class="nav nav-pills">
+                <li class="nav-item">Items per page:</li>
+                {% for size_op in size_ops %}
+                <li class="nav-item"><a href="?page=0&size={{ size_op }}" class="nav-link {% if size==size_op %}active{% endif %}">{{ size_op }}</a>
+                {% endfor %}
+            </ul>
+             <ul class="nav nav-pills">
+
+                    {# Previous Button #}
+                    <li class="nav-item {% if page == 0 %}disabled{%endif%}">
+                        <a class="nav-link" href="?page={{ page - 1 }}&size={{size}}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+
+                    {# Fist Page  #}
+                    {% if pages[0] != first_page %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=0&size={{size}}">0</a>
+                    </li>
+                    <li class="nav-item disabled">
+                        <a href="#">...</a>
+                    </li>
+                    {% endif %}
+
+                    {# Pages  #}
+                    {% for p in pages %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if p == page %}active{% endif %}" href="?page={{ p }}&size={{size}}">{{p}}</a>
+                    </li>
+                    {% endfor %}
+
+                    {# Last Page  #}
+                    {% if pages[-1] != last_page %}
+                    <li class="nav-item disabled">
+                        <a href="#">...</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page={{ last_page }}&size={{ size }}">{{ last_page }}</a>
+                    </li>
+                    {% endif %}
+
+                    {# Next Button #}
+                    {% if page != last_page %}
+                    <li class="nav-item" >
+                        <a class="nav-link" href="?page={{ page + 1 }}&size={{size}}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>{%endif %}
+                </ul>
+            </div>
+         </div>
+        </div>
+        {% for img in images %}
+        <div class="col-sm-1">
+            <div class="card">
+                <div class="card-header">
+                    {% if img.label %}<h5>{{ img.label }}</h5>{% endif %}
+                </div>
+                <div class="card-body" id="{{img.tf_img_id}}">
+                    <img src="{{ img.b64 }}" class="img-responsive"/>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+
+
+    <div class="row">
+
+
+    </div>
+{% endblock %}

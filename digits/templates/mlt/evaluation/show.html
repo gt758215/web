@@ -89,7 +89,7 @@ Evaluation Result {{ job.name() }}
                                 {% set color_group = 'color_group_cm' if label_id_x == label_id_y else 'color_group_cm_m' %}
                                 <td class="{{ color_group }}">
                                     {% if count != 0 %}
-                                    <a href="{{ url_for('digits.evaluation.views.edit_dataset', job_id=job_id, label_x=label_id_x, label_y=label_id_y) }}">{{ count }}</a>
+                                    <a href="{{ url_for('digits.evaluation.views.explore', job_id=job_id, label_x=label_id_x, label_y=label_id_y) }}">{{ count }}</a>
                                     {% else %}
                                     {{ count }}
                                     {% endif %}
