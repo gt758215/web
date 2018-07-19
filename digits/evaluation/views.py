@@ -212,7 +212,7 @@ def explore(job_id, label_x, label_y):
 def parse_array_string(string):
     substring = string[1:-1]
     items = substring.split(',')
-    return [item.strip()[1:-1].replace('/cifar10', '/home/weiru/PycharmProjects/web/digits/data') for item in items]
+    return [item.strip()[1:-1] for item in items]
 
 def load_confusion_matrix(job):
     confusion_matrix_result = {}
