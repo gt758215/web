@@ -183,7 +183,7 @@ def explore(job_id, label_fact, label_pred):
         end = end if (end < image_count) else (image_count - 1)
 
         images = []
-        file_list = parse_array_string(image_prediction_list["filename_list"])
+        file_list = image_prediction_list["filename_list"]
 
         logger.info("show image from %d to %d, pid %d" % (start, end, page_count))
         for img_id in image_ids[start:end]:
@@ -209,10 +209,6 @@ def explore(job_id, label_fact, label_pred):
                                  total_entries=image_count,
                                  images=images)
 
-def parse_array_string(string):
-    substring = string[1:-1]
-    items = substring.split(',')
-    return [item.strip()[1:-1] for item in items]
 
 def load_confusion_matrix(job):
     confusion_matrix_result = {}
