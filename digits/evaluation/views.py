@@ -179,8 +179,8 @@ def explore(job_id, label_fact, label_pred):
         max_page = min(page_count, page + 5)
 
         start = size * page
-        end = start + size - 1
-        end = end if (end < image_count) else (image_count - 1)
+        end = start + size
+        end = end if (end < image_count) else image_count
 
         images = []
         file_list = image_prediction_list["filename_list"]

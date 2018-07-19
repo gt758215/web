@@ -72,7 +72,7 @@ Evaluation Result {{ job.name() }}
                             <tr>
                                 <td></td>
                                 <td></td>
-                                <th colspan="{{ labels|length + 2 }}"><span ="center">Predictions</span></th>
+                                <th colspan="{{ labels|length  }}"><span ="center">Predictions</span></th>
                             </tr>
                             <tr>
                                 <td></td>
@@ -87,7 +87,7 @@ Evaluation Result {{ job.name() }}
                             {% for list in confusion_matrix %}
                             <tr>
                                 {% if loop.index == 1 %}
-                                    <th rowspan="{{ labels|length + 3 }}"><span align="center">Ground Truth</span></th>
+                                    <th rowspan="{{ labels|length  }}"><span align="center">Ground Truth</span></th>
                                 {% endif %}
                                 {% set label_id_x=loop.index-1 %}
                                 <th>{{labels[label_id_x]}}</th>
@@ -107,11 +107,12 @@ Evaluation Result {{ job.name() }}
                             </tr>
                             {% endfor %}
                             <tr>
-
                                 <td colspan="{{ labels|length + 1 }}"></td>
                             </tr>
                             <tr>
+                                <td></td>
                                 <th>Precision</th>
+
                                 {% for p in precisions %}
                                 <td class="color_group_p"> {{ p }}</td>
                                 {% endfor %}
