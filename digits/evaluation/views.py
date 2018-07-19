@@ -174,7 +174,7 @@ def explore(job_id, label_fact, label_pred):
         page = int(flask.request.args.get('page', 0))
         size = int(flask.request.args.get('size', 25))
 
-        page_count = int(math.ceil(image_count / size))
+        page_count = int(math.ceil(float(image_count) / float(size)))
         min_page = max(0, page - 5)
         max_page = min(page_count, page + 5)
 
