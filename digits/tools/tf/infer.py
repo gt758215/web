@@ -245,8 +245,8 @@ class BenchmarkCNN(object):
       iterations = self.total_size // self.batch_size
       act_idx = 0
 
+      sess.run(local_var_init_op_group)
       for _iter in range(iterations):
-        sess.run(local_var_init_op_group)
         rtop_1, rtop_5, rlogits, rprediction, rlabels, softmax, filenames = sess.run([fetches['top_1_op'],
                                           fetches['top_5_op'],
                                           fetches['logits'],
@@ -254,7 +254,7 @@ class BenchmarkCNN(object):
                                           fetches['labels'],
                                           fetches['softmax'],
                                           fetches['filenames']])
-        logging.info('Processed %d/%d' % (_iter, iterations))
+        logging.info('Processed %d/%d' % (_iter+1, iterations))
 
         #data cleaning
         if self.gen_metrics is True:
