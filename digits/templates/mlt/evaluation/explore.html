@@ -37,11 +37,13 @@
              <ul class="nav nav-pills">
 
                     {# Previous Button #}
-                    <li class="nav-item {% if page == 0 %}disabled{%endif%}">
+                    {% if page > 0 %}
+                    <li class="nav-item">
                         <a class="nav-link" href="?page={{ page - 1 }}&size={{size}}" aria-label="Previous">
                             <span aria-hidden="true">&laquo;</span>
                         </a>
                     </li>
+                    {%endif%}"
 
                     {# Fist Page  #}
                     {% if pages[0] != first_page %}
@@ -93,12 +95,5 @@
             </div>
         </div>
         {% endfor %}
-    </div>
-
-
-
-    <div class="row">
-
-
     </div>
 {% endblock %}
