@@ -11,7 +11,6 @@ import time
 import json
 import os
 
-
 flags = tf.app.flags
 FLAGS = tf.app.flags.FLAGS
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
@@ -21,6 +20,7 @@ flags.DEFINE_string('data_dir', None,'data_dir')
 flags.DEFINE_string('filename', None,'filename')
 flags.DEFINE_string('network', None,'network')
 flags.DEFINE_string('networkDirectory', None,'networkDirectory')
+flags.DEFINE_string('result_dir', None,'result_dir')
 flags.DEFINE_integer('batch_size', 1, 'batch size in test dataset')
 flags.DEFINE_string('labels_list', None,'labels_list')
 flags.DEFINE_string('device', 'gpu', 'device [gpu | cpu]')
@@ -30,6 +30,8 @@ flags.DEFINE_enum('data_format', 'NCHW', ('NHWC', 'NCHW'),
                   'Data layout to use: NHWC (TF native) or NCHW (cuDNN '
                   'native, requires GPU).')
 
+CONFUSION_MATRIX_FILENAME = 'confusion_matrix.json'
+IMAGE_PREDICTION_LIST_FILENAME = 'image_prediction_list.json'
 
 ######### data cleaning #########
 import sklearn as sk
@@ -84,7 +86,7 @@ class image_prediction_dict:
     return data
 
   def dump_data_to_file(self, path):
-    with open(os.path.join(path, 'image_prediction_list.json'), 'w') as outfile:
+    with open(path, 'w') as outfile:
       json.dump(self.gen_json_data(), outfile)
 
 
@@ -141,7 +143,7 @@ class confusion_matrix:
     return data
 
   def dump_data_to_file(self, path):
-    with open(os.path.join(path, 'confusion_matrix.json'), 'w') as outfile:
+    with open(path, 'w') as outfile:
       json.dump(self.gen_json_data(), outfile, sort_keys=True, indent=4)
 
 #################################
@@ -196,6 +198,7 @@ class BenchmarkCNN(object):
     self.filename = FLAGS.filename
     self.network = FLAGS.network
     self.networkDirectory = FLAGS.networkDirectory
+    self.result_dir = FLAGS.result_dir
     self.batch_size = FLAGS.batch_size
     self.labels_list = FLAGS.labels_list
     self.labels = [line for line in open(self.labels_list) if line.strip()]
@@ -241,7 +244,7 @@ class BenchmarkCNN(object):
 
       if self.batch_size > self.total_size:
         raise Exception("total size of dataset is small than batch size!")
-      
+
       iterations = self.total_size // self.batch_size
       act_idx = 0
 
@@ -288,6 +291,9 @@ class BenchmarkCNN(object):
       self.confusion_matrix.calculate_recall_precision_list()
       self.confusion_matrix.calculate_ids_in_confusion_matrix()
 
+      confusion_matrix_path = os.path.join(self.result_dir, CONFUSION_MATRIX_FILENAME)
+      image_prediction_path = os.path.join(self.result_dir, IMAGE_PREDICTION_LIST_FILENAME)
+
       #logging.info('Predictions for top_1: ' + str(rtop_1))
       #logging.info('Predictions for top_5: ' + str(rtop_5))
       #logging.info('Predictions for logits: ' + json.dumps(rlogits.tolist()))
@@ -300,10 +306,12 @@ class BenchmarkCNN(object):
       #logging.info('f1_score:' + str(self.confusion_matrix.f1_score))
       #logging.info('confusion_matrix:' + str(self.confusion_matrix.confusion_matrix))
       #logging.info('confusion_matrix with ids:' + str(self.confusion_matrix.matrix))
-      #logging.info('Print image_prediction_dict:' + str(self.image_prediction_dict.gen_json_data()))
-      #logging.info('json dump to confusion_matrix:' + json.dumps(self.confusion_matrix.gen_json_data()))
-      self.image_prediction_dict.dump_data_to_file(self.networkDirectory)
-      self.confusion_matrix.dump_data_to_file(self.networkDirectory)
+
+      self.image_prediction_dict.dump_data_to_file(image_prediction_path)
+      logging.info('Saved image_prediction_list to %s' % image_prediction_path)
+
+      self.confusion_matrix.dump_data_to_file(confusion_matrix_path)
+      logging.info('Saved confusion_matrix to %s' % confusion_matrix_path)
 
   def _build_graph(self):
     tf.set_random_seed(1234)

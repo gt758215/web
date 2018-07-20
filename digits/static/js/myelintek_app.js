@@ -22,6 +22,19 @@ try {
         };
     });
 
+    app.controller('evaluations_controller', function($scope, $controller){
+        $controller('job_controller', {$scope: $scope});
+        $scope.title = 'Evaluations';
+        $scope.fields = [{name: 'Name', show: true, min_width: 100},
+            {name: 'Model', show: true, min_width: 100},
+            {name: 'Dataset', show: true, min_width: 100},
+            {name: 'Status', show: true, min_width: 100},
+            {name: 'Progress', show: true, min_width: 100},
+            {name: 'Elapsed', show: true, min_width: 100},
+            {name: 'Submitted', show: true, min_width: 100},
+        ];
+
+    });
     app.controller("ds_controller", function($scope, $controller) {
         $scope.title = 'Datasets';
         $scope.fields = [{name: 'Name', show: true, min_width: 150},
@@ -42,7 +55,7 @@ try {
                 url: '/completed_jobs.json',
             }).then(function success(response) {
                 var r = response.data;
-                $scope.jobs = [].concat(r.running, r.datasets, r.models);
+                $scope.jobs = [].concat(r.running, r.datasets, r.models, r.evaluations);
             }, function error(response) {
                 console.log(response.statusText);
             });
@@ -71,6 +84,19 @@ try {
         $scope.is_model = function(job) {
             return (job.type == 'model');
         };
+
+        $scope.is_evaluation = function(job) {
+            return (job.type == 'evaluation');
+        };
+        $scope.set_attribute = function (job_id, name, value) {
+            for (var i = 0; i < $scope.jobs.length; i ++) {
+                if ($scope.jobs[i].id == job_id) {
+                    $scope.jobs[i][name] = value;
+                    return true;
+                }
+            }
+            return false;
+        }
     });
 
     app.controller('job_controller', function($scope, $controller) {
@@ -84,6 +110,23 @@ try {
                 $scope.reverse = true;
             }
         };
+
+        $scope.print_time_diff_ago = function(start) {
+            return print_time_diff_ago(start, 'minute');
+        };
+
+        $scope.print_time_diff_simple = function(diff) {
+            return print_time_diff_simple(diff);
+        };
+
+        $scope.print_time_diff_terse = function(diff) {
+            return print_time_diff_terse(diff);
+        };
+
+        $scope.print_time_diff = function(diff) {
+            return print_time_diff(diff);
+    };
+
     });
 
     app.directive('dgName', function() {
@@ -93,6 +136,27 @@ try {
             template: (
                         '    <a href="' + URL_PREFIX + '/jobs/{[ job.id ]}" title="{[job.name]}">' +
                         '        {[ job.name ]}' +
+                        '    </a>'),
+        };
+    });
+
+    app.directive('modelName', function () {
+        return {
+            restrict: 'AE',
+            replace: true,
+            template: (
+                        '    <a href="' + URL_PREFIX + '/jobs/{[ job.model.id ]}" title="{[job.model.name]}">' +
+                        '        {[ job.model.name ]}' +
+                        '    </a>'),
+        };
+    });
+    app.directive('datasetName', function () {
+        return {
+            restrict: 'AE',
+            replace: true,
+            template: (
+                        '    <a href="' + URL_PREFIX + '/jobs/{[ job.dataset.id ]}" title="{[job.dataset.name]}">' +
+                        '        {[ job.dataset.name ]}' +
                         '    </a>'),
         };
     });
@@ -107,3 +171,37 @@ try {
 catch (ex) {
     console.log(ex);
 }
+
+$(document).ready(function(){
+    if (typeof(socket) !== 'undefined') {
+        socket.on('task update', function(msg) {
+             console.log('socketio task update' + msg);
+        });
+        socket.on('job update', function(msg) {
+            console.log('socketio job update' + msg);
+            var all_job_elm = document.getElementById('all-jobs');
+            if (all_job_elm == null) {
+                return;
+            }
+            var scope = angular.element(all_job_elm).scope();
+            if (msg.update == 'status') {
+                if (scope.set_attribute(msg.job_id, 'status', msg.status)
+                    && scope.set_attribute(msg.job_id, 'status_css', msg.css)) {
+                    scope.$apply();
+                }
+
+            } else if (msg.update == 'progress') {
+                if (scope.set_attribute(msg.job_id, 'progress', msg.percentage)) {
+                    scope.$apply();
+                }
+            } else if (msg.update == 'added') {
+            } else if (msg.update == 'deleted') {
+            } else if (msg.update == 'attribute') {
+                if (scope.set_attribute(msg.job_id, msg.attribute, msg.value)) {
+                    scope.$apply();
+                }
+            }
+
+        });
+    }
+});

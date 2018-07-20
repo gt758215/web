@@ -1,6 +1,6 @@
 # Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
 from digits.inference.tasks import InferenceTask
-
+from digits.evaluation.tasks.evaluation import EvaluationTask
 
 class Framework(object):
 
@@ -58,6 +58,12 @@ class Framework(object):
         create inference task
         """
         return InferenceTask(**kwargs)
+
+    def create_evaluation_task(self, **kwargs):
+        """
+        create Evaluation task
+        """
+        return EvaluationTask(**kwargs)
 
     def create_train_task(self, **kwargs):
         """

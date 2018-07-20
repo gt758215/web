@@ -1,0 +1,154 @@
+{# Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved. #}
+
+{% from "helper.html" import print_flashes %}
+{% from "helper.html" import print_errors %}
+{% from "helper.html" import mark_errors %}
+
+{% extends "mlt/job.html" %}
+
+
+{% block page_title %}
+Evaluation Result {{ job.name() }}
+{% endblock %}
+
+{% block nav %}
+<li class="active"><a href="{{url_for('digits.evaluation.views.new')}}">Evaluation Result {{ job.name() }} </a></li>
+{% endblock %}
+
+{% block page_list %}
+<li><a href="{{url_for('digits.views.home')}}"> Dashboard </a></li>
+<li><a href="{{url_for('digits.evaluation.views.home')}}"> Evaluations </a></li>
+<li><a href="#"> Evalution {{ job.name() }} </a></li>
+{% endblock %}
+
+
+{% block after_delete_url %}{{url_for('digits.evaluation.views.home')}}{% endblock %}
+{% block job_content %}
+<script src="{{ url_for('static', filename='js/color_stat_table.js') }}"></script>
+<div calss="row">
+
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-header">Target Dataset</div>
+            <div class="card-body">
+                {{ job.dataset.name() }}
+            </div>
+        </div>
+
+    </div>
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-header">Evaluate Model</div>
+            <div class="card-body">
+                {{ job.model.name() }}
+            </div>
+        </div>
+
+    </div>
+</div>
+<div calss="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">Confusion Matrix</div>
+            <div class="card-body">
+                {% if confusion_matrix %}
+                <div calss="row">
+                <div class="col-sm-4">
+                    <table class="table table-bordered " id="accuracy">
+                        <tbody>
+                        <tr>
+                            <th>Accuracy</td>
+                            <td> {{ accuracy }}</td>
+                            <th>Precision</td>
+                            <td> {{ precision }}</td>
+                            <th>Recall</td>
+                            <td> {{ recall }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                    <div class="col-sm-12">
+                        <table class="table table-bordered " id="confusion_matrix" >
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <th colspan="{{ labels|length  }}"><span ="center">Predictions</span></th>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                {% for label in labels %}
+                                <th>{{ label }}</th>
+                                {% endfor %}
+                                <td rowspan="{{ labels|length + 1 }}"></td>
+                                <td> Recall </td>
+                            </tr>
+                            {% set recall_index = 0 %}
+                            {% for list in confusion_matrix %}
+                            <tr>
+                                {% if loop.index == 1 %}
+                                    <th rowspan="{{ labels|length  }}"><span align="center">Ground Truth</span></th>
+                                {% endif %}
+                                {% set label_id_x=loop.index-1 %}
+                                <th>{{labels[label_id_x]}}</th>
+                                {% for count in list %}
+                                {% set label_id_y=loop.index-1 %}
+                                {% set color_group = 'color_group_cm' if label_id_x == label_id_y else 'color_group_cm_m' %}
+                                <td class="{{ color_group }}">
+                                    {% if count != 0 %}
+                                    <a href="{{ url_for('digits.evaluation.views.explore', job_id=job_id, label_fact=label_id_x, label_pred=label_id_y) }}">{{ count }}</a>
+                                    {% else %}
+                                    {{ count }}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+
+                                <td class="color_group_r"> {{ recalls[loop.index-1] }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <td colspan="{{ labels|length + 1 }}"></td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <th>Precision</th>
+
+                                {% for p in precisions %}
+                                <td class="color_group_p"> {{ p }}</td>
+                                {% endfor %}
+                            </tr>
+                        </table>
+                    </div>
+            </div>
+                {% endif %}
+        </div>
+
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function(){
+        colorStatTable(".color_group_cm_m", {color:"#ff0000", max_opacity: 0.8, min_value: 0}).draw();
+        colorStatTable(".color_group_cm", {color:"#00ff00", max_opacity: 0.8, min_value: 0}).draw();
+        colorStatTable(".color_group_r",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
+        colorStatTable(".color_group_p",{color:"#0000ff", max_opacity: 0.6, min_value: 0}).draw();
+        if (typeof(socket) != 'undefined') {
+            socket.on('task update', function (msg) {
+                var status_selector = "#"+msg['task']+"-status";
+                if (msg['update'] == 'status') {
+                    if (msg['status'] == 'Done') {
+                        window.location = '{{ url_for('digits.evaluation.views.show',job_id=job.id()) }}';
+                    }
+                }
+            });
+        }
+    });
+</script>
+<style type="text/css">
+    table.table_fixed_layout {
+        table-layout: fixed;
+    }
+    td.color_value:hover {
+        background-color: #cccccc;
+    }
+</style>
+{% endblock %}

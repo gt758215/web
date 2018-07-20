@@ -7,7 +7,7 @@ import pickle
 import shutil
 import threading
 import time
-
+import traceback
 import flask
 
 from .status import Status, StatusCls
@@ -277,6 +277,7 @@ class Job(StatusCls):
             pass
         except Exception as e:
             print 'Caught %s while saving job %s: %s' % (type(e).__name__, self.id(), e)
+            traceback.print_exc()
         return False
 
     def disk_size_fmt(self):

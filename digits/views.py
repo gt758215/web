@@ -15,7 +15,7 @@ import werkzeug.exceptions
 from .config import config_value
 from .webapp import app, socketio, scheduler
 import digits
-from digits import dataset, extensions, model, utils, pretrained_model
+from digits import dataset, extensions, model, evaluation, utils, pretrained_model
 from digits.log import logger
 from digits.utils.routing import request_wants_json
 
@@ -207,6 +207,12 @@ def json_dict(job, model_output_fields):
     if isinstance(job, model.ModelJob):
         d.update({'type': 'model'})
 
+    if isinstance(job, evaluation.EvaluationJob):
+        d.update({'type': 'evaluation',
+                  'dataset': {'name': job.dataset.name(), 'id': job.dataset.id()},
+                  'model': {'name': job.model.name(), 'id': job.model.id()},
+                  })
+
     if isinstance(job, pretrained_model.PretrainedModelJob):
         model_output_fields.add("has_labels")
         model_output_fields.add("username")
@@ -228,17 +234,21 @@ def completed_jobs():
             models:   [{id, name, group, status, status_css, submitted, elapsed, badge}],
         }
     """
+    completed_evaluations = get_job_list(evaluation.EvaluationJob, False)
     completed_datasets = get_job_list(dataset.DatasetJob, False)
     completed_models = get_job_list(model.ModelJob, False)
+
+    running_evaluations = get_job_list(evaluation.EvaluationJob, True)
     running_datasets = get_job_list(dataset.DatasetJob, True)
     running_models = get_job_list(model.ModelJob, True)
     pretrained_models = get_job_list(pretrained_model.PretrainedModelJob, False)
 
     model_output_fields = set()
     data = {
-        'running': [json_dict(j, model_output_fields) for j in running_datasets + running_models],
+        'running': [json_dict(j, model_output_fields) for j in running_datasets + running_models + running_evaluations],
         'datasets': [json_dict(j, model_output_fields) for j in completed_datasets],
         'models': [json_dict(j, model_output_fields) for j in completed_models],
+        'evaluations': [json_dict(j, model_output_fields) for j in completed_evaluations],
         'pretrained_models': [json_dict(j, model_output_fields) for j in pretrained_models],
         'model_output_fields': sorted(list(model_output_fields)),
     }
@@ -379,6 +389,8 @@ def show_job(job_id):
         return flask.redirect(flask.url_for('digits.model.views.show', job_id=job_id))
     if isinstance(job, pretrained_model.PretrainedModelJob):
         return flask.redirect(flask.url_for('digits.pretrained_model.views.show', job_id=job_id))
+    if isinstance(job, evaluation.EvaluationJob):
+        return flask.redirect(flask.url_for('digits.evaluation.views.show', job_id=job_id))
     else:
         raise werkzeug.exceptions.BadRequest('Invalid job type')
 

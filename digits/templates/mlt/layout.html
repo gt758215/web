@@ -37,6 +37,7 @@
 
     <script src="{{ url_for('static', filename='js/3rdparty/jquery.sparkline-2.1.2.min.js') }}"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+    <script src="{{ url_for('static', filename='js/time_filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/myelintek_app.js') }}"></script>
 
 
@@ -88,6 +89,9 @@
                     </li>
                     <li>
                         <a href="{{ url_for('digits.model.views.home') }}"> <i class="menu-icon fa fa-random"></i>ImageClassification </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('digits.evaluation.views.home') }}"> <i class="menu-icon fa fa-bank"></i>Evaluation </a>
                     </li>
                     <h3 class="menu-title">Advance elements</h3><!-- /.menu-title -->
 
